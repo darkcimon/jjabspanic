@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>짭스패닉 3D</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;touch-action:none;font-family:sans-serif;}
+#c{position:fixed;inset:0;display:block;}
+
+#hud{
+  position:fixed;top:0;left:0;right:0;z-index:20;display:none;
+  align-items:center;justify-content:space-around;
+  background:rgba(6,1,18,0.9);
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:7px;padding-left:10px;padding-right:10px;
+  min-height:50px;border-bottom:1px solid rgba(200,80,220,0.3);
+}
+#hud.on{display:flex;}
+.hc{display:flex;flex-direction:column;align-items:center;gap:1px;}
+.hl{font-size:9px;color:#c850c0;letter-spacing:1px;text-transform:uppercase;}
+.hv{font-size:16px;font-weight:700;color:#fff;line-height:1;}
+
+#bar{position:fixed;top:50px;left:0;right:0;height:4px;z-index:20;background:rgba(255,255,255,0.08);display:none;}
+#bar.on{display:block;}
+#bar-fill{height:100%;width:0;background:linear-gradient(90deg,#c850c0,#4158d0);transition:width .15s;}
+#bar-mark{position:absolute;top:0;bottom:0;left:75%;width:2px;background:rgba(255,255,255,0.5);}
+
+#dpad{
+  position:fixed;
+  bottom:max(12px,env(safe-area-inset-bottom,12px));
+  left:50%;transform:translateX(-50%);
+  z-index:20;display:none;flex-direction:column;align-items:center;gap:3px;
+}
+#dpad.on{display:flex;}
+.dr{display:flex;gap:3px;}
+.db{
+  width:64px;height:64px;border-radius:13px;
+  background:rgba(180,60,200,0.22);
+  border:2px solid rgba(200,80,220,0.45);
+  color:#fff;font-size:24px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  user-select:none;-webkit-tap-highlight-color:transparent;
+}
+.db:active{background:rgba(200,80,220,0.6);}
+.dc{width:64px;height:64px;}
+
+.scr{display:none;position:fixed;inset:0;z-index:30;
+  align-items:center;justify-content:center;flex-direction:column;}
+.scr.on{display:flex;}
+#s-menu,#s-sel{background:linear-gradient(160deg,#120820,#05020f);}
+#s-clear,#s-over{background:rgba(6,1,18,0.97);}
+
+.logo{font-size:2.6rem;font-weight:900;letter-spacing:2px;
+  background:linear-gradient(90deg,#c850c0,#4158d0);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.sub{color:rgba(200,150,220,0.6);font-size:.8rem;margin:4px 0 26px;}
+.mbtns{display:flex;flex-direction:column;gap:11px;width:230px;}
+.btn{padding:13px 0;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;}
+.bp{background:linear-gradient(90deg,#c850c0,#4158d0);color:#fff;}
+.bs{background:rgba(255,255,255,0.09);color:#ddd;border:1px solid rgba(255,255,255,0.18);}
+.bd{background:rgba(200,40,40,0.28);color:#f88;border:1px solid rgba(200,80,80,0.35);}
+.btn:active{opacity:.8;}
+.rc{display:flex;gap:14px;margin:18px 0;}
+.card{width:125px;padding:18px 10px;border-radius:14px;
+  background:rgba(255,255,255,0.06);border:1.5px solid rgba(200,80,220,0.3);
+  color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.card:active{background:rgba(200,80,220,0.22);}
+.ci{font-size:1.9rem;}.ct{font-size:.95rem;font-weight:700;}.cd{font-size:.72rem;color:rgba(255,255,255,0.48);}
+.bk{background:none;border:none;color:rgba(200,150,220,0.75);font-size:.88rem;cursor:pointer;padding:8px;margin-top:6px;}
+.rt{font-size:1.9rem;font-weight:900;margin-bottom:5px;}
+.rt.w{color:#c850c0;}.rt.l{color:#e74c3c;}
+.rsub{color:rgba(255,255,255,0.5);margin-bottom:16px;}
+.rst{display:flex;gap:22px;margin-bottom:22px;}
+.rsi{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.rsi span{font-size:.78rem;color:rgba(255,255,255,0.48);}.rsi b{font-size:1.3rem;color:#fff;}
+.rbtns{display:flex;flex-direction:column;gap:9px;width:230px;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="hc"><span class="hl">STAGE</span><span class="hv" id="h-s">1</span></div>
+  <div class="hc"><span class="hl">점령</span><span class="hv" id="h-f">0%</span></div>
+  <div class="hc"><span class="hl">TIME</span><span class="hv" id="h-t">120</span></div>
+  <div class="hc"><span class="hv" id="h-l">❤️❤️❤️</span></div>
+</div>
+<div id="bar"><div id="bar-fill"></div><div id="bar-mark"></div></div>
+
+<div id="dpad">
+  <div class="dr"><button class="db" id="du">▲</button></div>
+  <div class="dr">
+    <button class="db" id="dl">◄</button><div class="dc"></div>
+    <button class="db" id="dr2">►</button>
+  </div>
+  <div class="dr"><button class="db" id="dd">▼</button></div>
+</div>
+
+<div id="s-menu" class="scr on">
+  <h1 class="logo">짭스패닉</h1>
+  <p class="sub">3D Building Edition</p>
+  <div class="mbtns">
+    <button class="btn bp" id="b-start">게임 시작</button>
+    <button class="btn bd" id="b-reset">초기화</button>
+  </div>
+  <p style="color:rgba(200,150,220,0.35);font-size:.72rem;margin-top:18px">
+    스테이지 <span id="m-s">1</span> &nbsp;/&nbsp; 최고 <span id="m-b">0</span>
+  </p>
+</div>
+
+<div id="s-sel" class="scr">
+  <h2 style="color:#fff;margin-bottom:6px;">콘텐츠 선택</h2>
+  <div class="rc">
+    <button class="card" id="b-gen"><span class="ci">🌸</span><span class="ct">일반</span><span class="cd">귀여운 캐릭터</span></button>
+    <button class="card" id="b-sex"><span class="ci">🔞</span><span class="ct">시크릿</span><span class="cd">섹시 캐릭터</span></button>
+  </div>
+  <button class="bk" id="b-bk">← 뒤로</button>
+</div>
+
+<div id="s-clear" class="scr">
+  <h2 class="rt w">✨ STAGE CLEAR!</h2>
+  <p class="rsub">스테이지 <span id="c-s">1</span> 완료</p>
+  <div class="rst">
+    <div class="rsi"><span>점령률</span><b id="c-f">0%</b></div>
+    <div class="rsi"><span>남은 시간</span><b id="c-t">0초</b></div>
+  </div>
+  <div class="rbtns">
+    <button class="btn bp" id="b-next">다음 스테이지 →</button>
+    <button class="btn bs" id="b-cm">메인 메뉴</button>
+  </div>
+</div>
+
+<div id="s-over" class="scr">
+  <h2 class="rt l">💀 GAME OVER</h2>
+  <p class="rsub">스테이지 <span id="o-s">1</span></p>
+  <div class="rbtns">
+    <button class="btn bp" id="b-retry">다시 시도</button>
+    <button class="btn bs" id="b-om">메인 메뉴</button>
+  </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ═══════════════════════════════════════════════
+//  Config
+// ═══════════════════════════════════════════════
+const COLS  = 12, ROWS = 22;
+const CS    = 0.9;
+const BW    = COLS*CS, BH = ROWS*CS;      // 10.8 × 19.8
+const PSPD  = 7.5;   // player cells/sec
+const CLEAR = 0.75;
+const EMPTY=0, CAPTURED=1, LINE=2;
+const PI2 = Math.PI*2;
+const rnd  = (a,b)=>a+Math.random()*(b-a);
+const rndI = (a,b)=>Math.floor(rnd(a,b));
+
+// grid (gx,gy) → world XY on building face
+const cw = (gx,gy)=>new THREE.Vector2((gx+0.5-COLS/2)*CS, (ROWS/2-gy-0.5)*CS);
+
+// ═══════════════════════════════════════════════
+//  Store
+// ═══════════════════════════════════════════════
+const Store = {
+  load(){ try{return JSON.parse(localStorage.getItem('gp3de')||'null')||{stage:1,best:0,r:'g'};}catch{return{stage:1,best:0,r:'g'};} },
+  save(d){ try{localStorage.setItem('gp3de',JSON.stringify(d));}catch{} }
+};
+
+// ═══════════════════════════════════════════════
+//  Grid (Gals Panic / Qix mechanics)
+// ═══════════════════════════════════════════════
+class Grid {
+  constructor(c,r){
+    this.c=c; this.r=r; this.d=new Uint8Array(c*r);
+    for(let x=0;x<c;x++){this.s(x,0,CAPTURED);this.s(x,r-1,CAPTURED);}
+    for(let y=0;y<r;y++){this.s(0,y,CAPTURED);this.s(c-1,y,CAPTURED);}
+  }
+  i(x,y){return y*this.c+x;}
+  g(x,y){if(x<0||x>=this.c||y<0||y>=this.r)return CAPTURED;return this.d[this.i(x,y)];}
+  s(x,y,v){if(x<0||x>=this.c||y<0||y>=this.r)return;this.d[this.i(x,y)]=v;}
+  clearLine(){for(let i=0;i<this.d.length;i++)if(this.d[i]===LINE)this.d[i]=EMPTY;}
+  bfs(mpos){
+    const vis=new Uint8Array(this.c*this.r), q=[];
+    for(const[mx,my]of mpos){const i=this.i(mx,my);if(this.d[i]===EMPTY&&!vis[i]){vis[i]=1;q.push(mx,my);}}
+    let h=0;
+    while(h<q.length){
+      const x=q[h++],y=q[h++];
+      for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx,ny=y+dy;
+        if(nx<0||nx>=this.c||ny<0||ny>=this.r)continue;
+        const ni=this.i(nx,ny);
+        if(!vis[ni]&&this.d[ni]===EMPTY){vis[ni]=1;q.push(nx,ny);}
+      }
+    }
+    return vis;
+  }
+  capture(mpos){
+    const reach=this.bfs(mpos), captured=[];
+    for(let y=0;y<this.r;y++)for(let x=0;x<this.c;x++){
+      const i=this.i(x,y);
+      if(this.d[i]===LINE){this.d[i]=CAPTURED;}
+      else if(this.d[i]===EMPTY&&!reach[i]){
+        this.d[i]=CAPTURED;
+        if(x>0&&x<this.c-1&&y>0&&y<this.r-1)captured.push([x,y]);
+      }
+    }
+    return captured;
+  }
+  fill(){
+    const tot=(this.c-2)*(this.r-2); let n=0;
+    for(let y=1;y<this.r-1;y++)for(let x=1;x<this.c-1;x++)
+      if(this.d[this.i(x,y)]===CAPTURED)n++;
+    return n/tot;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Player
+// ═══════════════════════════════════════════════
+class Player {
+  constructor(gx,gy){
+    this.gx=gx; this.gy=gy;
+    this.fx=gx; this.fy=gy;
+    this.dx=0; this.dy=0; this.prog=0;
+    this.drawing=false; this.path=[];
+    this.inv=false; this.invT=0;
+    this.trail=[];
+  }
+  setDir(dx,dy){this.dx=dx;this.dy=dy;}
+  update(dt,grid){
+    if(!this.dx&&!this.dy)return null;
+    const ngx=this.gx+this.dx, ngy=this.gy+this.dy;
+    if(grid.g(ngx,ngy)===LINE){this.dx=0;this.dy=0;this.prog=0;return null;}
+    this.prog+=PSPD*dt;
+    if(this.prog>=1){
+      this.prog=0; this.gx=ngx; this.gy=ngy;
+      this.fx=this.gx; this.fy=this.gy;
+      this.trail.unshift({gx:this.gx,gy:this.gy});
+      if(this.trail.length>8)this.trail.pop();
+      const cell=grid.g(this.gx,this.gy);
+      if(cell===EMPTY){this.drawing=true;grid.s(this.gx,this.gy,LINE);this.path.push([this.gx,this.gy]);}
+      else if(cell===CAPTURED&&this.drawing&&this.path.length>0)return'DONE';
+    } else {
+      this.fx=this.gx+this.dx*this.prog;
+      this.fy=this.gy+this.dy*this.prog;
+    }
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Monster  (moves in world-space pixels)
+// ═══════════════════════════════════════════════
+class Monster {
+  constructor(gx,gy,spd,type){
+    const p=cw(gx,gy);
+    this.wx=p.x; this.wy=p.y;
+    this.spd=spd*CS; this.type=type;
+    const a=rnd(0,PI2);
+    this.vx=Math.cos(a)*this.spd; this.vy=Math.sin(a)*this.spd;
+    this.chaseT=0; this.wb=rnd(0,PI2); this.wbs=rnd(3,8);
+  }
+  get gx(){return Math.floor(this.wx/CS+COLS/2);}
+  get gy(){return Math.floor(ROWS/2-this.wy/CS);}
+  update(dt,grid,plx,ply){
+    this.wb+=this.wbs*dt;
+    if(this.type==='chase'){
+      this.chaseT-=dt;
+      if(this.chaseT<=0){
+        this.chaseT=rnd(0.5,1.5);
+        const dx=plx-this.wx, dy=ply-this.wy, d=Math.sqrt(dx*dx+dy*dy)||1;
+        const r=Math.random()<0.65?1:rnd(-1,1);
+        this.vx=(dx/d)*this.spd*r; this.vy=(dy/d)*this.spd*r;
+      }
+    }
+    const nx=this.wx+this.vx*dt, ny=this.wy+this.vy*dt;
+    const hx=(COLS/2-0.5)*CS, hy=(ROWS/2-0.5)*CS;
+    const ngx=Math.floor(nx/CS+COLS/2), ngy=Math.floor(ROWS/2-ny/CS);
+    const cgx=this.gx, cgy=this.gy;
+    if(grid.g(ngx,cgy)===CAPTURED||nx<-hx||nx>hx) this.vx=-this.vx;
+    else this.wx=nx;
+    if(grid.g(cgx,ngy)===CAPTURED||ny<-hy||ny>hy) this.vy=-this.vy;
+    else this.wy=ny;
+  }
+  hitLine(grid){return grid.g(this.gx,this.gy)===LINE;}
+}
+
+// ═══════════════════════════════════════════════
+//  Renderer
+// ═══════════════════════════════════════════════
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x030008);
+scene.fog=new THREE.FogExp2(0x030008,0.018);
+
+const camera=new THREE.PerspectiveCamera(52,1,0.1,80);
+let camZ=18;
+camera.position.set(0,0,camZ);
+camera.lookAt(0,0,0);
+
+function fitCamZ(){
+  const a=window.innerWidth/window.innerHeight;
+  const fv=camera.fov*Math.PI/180;
+  const fh=2*Math.atan(Math.tan(fv/2)*a);
+  return Math.max((BH/2+1)/Math.tan(fv/2), (BW/2+1)/Math.tan(fh/2))*1.12;
+}
+function resize(){
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camZ=fitCamZ();
+  camera.updateProjectionMatrix();
+}
+resize(); window.addEventListener('resize',resize);
+
+// ── Lights ─────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xddbbff,0.9));
+const keyLight=new THREE.DirectionalLight(0xffffff,1.4);
+keyLight.position.set(4,8,12); keyLight.castShadow=true; scene.add(keyLight);
+const rimLight=new THREE.DirectionalLight(0xff88cc,0.6);
+rimLight.position.set(-5,3,-4); scene.add(rimLight);
+const fillPt=new THREE.PointLight(0xcc44ff,2.5,30);
+fillPt.position.set(0,2,8); scene.add(fillPt);
+const charLight=new THREE.PointLight(0xffccff,1.8,14);
+charLight.position.set(0,2,-2); scene.add(charLight);
+
+// ═══════════════════════════════════════════════
+//  3D Anime Character
+// ═══════════════════════════════════════════════
+function buildAnimeGirl(sc){
+  const g=new THREE.Group();
+
+  // Materials
+  const skin  =new THREE.MeshStandardMaterial({color:0xffd8c0,roughness:0.65,metalness:0.02});
+  const skinDk =new THREE.MeshStandardMaterial({color:0xffc4a8,roughness:0.65});
+  const hair  =new THREE.MeshStandardMaterial({color:0x1a0033,roughness:0.45,metalness:0.05});
+  const hairHL=new THREE.MeshStandardMaterial({color:0x6622aa,roughness:0.4,metalness:0.1});
+  const dress =new THREE.MeshStandardMaterial({color:0xff4488,roughness:0.4,metalness:0.08,
+    emissive:0x330011,emissiveIntensity:0.15});
+  const dress2=new THREE.MeshStandardMaterial({color:0xdd2266,roughness:0.4,metalness:0.1});
+  const white =new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.5});
+  const iris  =new THREE.MeshStandardMaterial({color:0x3366ff,roughness:0.3,metalness:0.2,
+    emissive:0x112266,emissiveIntensity:0.4});
+  const pupil =new THREE.MeshStandardMaterial({color:0x060011});
+  const eyeHL =new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1});
+  const lip   =new THREE.MeshStandardMaterial({color:0xff7799,roughness:0.5});
+  const sock  =new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.7});
+  const shoe  =new THREE.MeshStandardMaterial({color:0x220011,roughness:0.6});
+  const ribbon=new THREE.MeshStandardMaterial({color:0xff2266,emissive:0x881133,emissiveIntensity:0.3});
+
+  const s=sc;
+  const add=(geo,mat,x,y,z,rx=0,ry=0,rz=0,parent=g)=>{
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(x,y,z); m.rotation.set(rx,ry,rz);
+    m.castShadow=true; m.receiveShadow=true;
+    parent.add(m); return m;
+  };
+
+  // ── Legs ──
+  const legH=2.2*s;
+  // Thighs
+  add(new THREE.CylinderGeometry(0.15*s,0.14*s,0.9*s,10),skin, -0.17*s,0.45*s,0);
+  add(new THREE.CylinderGeometry(0.15*s,0.14*s,0.9*s,10),skin,  0.17*s,0.45*s,0);
+  // Shins
+  add(new THREE.CylinderGeometry(0.13*s,0.10*s,1.1*s,10),skin, -0.16*s,legH-0.55*s,0.04*s);
+  add(new THREE.CylinderGeometry(0.13*s,0.10*s,1.1*s,10),skin,  0.16*s,legH-0.55*s,0.04*s);
+  // Socks
+  add(new THREE.CylinderGeometry(0.105*s,0.09*s,0.3*s,10),sock,-0.155*s,0.15*s,0.04*s);
+  add(new THREE.CylinderGeometry(0.105*s,0.09*s,0.3*s,10),sock, 0.155*s,0.15*s,0.04*s);
+  // Shoes
+  add(new THREE.CapsuleGeometry(0.10*s,0.22*s,4,8),shoe,-0.16*s,0.06*s,0.08*s);
+  add(new THREE.CapsuleGeometry(0.10*s,0.22*s,4,8),shoe, 0.16*s,0.06*s,0.08*s);
+
+  // ── Skirt ──
+  add(new THREE.CylinderGeometry(0.25*s,0.40*s,0.65*s,14),dress, 0,legH+0.33*s, 0);
+  // Skirt hem accent
+  add(new THREE.CylinderGeometry(0.405*s,0.42*s,0.08*s,14),dress2,0,legH+0.02*s,0);
+
+  // ── Belt ──
+  add(new THREE.CylinderGeometry(0.215*s,0.215*s,0.10*s,14),dress2,0,legH+0.70*s,0);
+
+  // ── Torso ──
+  add(new THREE.CylinderGeometry(0.185*s,0.22*s,0.85*s,12),dress, 0,legH+1.23*s, 0);
+  // Chest detail
+  add(new THREE.SphereGeometry(0.17*s,10,7,0,PI2,0,Math.PI*0.5),dress2,0,legH+1.45*s,0.16*s,-0.35);
+  // Bow on chest
+  add(new THREE.BoxGeometry(0.22*s,0.10*s,0.08*s),ribbon, 0,legH+1.52*s,0.20*s);
+  add(new THREE.ConeGeometry(0.08*s,0.14*s,6),ribbon, -0.11*s,legH+1.52*s,0.20*s, 0,0,Math.PI/2);
+  add(new THREE.ConeGeometry(0.08*s,0.14*s,6),ribbon,  0.11*s,legH+1.52*s,0.20*s, 0,0,-Math.PI/2);
+
+  // ── Arms ──
+  const armH=0.75*s;
+  add(new THREE.CylinderGeometry(0.10*s,0.085*s,armH,9),dress,-0.34*s,legH+1.28*s,0,0,0, 0.42);
+  add(new THREE.CylinderGeometry(0.10*s,0.085*s,armH,9),dress, 0.34*s,legH+1.28*s,0,0,0,-0.42);
+  // Forearms
+  add(new THREE.CylinderGeometry(0.085*s,0.07*s,armH*0.9,9),skin,-0.46*s,legH+0.80*s,0,0,0,0.15);
+  add(new THREE.CylinderGeometry(0.085*s,0.07*s,armH*0.9,9),skin, 0.46*s,legH+0.80*s,0,0,0,-0.15);
+  // Hands
+  add(new THREE.SphereGeometry(0.095*s,9,7),skin,-0.50*s,legH+0.52*s,0.05*s);
+  add(new THREE.SphereGeometry(0.095*s,9,7),skin, 0.50*s,legH+0.52*s,0.05*s);
+
+  // ── Neck ──
+  add(new THREE.CylinderGeometry(0.095*s,0.11*s,0.20*s,10),skin,0,legH+1.77*s,0);
+
+  // ── Head ──
+  const hy=legH+2.10*s;
+  // Head shape (slightly oval)
+  add(new THREE.SphereGeometry(0.30*s,18,14),skin,0,hy,0);
+  // Jaw/chin flattening — small chin piece
+  add(new THREE.SphereGeometry(0.12*s,8,6),skin,0,hy-0.25*s,0.10*s);
+
+  // Ears
+  add(new THREE.SphereGeometry(0.075*s,9,7),skin,-0.29*s,hy+0.02*s,0.02*s);
+  add(new THREE.SphereGeometry(0.075*s,9,7),skin, 0.29*s,hy+0.02*s,0.02*s);
+  add(new THREE.SphereGeometry(0.05*s,8,6),skinDk,-0.29*s,hy+0.02*s,0.06*s);
+  add(new THREE.SphereGeometry(0.05*s,8,6),skinDk, 0.29*s,hy+0.02*s,0.06*s);
+
+  // ── Eyes ──
+  const ex=0.115*s, ey=hy+0.02*s, ez=0.265*s;
+  // Eye whites
+  add(new THREE.SphereGeometry(0.085*s,12,9),white,-ex,ey,ez);
+  add(new THREE.SphereGeometry(0.085*s,12,9),white, ex,ey,ez);
+  // Iris (large anime eyes)
+  add(new THREE.SphereGeometry(0.065*s,12,9),iris,-ex,ey-0.005*s,ez+0.04*s);
+  add(new THREE.SphereGeometry(0.065*s,12,9),iris, ex,ey-0.005*s,ez+0.04*s);
+  // Pupil
+  add(new THREE.SphereGeometry(0.038*s,10,8),pupil,-ex,ey-0.005*s,ez+0.075*s);
+  add(new THREE.SphereGeometry(0.038*s,10,8),pupil, ex,ey-0.005*s,ez+0.075*s);
+  // Eye highlight
+  add(new THREE.SphereGeometry(0.020*s,7,5),eyeHL,-ex+0.022*s,ey+0.030*s,ez+0.085*s);
+  add(new THREE.SphereGeometry(0.020*s,7,5),eyeHL, ex+0.022*s,ey+0.030*s,ez+0.085*s);
+  // Eyelash top (flat arch)
+  add(new THREE.TorusGeometry(0.075*s,0.014*s,5,12,Math.PI),
+    new THREE.MeshStandardMaterial({color:0x110022}),
+    -ex,ey+0.030*s,ez+0.02*s, 0,0,0);
+  add(new THREE.TorusGeometry(0.075*s,0.014*s,5,12,Math.PI),
+    new THREE.MeshStandardMaterial({color:0x110022}),
+     ex,ey+0.030*s,ez+0.02*s, 0,0,0);
+
+  // ── Nose ──
+  add(new THREE.SphereGeometry(0.024*s,7,5),skinDk, 0,hy-0.055*s,0.290*s);
+
+  // ── Mouth ──
+  add(new THREE.TorusGeometry(0.055*s,0.013*s,5,10,Math.PI),lip, 0,hy-0.135*s,0.275*s, 0,0,Math.PI);
+  // Blush cheeks
+  add(new THREE.SphereGeometry(0.06*s,8,6),
+    new THREE.MeshStandardMaterial({color:0xff9999,transparent:true,opacity:0.38,roughness:1}),
+    -0.20*s,hy-0.04*s,0.25*s);
+  add(new THREE.SphereGeometry(0.06*s,8,6),
+    new THREE.MeshStandardMaterial({color:0xff9999,transparent:true,opacity:0.38,roughness:1}),
+     0.20*s,hy-0.04*s,0.25*s);
+
+  // ── Hair ──
+  // Back volume
+  add(new THREE.SphereGeometry(0.325*s,14,11,0,PI2,0,Math.PI*0.78),hair, 0,hy,-0.06*s);
+  // Top/bangs
+  add(new THREE.SphereGeometry(0.315*s,14,11,0,PI2,0,Math.PI*0.52),hair, 0,hy+0.12*s,0.08*s, 0.35);
+  // Front bang center droop
+  add(new THREE.CapsuleGeometry(0.055*s,0.30*s,4,7),hair, 0,hy-0.04*s,0.30*s, 0.5);
+  // Side bangs
+  add(new THREE.CapsuleGeometry(0.065*s,0.38*s,4,7),hair,-0.17*s,hy+0.02*s,0.28*s, 0.3,0.1,0.15);
+  add(new THREE.CapsuleGeometry(0.065*s,0.38*s,4,7),hair, 0.17*s,hy+0.02*s,0.28*s, 0.3,0.1,-0.15);
+  // Long side strands
+  add(new THREE.CapsuleGeometry(0.07*s,0.60*s,4,7),hair,-0.27*s,hy-0.35*s,-0.05*s, 0,0,-0.18);
+  add(new THREE.CapsuleGeometry(0.07*s,0.60*s,4,7),hair, 0.27*s,hy-0.35*s,-0.05*s, 0,0, 0.18);
+  // Highlight streak
+  add(new THREE.CapsuleGeometry(0.025*s,0.28*s,3,5),hairHL,-0.08*s,hy+0.18*s,0.20*s, 0.35,0.1,0.1);
+
+  // ── Hair ribbon (big) ──
+  add(new THREE.SphereGeometry(0.06*s,8,6),ribbon,-0.22*s,hy+0.28*s,0.10*s);
+  add(new THREE.ConeGeometry(0.10*s,0.18*s,5),ribbon,-0.32*s,hy+0.28*s,0.08*s, 0,0,-0.7);
+  add(new THREE.ConeGeometry(0.10*s,0.18*s,5),ribbon,-0.12*s,hy+0.28*s,0.08*s, 0,0, 0.7);
+
+  return g;
+}
+
+// ── Build & position character ──────────────────
+let charGroup=null;
+function spawnCharacter(){
+  if(charGroup){scene.remove(charGroup);}
+  charGroup=buildAnimeGirl(2.5);
+  // position: feet near bottom of grid, center X, slightly behind tile plane
+  charGroup.position.set(0, -BH/2+0.8, -1.8);
+  scene.add(charGroup);
+}
+
+// ═══════════════════════════════════════════════
+//  Building frame
+// ═══════════════════════════════════════════════
+const bldg=new THREE.Group();
+scene.add(bldg);
+
+// Background wall behind everything
+const wallM=new THREE.MeshStandardMaterial({color:0x0e001f,roughness:0.85});
+const wallMesh=new THREE.Mesh(new THREE.PlaneGeometry(BW+1,BH+1),wallM);
+wallMesh.position.z=-0.5; bldg.add(wallMesh);
+
+// Neon border frame
+(()=>{
+  const hw=BW/2+0.1, hh=BH/2+0.1;
+  const pts=[
+    new THREE.Vector3(-hw,-hh,0.08),new THREE.Vector3(hw,-hh,0.08),
+    new THREE.Vector3(hw,hh,0.08),new THREE.Vector3(-hw,hh,0.08),
+    new THREE.Vector3(-hw,-hh,0.08)
+  ];
+  bldg.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color:0xcc44ff})
+  ));
+  // Corner accent
+  const cGeo=new THREE.BoxGeometry(0.22,0.22,0.12);
+  const cM=new THREE.MeshStandardMaterial({color:0xcc44ff,emissive:0x8822cc,emissiveIntensity:0.8});
+  for(const[x,y]of[[-hw,-hh],[ hw,-hh],[-hw, hh],[ hw, hh]]){
+    const m=new THREE.Mesh(cGeo,cM); m.position.set(x,y,0.08); bldg.add(m);
+  }
+})();
+
+// Subtle grid lines on back wall
+(()=>{
+  const pts=[];
+  for(let x=1;x<COLS;x++){const wx=(x-COLS/2)*CS;pts.push(wx,-BH/2,0.02,wx,BH/2,0.02);}
+  for(let y=1;y<ROWS;y++){const wy=(ROWS/2-y)*CS;pts.push(-BW/2,wy,0.02,BW/2,wy,0.02);}
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+  bldg.add(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x2a0048,transparent:true,opacity:0.4})));
+})();
+
+// ═══════════════════════════════════════════════
+//  Tile system — covers inner grid cells
+// ═══════════════════════════════════════════════
+const TILE_Z=0.18;
+const tiles=[];  // [gx][gy] = Mesh | null
+const tileGeo=new THREE.BoxGeometry(CS*0.95,CS*0.95,0.12);
+
+function tileHue(gx,gy){
+  return new THREE.Color().setHSL(0.68+((gx*3+gy*7)%19)*0.014, 0.5+((gx+gy)%3)*0.08, 0.10+((gx*gy+gx)%7)*0.02);
+}
+
+function buildTiles(){
+  for(let x=0;x<COLS;x++){
+    if(tiles[x])for(let y=0;y<ROWS;y++)if(tiles[x][y]){bldg.remove(tiles[x][y]);}
+    tiles[x]=[];
+  }
+  for(let gy=1;gy<ROWS-1;gy++)for(let gx=1;gx<COLS-1;gx++){
+    const p=cw(gx,gy);
+    const m=new THREE.Mesh(tileGeo,new THREE.MeshStandardMaterial({
+      color:tileHue(gx,gy), roughness:0.55, metalness:0.2
+    }));
+    m.position.set(p.x,p.y,TILE_Z);
+    bldg.add(m); tiles[gx][gy]=m;
+  }
+}
+
+// ── Falling tiles ──────────────────────────────
+const falling=[];
+const fallGeo=new THREE.BoxGeometry(CS*0.93,CS*0.93,0.12);
+
+function dropTile(gx,gy){
+  const m=tiles[gx]?.[gy]; if(!m)return;
+  bldg.remove(m); tiles[gx][gy]=null;
+  const c=new THREE.Mesh(fallGeo,m.material.clone());
+  c.material.transparent=true;
+  c.position.set(m.position.x,m.position.y,m.position.z+1.0);
+  // local→world (bldg at origin)
+  scene.add(c);
+  falling.push({
+    m:c,
+    vx:rnd(-1.4,1.4), vy:rnd(0.1,1.8), vz:rnd(0.6,2.8),
+    rx:rnd(-4,4), ry:rnd(-4,4),
+    life:rnd(0.55,1.1)
+  });
+}
+
+// Drop an entire batch of cells at once (called when territory captured)
+function dropCells(cells){
+  for(const[gx,gy]of cells)dropTile(gx,gy);
+  // Burst particle wave
+  if(cells.length>0){
+    const cx=cells.reduce((s,[x])=>s+x,0)/cells.length;
+    const cy=cells.reduce((s,[,y])=>s+y,0)/cells.length;
+    const p=cw(cx,cy);
+    spawnBurst(p.x,p.y,cells.length);
+  }
+}
+
+function updateFalling(dt){
+  for(let i=falling.length-1;i>=0;i--){
+    const f=falling[i];
+    f.m.position.x+=f.vx*dt; f.m.position.y+=f.vy*dt; f.m.position.z+=f.vz*dt;
+    f.vy-=11*dt; f.vz-=4*dt;
+    f.m.rotation.x+=f.rx*dt; f.m.rotation.y+=f.ry*dt;
+    f.life-=dt; f.m.material.opacity=Math.max(0,f.life*1.7);
+    if(f.life<=0){scene.remove(f.m);falling.splice(i,1);}
+  }
+}
+
+// ── LINE highlight meshes ──────────────────────
+const lineMeshes={};
+const lnGeo=new THREE.PlaneGeometry(CS*0.7,CS*0.7);
+const lnMat=new THREE.MeshStandardMaterial({
+  color:0xff44cc,emissive:0xff00aa,emissiveIntensity:1.8,
+  transparent:true,opacity:0.9,side:THREE.DoubleSide
+});
+function syncLines(grid){
+  for(const k of Object.keys(lineMeshes)){
+    const[x,y]=k.split(',').map(Number);
+    if(grid.g(x,y)!==LINE){bldg.remove(lineMeshes[k]);delete lineMeshes[k];}
+  }
+  for(let gy=0;gy<ROWS;gy++)for(let gx=0;gx<COLS;gx++){
+    if(grid.g(gx,gy)===LINE){
+      const k=`${gx},${gy}`;
+      if(!lineMeshes[k]){
+        const p=cw(gx,gy);
+        const m=new THREE.Mesh(lnGeo,lnMat);
+        m.position.set(p.x,p.y,TILE_Z+0.10); bldg.add(m); lineMeshes[k]=m;
+      }
+    }
+  }
+}
+function clearLines(){
+  for(const m of Object.values(lineMeshes))bldg.remove(m);
+  for(const k of Object.keys(lineMeshes))delete lineMeshes[k];
+}
+
+// ── Captured glow overlay ──────────────────────
+const capMeshes=[];
+const capGeo=new THREE.PlaneGeometry(CS*0.95,CS*0.95);
+function addCapGlow(cells){
+  for(const[gx,gy]of cells){
+    const p=cw(gx,gy);
+    const m=new THREE.Mesh(capGeo,new THREE.MeshBasicMaterial({
+      color:0xff66ff,transparent:true,opacity:0.12,side:THREE.DoubleSide
+    }));
+    m.position.set(p.x,p.y,0.05); bldg.add(m); capMeshes.push(m);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Player mesh
+// ═══════════════════════════════════════════════
+const PLYR_Z=0.38;
+const plyrM=new THREE.Mesh(
+  new THREE.SphereGeometry(CS*0.27,14,10),
+  new THREE.MeshStandardMaterial({color:0x00e676,emissive:0x00cc55,emissiveIntensity:1.2})
+);
+plyrM.castShadow=true; bldg.add(plyrM);
+const plyrPt=new THREE.PointLight(0x00ff88,2.8,5); bldg.add(plyrPt);
+
+const trailPool=[];
+for(let i=0;i<8;i++){
+  const m=new THREE.Mesh(
+    new THREE.SphereGeometry(CS*0.13,7,5),
+    new THREE.MeshBasicMaterial({color:0x00e676,transparent:true,opacity:0})
+  );
+  bldg.add(m); trailPool.push(m);
+}
+
+// ═══════════════════════════════════════════════
+//  Monster meshes
+// ═══════════════════════════════════════════════
+const MON_Z=0.32;
+const monMeshes=[];
+const monColors=[0xff4422,0xff9900,0xdd22ff,0xff0055];
+function spawnMonMeshes(n){
+  for(const m of monMeshes)bldg.remove(m); monMeshes.length=0;
+  for(let i=0;i<n;i++){
+    const col=monColors[i%4];
+    const m=new THREE.Mesh(
+      new THREE.OctahedronGeometry(CS*0.29,0),
+      new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:0.6,flatShading:true})
+    );
+    m.castShadow=true; bldg.add(m); monMeshes.push(m);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Particle burst
+// ═══════════════════════════════════════════════
+const ptcls=[];
+const ptGeo=new THREE.SphereGeometry(0.065,5,4);
+function spawnBurst(wx,wy,count){
+  const n=Math.min(Math.floor(count*0.3)+6,20);
+  const cols=[0xff44cc,0xff88ff,0x4488ff,0xffff44];
+  for(let i=0;i<n;i++){
+    const m=new THREE.Mesh(ptGeo,new THREE.MeshBasicMaterial({
+      color:cols[i%cols.length],transparent:true,opacity:1}));
+    m.position.set(wx,wy,PLYR_Z+0.5); bldg.add(m);
+    const a=rnd(0,PI2),sp=rnd(2,7);
+    ptcls.push({m,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:rnd(0.3,0.8)});
+  }
+}
+function spawnHit(wx,wy){
+  for(let i=0;i<14;i++){
+    const m=new THREE.Mesh(ptGeo,new THREE.MeshBasicMaterial({color:0xff4400,transparent:true,opacity:1}));
+    m.position.set(wx,wy,PLYR_Z+0.3); bldg.add(m);
+    const a=rnd(0,PI2),sp=rnd(1,5);
+    ptcls.push({m,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:rnd(0.25,0.6)});
+  }
+}
+function updatePtcls(dt){
+  for(let i=ptcls.length-1;i>=0;i--){
+    const p=ptcls[i];
+    p.m.position.x+=p.vx*dt; p.m.position.y+=p.vy*dt;
+    p.vy-=6*dt; p.life-=dt;
+    p.m.material.opacity=Math.max(0,p.life*2);
+    if(p.life<=0){bldg.remove(p.m);ptcls.splice(i,1);}
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Game state
+// ═══════════════════════════════════════════════
+let appState='menu';
+let save=Store.load();
+let grid,player,monsters;
+let stageN,lives,timeLeft,fillPct;
+let pendDir=null, _t=0, shakeT=0;
+let camShake=new THREE.Vector3();
+
+function monCount(s){if(s<=2)return 1;if(s<=6)return 2;if(s<=12)return 3;return Math.min(4+Math.floor(s/12),5);}
+function monSpd(s){return 1.0+s*0.035;}
+function timeLimit(s){return Math.max(60,130-s*2);}
+
+function startGame(stage,rating){
+  stageN=stage; lives=3; fillPct=0; _t=0;
+  timeLeft=timeLimit(stage); pendDir=null; appState='playing';
+
+  grid=new Grid(COLS,ROWS);
+  player=new Player(Math.floor(COLS/2),0);
+
+  const mc=monCount(stage), ms=monSpd(stage);
+  monsters=[];
+  const types=['bounce','chase','bounce','chase','bounce'];
+  for(let i=0;i<mc;i++){
+    let gx,gy,t=0;
+    do{gx=rndI(2,COLS-2);gy=rndI(2,ROWS-2);t++;}while(gx<4&&gy<4&&t<30);
+    monsters.push(new Monster(gx,gy,ms,types[i%types.length]));
+  }
+  spawnMonMeshes(mc);
+
+  for(const m of capMeshes)bldg.remove(m); capMeshes.length=0;
+  clearLines(); buildTiles();
+  for(const f of falling){scene.remove(f.m);} falling.length=0;
+  for(const p of ptcls){bldg.remove(p.m);} ptcls.length=0;
+
+  spawnCharacter();
+
+  setHUD(true); show(''); hudUpdate();
+}
+
+function onLineDone(){
+  const mpos=monsters.map(m=>[m.gx,m.gy]);
+  const cells=grid.capture(mpos);
+  player.drawing=false; player.path=[];
+  fillPct=grid.fill();
+  dropCells(cells);        // ALL captured tiles fall simultaneously
+  addCapGlow(cells);
+  syncLines(grid);
+  hudUpdate();
+  if(fillPct>=CLEAR)onClear();
+}
+
+function loseLife(){
+  lives--;
+  grid.clearLine(); clearLines();
+  player.drawing=false; player.path=[]; player.trail=[];
+  player.gx=Math.floor(COLS/2); player.gy=0;
+  player.fx=player.gx; player.fy=player.gy;
+  player.dx=0; player.dy=0; player.prog=0;
+  player.inv=true; player.invT=1.6;
+  shakeT=0.45;
+  hudUpdate();
+  if(lives<=0)onOver();
+}
+
+function onClear(){
+  appState='clear';
+  if(stageN>save.best)save.best=stageN;
+  save.stage=stageN+1; Store.save(save); updateMainStats();
+  document.getElementById('c-s').textContent=stageN;
+  document.getElementById('c-f').textContent=Math.floor(fillPct*100)+'%';
+  document.getElementById('c-t').textContent=Math.ceil(timeLeft)+'초';
+  setHUD(false); show('s-clear');
+}
+function onOver(){
+  appState='over';
+  document.getElementById('o-s').textContent=stageN;
+  setHUD(false); show('s-over');
+}
+
+function hudUpdate(){
+  document.getElementById('h-s').textContent=stageN;
+  document.getElementById('h-f').textContent=Math.floor(fillPct*100)+'%';
+  document.getElementById('h-t').textContent=Math.ceil(timeLeft);
+  document.getElementById('h-l').textContent='❤️'.repeat(Math.max(0,lives));
+  document.getElementById('bar-fill').style.width=(fillPct*100)+'%';
+}
+function setHUD(v){
+  document.getElementById('hud').classList.toggle('on',v);
+  document.getElementById('dpad').classList.toggle('on',v);
+  document.getElementById('bar').classList.toggle('on',v);
+}
+function show(id){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  if(id)document.getElementById(id)?.classList.add('on');
+}
+function updateMainStats(){
+  document.getElementById('m-s').textContent=save.stage;
+  document.getElementById('m-b').textContent=save.best;
+}
+
+// ═══════════════════════════════════════════════
+//  Game tick
+// ═══════════════════════════════════════════════
+function tick(dt){
+  if(pendDir&&player.prog===0){player.setDir(pendDir.dx,pendDir.dy);pendDir=null;}
+  const res=player.update(dt,grid);
+  if(pendDir&&player.prog===0){player.setDir(pendDir.dx,pendDir.dy);pendDir=null;}
+
+  if(res==='DONE'){onLineDone();if(appState!=='playing')return;}
+  syncLines(grid);
+
+  if(player.inv){player.invT-=dt;if(player.invT<=0)player.inv=false;}
+
+  const pp=cw(player.fx,player.fy);
+  for(const m of monsters)m.update(dt,grid,pp.x,pp.y);
+
+  // Monster hits LINE while drawing
+  if(player.drawing&&!player.inv){
+    for(const m of monsters){
+      if(m.hitLine(grid)){
+        spawnHit(pp.x,pp.y); loseLife(); break;
+      }
+    }
+  }
+  if(appState!=='playing')return;
+
+  // Monster directly touches player
+  if(!player.inv){
+    for(const m of monsters){
+      const dx=m.wx-pp.x,dy=m.wy-pp.y;
+      if(dx*dx+dy*dy<(CS*0.55)*(CS*0.55)){
+        spawnHit(pp.x,pp.y); loseLife(); break;
+      }
+    }
+  }
+  if(appState!=='playing')return;
+
+  timeLeft-=dt;
+  if(timeLeft<=0){onOver();return;}
+  hudUpdate();
+
+  // ── 3D sync ──
+  const blink=player.inv&&Math.floor(performance.now()/110)%2===0;
+  plyrM.visible=!blink;
+  plyrM.position.set(pp.x,pp.y,PLYR_Z+Math.sin(_t*5)*0.025);
+  plyrPt.position.copy(plyrM.position);
+
+  for(let i=0;i<trailPool.length;i++){
+    if(i<player.trail.length){
+      const t=player.trail[i],tp=cw(t.gx,t.gy);
+      trailPool[i].position.set(tp.x,tp.y,PLYR_Z-0.06);
+      trailPool[i].material.opacity=(1-i/trailPool.length)*0.28;
+      trailPool[i].visible=true;
+    } else {trailPool[i].visible=false;}
+  }
+
+  for(let i=0;i<monsters.length;i++){
+    const m=monsters[i];
+    if(monMeshes[i])monMeshes[i].position.set(m.wx,m.wy+Math.sin(m.wb)*0.07,MON_Z);
+    if(monMeshes[i]){monMeshes[i].rotation.x=_t*2+i;monMeshes[i].rotation.z=_t*1.5+i;}
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Render loop
+// ═══════════════════════════════════════════════
+let _last=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min((ts-_last)/1000,0.1); _last=ts; _t+=dt;
+
+  if(appState==='playing')tick(dt);
+  updateFalling(dt);
+  updatePtcls(dt);
+
+  // Character idle animation
+  if(charGroup){
+    charGroup.rotation.y=Math.sin(_t*0.35)*0.06;
+    charGroup.position.y=(-BH/2+0.8)+Math.sin(_t*1.2)*0.06;
+    // Subtle hair/arm sway stored in first few children
+    charGroup.children.forEach((c,i)=>{
+      if(i>=charGroup.children.length-8)
+        c.rotation.z=Math.sin(_t*1.5+i*0.4)*0.04;
+    });
+  }
+
+  // Camera
+  const tgt=new THREE.Vector3(0,0,camZ);
+  if(appState==='playing'&&player){
+    const p=cw(player.fx,player.fy);
+    tgt.x=p.x*0.055; tgt.y=p.y*0.04;
+  }
+  if(shakeT>0){
+    shakeT-=dt;
+    camShake.set((Math.random()-.5)*.4,(Math.random()-.5)*.2,0);
+  } else {camShake.multiplyScalar(0.78);}
+  tgt.add(camShake);
+  camera.position.lerp(tgt,0.12);
+  camera.lookAt(0,0,0);
+
+  // Light animation
+  fillPt.intensity=2.2+Math.sin(_t*1.8)*0.8;
+  lnMat.emissiveIntensity=1.5+Math.sin(_t*8)*0.5;
+
+  renderer.render(scene,camera);
+}
+
+// ═══════════════════════════════════════════════
+//  Input
+// ═══════════════════════════════════════════════
+const DIRS={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],
+            w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]};
+document.addEventListener('keydown',e=>{
+  const d=DIRS[e.key];
+  if(d&&appState==='playing'){e.preventDefault();pendDir={dx:d[0],dy:d[1]};}
+});
+
+const bindBtn=(id,dx,dy)=>{
+  document.getElementById(id).addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    if(appState==='playing')pendDir={dx,dy};
+  },{passive:false});
+};
+bindBtn('du',0,-1);bindBtn('dd',0,1);bindBtn('dl',-1,0);bindBtn('dr2',1,0);
+
+let swX=0,swY=0;
+canvas.addEventListener('touchstart',e=>{swX=e.touches[0].clientX;swY=e.touches[0].clientY;},{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  if(appState!=='playing')return;
+  const dx=e.touches[0].clientX-swX,dy=e.touches[0].clientY-swY;
+  if(Math.abs(dx)+Math.abs(dy)>16){
+    pendDir=Math.abs(dx)>Math.abs(dy)?{dx:dx>0?1:-1,dy:0}:{dx:0,dy:dy>0?1:-1};
+    swX=e.touches[0].clientX;swY=e.touches[0].clientY;
+  }
+},{passive:true});
+
+// ═══════════════════════════════════════════════
+//  Buttons
+// ═══════════════════════════════════════════════
+document.getElementById('b-start').onclick=()=>show('s-sel');
+document.getElementById('b-bk').onclick=()=>show('s-menu');
+document.getElementById('b-gen').onclick=()=>{save.r='g';startGame(save.stage,'g');};
+document.getElementById('b-sex').onclick=()=>{save.r='s';startGame(save.stage,'s');};
+document.getElementById('b-next').onclick=()=>startGame(save.stage,save.r);
+document.getElementById('b-cm').onclick=()=>show('s-menu');
+document.getElementById('b-retry').onclick=()=>startGame(save.stage,save.r);
+document.getElementById('b-om').onclick=()=>show('s-menu');
+document.getElementById('b-reset').onclick=()=>{
+  if(!confirm('초기화?'))return;
+  save={stage:1,best:0,r:'g'};Store.save(save);updateMainStats();show('s-menu');
+};
+
+// Boot
+save=Store.load();updateMainStats();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

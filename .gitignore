@@ -1,0 +1,18 @@
+# 환경변수 — 절대 커밋 금지
+server/.env
+.env
+
+# 의존성
+server/node_modules/
+node_modules/
+
+# 구매 데이터 (런타임 생성, 민감 정보)
+server/data/purchases.json
+
+# 로그
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

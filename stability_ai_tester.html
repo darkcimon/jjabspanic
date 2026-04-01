@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>짭스패닉 캐릭터 생성기 — Stability AI 테스터</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f0f1a;
+    color: #e0e0f0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.4rem;
+    color: #ff88cc;
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px #ff44aa88;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .panel {
+    background: #1a1a2e;
+    border: 1px solid #333366;
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  label {
+    font-size: 0.78rem;
+    color: #aaaacc;
+    display: block;
+    margin-bottom: 4px;
+  }
+  input[type="text"], input[type="password"], textarea, select {
+    width: 100%;
+    background: #0f0f20;
+    border: 1px solid #444477;
+    border-radius: 8px;
+    color: #e0e0f0;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: #ff88cc; }
+  textarea { resize: vertical; min-height: 80px; }
+  .row { display: flex; gap: 8px; align-items: flex-end; }
+  .row > * { flex: 1; }
+  button {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #ff44aa, #aa44ff);
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 14px;
+    width: 100%;
+    letter-spacing: 1px;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff66bb, #cc66ff);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px #ff44aa44;
+  }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary {
+    background: #2a2a4a;
+    color: #ccccee;
+    border: 1px solid #444477;
+  }
+  .btn-secondary:hover { background: #3a3a5a; }
+  .btn-small {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    background: #222244;
+    color: #9999cc;
+    border: 1px solid #333366;
+    white-space: nowrap;
+  }
+  .btn-small:hover { background: #2a2a55; color: #ddddff; }
+
+  /* 프롬프트 풀 */
+  .prompt-pool {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .prompt-pool::-webkit-scrollbar { width: 4px; }
+  .prompt-pool::-webkit-scrollbar-thumb { background: #444477; border-radius: 2px; }
+  .prompt-item {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #2a2a4a;
+    font-size: 0.75rem;
+    color: #9999bb;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1.4;
+  }
+  .prompt-item:hover { border-color: #ff88cc66; color: #ddddff; background: #1f1f35; }
+  .prompt-item.active { border-color: #ff44aa; color: #ffccee; background: #2a1a35; }
+
+  /* 결과 패널 */
+  .result-panel {
+    background: #1a1a2e;
+    border: 1px solid #333366;
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    min-height: 500px;
+  }
+  .image-frame {
+    width: 100%;
+    max-width: 380px;
+    aspect-ratio: 2/3;
+    border: 2px solid #333366;
+    border-radius: 10px;
+    background: #0f0f20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .image-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+  .placeholder {
+    text-align: center;
+    color: #444466;
+    font-size: 0.85rem;
+    line-height: 2;
+  }
+  .placeholder .icon { font-size: 3rem; display: block; margin-bottom: 8px; }
+
+  /* 진행 상태 */
+  .status-bar {
+    width: 100%;
+    max-width: 380px;
+  }
+  .progress {
+    height: 4px;
+    background: #222244;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff44aa, #aa44ff);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+  .status-text {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #7777aa;
+    margin-top: 6px;
+    min-height: 20px;
+  }
+
+  /* 크레딧 표시 */
+  .credit-info {
+    display: flex;
+    gap: 20px;
+    font-size: 0.8rem;
+    color: #7777aa;
+    justify-content: center;
+  }
+  .credit-info span { color: #ffcc44; font-weight: bold; }
+
+  /* 이미지 메타 정보 */
+  .image-meta {
+    width: 100%;
+    max-width: 380px;
+    background: #0f0f20;
+    border: 1px solid #222244;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.75rem;
+    color: #6666aa;
+    display: none;
+  }
+  .image-meta.visible { display: block; }
+  .image-meta strong { color: #aaaadd; }
+
+  /* 배치 테스트 */
+  .batch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+  .batch-item {
+    aspect-ratio: 2/3;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #0f0f20;
+    border: 1px solid #222244;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+  .batch-item:hover { border-color: #ff88cc66; }
+  .batch-item img { width: 100%; height: 100%; object-fit: cover; }
+  .batch-item .badge {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    background: #000000aa;
+    color: #ffccee;
+    font-size: 0.65rem;
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+
+  /* 탭 */
+  .tabs { display: flex; gap: 4px; }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 6px 6px 0 0;
+    font-size: 0.8rem;
+    background: #222244;
+    color: #7777aa;
+    cursor: pointer;
+    border: 1px solid #333366;
+    border-bottom: none;
+  }
+  .tab.active { background: #1a1a2e; color: #ff88cc; }
+  .tab-content { display: none; }
+  .tab-content.active { display: flex; flex-direction: column; gap: 14px; }
+
+  /* 기타 */
+  .divider { border: none; border-top: 1px solid #222244; }
+  .section-title {
+    font-size: 0.75rem;
+    color: #6666aa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .tag {
+    display: inline-block;
+    background: #222244;
+    border: 1px solid #333366;
+    color: #9999cc;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    margin: 2px;
+  }
+  .tag:hover { border-color: #ff88cc66; color: #ffccee; }
+  .tags { display: flex; flex-wrap: wrap; gap: 2px; }
+  .error-msg {
+    background: #2a1a1a;
+    border: 1px solid #662222;
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #ff8888;
+    font-size: 0.8rem;
+    display: none;
+  }
+  .error-msg.visible { display: block; }
+</style>
+</head>
+<body>
+
+<h1>🎮 짭스패닉 캐릭터 생성기</h1>
+
+<div class="layout">
+  <!-- 좌측: 설정 패널 -->
+  <div class="panel">
+
+    <!-- API 키 -->
+    <div>
+      <label>Stability AI API Key</label>
+      <div class="row">
+        <input type="password" id="apiKey" placeholder="sk-..." />
+        <button class="btn-small" onclick="toggleKey()">표시</button>
+      </div>
+      <div style="font-size:0.72rem;color:#555588;margin-top:4px;">
+        platform.stability.ai → 가입 시 25크레딧 무료 | 이미지당 3.5크레딧
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- 탭: 단일 / 배치 -->
+    <div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('single')">단일 생성</div>
+        <div class="tab" onclick="switchTab('batch')">배치 테스트 (3장)</div>
+      </div>
+    </div>
+
+    <!-- 단일 생성 탭 -->
+    <div id="tab-single" class="tab-content active">
+
+      <!-- 스테이지 프롬프트 풀 -->
+      <div>
+        <div class="section-title" style="margin-bottom:8px;">스테이지 프롬프트 풀</div>
+        <div class="prompt-pool" id="promptPool"></div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- 커스텀 프롬프트 -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <label style="margin:0;">프롬프트</label>
+          <button class="btn-small" onclick="randomizePrompt()">🎲 랜덤</button>
+        </div>
+        <textarea id="prompt" rows="4">anime girl, cute, pink twin tails, school uniform, cherry blossoms, white background, full body portrait, high quality, masterpiece, detailed, 2d illustration</textarea>
+      </div>
+
+      <!-- 퀄리티 태그 빠른 추가 -->
+      <div>
+        <label>퀄리티 태그 (클릭하여 추가)</label>
+        <div class="tags">
+          <span class="tag" onclick="addTag('masterpiece')">masterpiece</span>
+          <span class="tag" onclick="addTag('best quality')">best quality</span>
+          <span class="tag" onclick="addTag('ultra detailed')">ultra detailed</span>
+          <span class="tag" onclick="addTag('8k')">8k</span>
+          <span class="tag" onclick="addTag('soft lighting')">soft lighting</span>
+          <span class="tag" onclick="addTag('illustration')">illustration</span>
+          <span class="tag" onclick="addTag('white background')">white BG</span>
+          <span class="tag" onclick="addTag('full body')">full body</span>
+          <span class="tag" onclick="addTag('smile')">smile</span>
+          <span class="tag" onclick="addTag('cute')">cute</span>
+        </div>
+      </div>
+
+      <!-- 네거티브 프롬프트 -->
+      <div>
+        <label>네거티브 프롬프트 (제외할 요소)</label>
+        <textarea id="negPrompt" rows="2">nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, ugly, blurry, watermark</textarea>
+      </div>
+
+      <!-- 시드 & 파라미터 -->
+      <div class="row">
+        <div>
+          <label>Seed</label>
+          <input type="text" id="seed" value="0" placeholder="0=랜덤" />
+        </div>
+        <div>
+          <label>CFG Scale</label>
+          <select id="cfgScale">
+            <option value="5">5 (창의적)</option>
+            <option value="7" selected>7 (균형)</option>
+            <option value="9">9 (정확)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 모델 선택 -->
+      <div>
+        <label>모델</label>
+        <select id="model">
+          <option value="sd3-medium" selected>SD3 Medium (권장, 3.5크레딧)</option>
+          <option value="sd3-large">SD3 Large (6.5크레딧)</option>
+          <option value="sd3-large-turbo">SD3 Large Turbo (4크레딧)</option>
+        </select>
+      </div>
+
+    </div><!-- /tab-single -->
+
+    <!-- 배치 테스트 탭 -->
+    <div id="tab-batch" class="tab-content">
+      <div style="color:#9999bb;font-size:0.82rem;line-height:1.6;">
+        같은 프롬프트로 3개의 다른 시드로 생성해서 품질 비교.<br>
+        <strong style="color:#ffcc44;">소요 크레딧: 10.5크레딧</strong>
+      </div>
+      <div>
+        <label>비교할 프롬프트</label>
+        <textarea id="batchPrompt" rows="4">anime girl, cute, pink twin tails, school uniform, cherry blossoms, white background, full body portrait, high quality, masterpiece, detailed, 2d illustration</textarea>
+      </div>
+      <div>
+        <label>시드 3개 (쉼표 구분, 0=랜덤)</label>
+        <input type="text" id="batchSeeds" value="0,0,0" />
+      </div>
+    </div><!-- /tab-batch -->
+
+    <!-- 오류 메시지 -->
+    <div class="error-msg" id="errorMsg"></div>
+
+    <!-- 생성 버튼 -->
+    <button class="btn-primary" id="generateBtn" onclick="generate()">✨ 생성하기</button>
+
+    <!-- 크레딧 트래커 -->
+    <div class="credit-info">
+      <div>사용 크레딧: <span id="usedCredits">0</span></div>
+      <div>생성 횟수: <span id="genCount">0</span>장</div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <!-- 우측: 결과 패널 -->
+  <div class="result-panel" id="resultPanel">
+
+    <!-- 단일 결과 -->
+    <div id="singleResult" style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;">
+      <div class="image-frame" id="imageFrame">
+        <div class="placeholder">
+          <span class="icon">🎨</span>
+          API 키를 입력하고<br>
+          프롬프트를 선택한 뒤<br>
+          생성하기를 눌러주세요
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <div class="progress"><div class="progress-fill" id="progressFill" style="display:none"></div></div>
+        <div class="status-text" id="statusText"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;" id="actionBtns" style="display:none">
+        <button class="btn-secondary" onclick="downloadImage()" id="downloadBtn" style="display:none">💾 저장</button>
+        <button class="btn-secondary" onclick="copyPrompt()" id="copyBtn" style="display:none">📋 프롬프트 복사</button>
+        <button class="btn-secondary" onclick="useSeed()" id="useSeedBtn" style="display:none">🔁 이 시드 재사용</button>
+      </div>
+
+      <div class="image-meta" id="imageMeta">
+        <strong>생성 정보</strong><br>
+        <span id="metaContent"></span>
+      </div>
+    </div>
+
+    <!-- 배치 결과 -->
+    <div id="batchResult" style="display:none;width:100%;">
+      <div class="section-title" style="margin-bottom:10px;text-align:center;">배치 결과 비교</div>
+      <div class="batch-grid" id="batchGrid"></div>
+    </div>
+
+  </div><!-- /result-panel -->
+</div>
+
+<!-- 모달: 확대 보기 -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:#000000cc;z-index:100;align-items:center;justify-content:center;cursor:zoom-out;" onclick="closeModal()">
+  <img id="modalImg" style="max-width:90vw;max-height:90vh;border-radius:10px;box-shadow:0 0 60px #ff44aa44;" />
+</div>
+
+<script>
+// ── 프롬프트 풀 ──────────────────────────────────────────
+const PROMPT_POOL = [
+  { stage: "1-12",   base: "anime girl, cute, pink twin tails, school uniform, cherry blossoms",          style: "soft pastel, spring vibes" },
+  { stage: "13-24",  base: "anime girl, silver long hair, night sky, elegant dress, moonlight, stars",    style: "dark fantasy, luminous" },
+  { stage: "25-36",  base: "anime girl, red short hair, sporty outfit, energetic pose, outdoor stadium",  style: "vibrant, dynamic" },
+  { stage: "37-48",  base: "anime girl, blonde hair, fantasy warrior, armor, glowing sword, epic",        style: "fantasy RPG, dramatic" },
+  { stage: "49-60",  base: "anime girl, blue twin tails, magical girl, sparkles, wand, pastel sky",       style: "mahou shoujo, dreamy" },
+  { stage: "61-72",  base: "anime girl, dark purple hair, gothic lolita, roses, mysterious smile",        style: "gothic, elegant" },
+  { stage: "73-84",  base: "anime girl, orange ponytail, maid outfit, cafe, warm light, friendly",        style: "cozy, warm tones" },
+  { stage: "85-96",  base: "anime girl, white hair, shrine maiden, torii gate, autumn leaves, serene",    style: "traditional Japanese" },
+  { stage: "97-108", base: "anime girl, green hair, forest elf, nature, fairy wings, magical forest",     style: "fantasy nature, ethereal" },
+  { stage: "109-120",base: "anime girl, black hair, cyber punk, neon lights, futuristic city, cool",      style: "cyberpunk, neon" },
+  { stage: "121-132",base: "anime girl, lavender hair, idol singer, stage performance, microphone, fans", style: "idol, sparkly" },
+  { stage: "133+",   base: "anime girl, rainbow gradient hair, celestial being, cosmos, divine aura",     style: "cosmic, transcendent" },
+];
+
+const QUALITY_SUFFIX = ", white background, full body portrait, high quality, masterpiece, ultra detailed, 2d illustration, clean lineart";
+
+let currentImageUrl = null;
+let currentSeed = 0;
+let lastPrompt = "";
+let usedCredits = 0;
+let genCount = 0;
+let currentTab = 'single';
+
+// ── 초기화 ───────────────────────────────────────────────
+function init() {
+  const pool = document.getElementById('promptPool');
+  PROMPT_POOL.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'prompt-item' + (i === 0 ? ' active' : '');
+    div.textContent = `[스테이지 ${p.stage}] ${p.base}`;
+    div.onclick = () => selectPrompt(i, div);
+    pool.appendChild(div);
+  });
+}
+
+function selectPrompt(idx, el) {
+  document.querySelectorAll('.prompt-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  const p = PROMPT_POOL[idx];
+  document.getElementById('prompt').value = p.base + QUALITY_SUFFIX;
+  document.getElementById('batchPrompt').value = p.base + QUALITY_SUFFIX;
+}
+
+function randomizePrompt() {
+  const idx = Math.floor(Math.random() * PROMPT_POOL.length);
+  const items = document.querySelectorAll('.prompt-item');
+  items.forEach(e => e.classList.remove('active'));
+  items[idx].classList.add('active');
+  const p = PROMPT_POOL[idx];
+  document.getElementById('prompt').value = p.base + QUALITY_SUFFIX;
+}
+
+function addTag(tag) {
+  const ta = document.getElementById('prompt');
+  if (!ta.value.includes(tag)) {
+    ta.value = ta.value.trimEnd().replace(/,\s*$/, '') + ', ' + tag;
+  }
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['single','batch'][i] === tab));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('singleResult').style.display = tab === 'single' ? 'flex' : 'none';
+  document.getElementById('batchResult').style.display  = tab === 'batch'  ? 'block' : 'none';
+}
+
+function toggleKey() {
+  const inp = document.getElementById('apiKey');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ── API 호출 ─────────────────────────────────────────────
+async function callAPI(prompt, negPrompt, seed, model) {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) throw new Error('API 키를 입력해주세요.');
+
+  const formData = new FormData();
+  formData.append('prompt', prompt);
+  formData.append('negative_prompt', negPrompt);
+  formData.append('model', model);
+  formData.append('output_format', 'jpeg');
+  formData.append('aspect_ratio', '2:3');
+  if (seed && seed !== '0') formData.append('seed', seed);
+
+  const resp = await fetch('https://api.stability.ai/v2beta/stable-image/generate/sd3', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + apiKey,
+      'Accept': 'image/*',
+    },
+    body: formData,
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    let msg = `HTTP ${resp.status}`;
+    try {
+      const j = JSON.parse(errText);
+      msg = j.message || j.error || errText;
+    } catch { msg = errText || msg; }
+    throw new Error(msg);
+  }
+
+  // 시드 헤더 추출
+  const finishSeed = resp.headers.get('finish-seed') || resp.headers.get('seed') || '?';
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  return { url, seed: finishSeed };
+}
+
+// ── 단일 생성 ────────────────────────────────────────────
+async function generate() {
+  hideError();
+  if (currentTab === 'batch') { await generateBatch(); return; }
+
+  const prompt    = document.getElementById('prompt').value.trim();
+  const negPrompt = document.getElementById('negPrompt').value.trim();
+  const seed      = document.getElementById('seed').value.trim();
+  const model     = document.getElementById('model').value;
+
+  if (!prompt) { showError('프롬프트를 입력해주세요.'); return; }
+
+  setLoading(true, '이미지 생성 중... (10~30초 소요)');
+  lastPrompt = prompt;
+
+  try {
+    const result = await callAPI(prompt, negPrompt, seed, model);
+    currentImageUrl = result.url;
+    currentSeed = result.seed;
+
+    showImage(result.url, result.seed);
+    updateStats(model);
+    setLoading(false, `완료! Seed: ${result.seed}`);
+  } catch (e) {
+    setLoading(false, '');
+    showError(e.message);
+  }
+}
+
+function showImage(url, seed) {
+  const frame = document.getElementById('imageFrame');
+  frame.innerHTML = `<img src="${url}" alt="생성된 캐릭터" onclick="openModal('${url}')" style="cursor:zoom-in;" />`;
+
+  document.getElementById('downloadBtn').style.display = 'inline-block';
+  document.getElementById('copyBtn').style.display = 'inline-block';
+  document.getElementById('useSeedBtn').style.display = 'inline-block';
+  document.getElementById('actionBtns').style.display = 'flex';
+
+  const meta = document.getElementById('imageMeta');
+  meta.classList.add('visible');
+  document.getElementById('metaContent').innerHTML =
+    `프롬프트: ${lastPrompt}<br>Seed: ${seed} | 모델: ${document.getElementById('model').value}`;
+}
+
+// ── 배치 생성 ────────────────────────────────────────────
+async function generateBatch() {
+  const prompt  = document.getElementById('batchPrompt').value.trim();
+  const seeds   = document.getElementById('batchSeeds').value.split(',').map(s => s.trim());
+  const model   = document.getElementById('model').value;
+
+  if (!prompt) { showError('프롬프트를 입력해주세요.'); return; }
+
+  const grid = document.getElementById('batchGrid');
+  grid.innerHTML = '';
+
+  // 플레이스홀더 3개 생성
+  for (let i = 0; i < 3; i++) {
+    const item = document.createElement('div');
+    item.className = 'batch-item';
+    item.id = `batch-${i}`;
+    item.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#333366;font-size:0.75rem;">대기중...</div>';
+    grid.appendChild(item);
+  }
+
+  setLoading(true, '배치 생성 시작...');
+
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`batch-${i}`).innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#7777aa;font-size:0.75rem;">생성중...</div>';
+    try {
+      const result = await callAPI(prompt, document.getElementById('negPrompt').value, seeds[i] || '0', model);
+      const item = document.getElementById(`batch-${i}`);
+      item.innerHTML = `<img src="${result.url}" onclick="openModal('${result.url}')" style="cursor:zoom-in;" /><div class="badge">Seed: ${result.seed}</div>`;
+      updateStats(model);
+      setLoading(true, `${i+1}/3 완료...`);
+    } catch (e) {
+      document.getElementById(`batch-${i}`).innerHTML =
+        `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ff4444;font-size:0.7rem;padding:8px;text-align:center;">${e.message}</div>`;
+    }
+  }
+  setLoading(false, '배치 생성 완료!');
+}
+
+// ── 유틸 ─────────────────────────────────────────────────
+function setLoading(on, msg) {
+  document.getElementById('generateBtn').disabled = on;
+  document.getElementById('statusText').textContent = msg;
+  const pf = document.getElementById('progressFill');
+  pf.style.display = on ? 'block' : 'none';
+  if (on) pf.style.width = '100%';
+}
+
+function updateStats(model) {
+  const credits = model === 'sd3-large' ? 6.5 : model === 'sd3-large-turbo' ? 4 : 3.5;
+  usedCredits += credits;
+  genCount++;
+  document.getElementById('usedCredits').textContent = usedCredits.toFixed(1);
+  document.getElementById('genCount').textContent = genCount;
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = '오류: ' + msg;
+  el.classList.add('visible');
+}
+function hideError() {
+  document.getElementById('errorMsg').classList.remove('visible');
+}
+
+function downloadImage() {
+  if (!currentImageUrl) return;
+  const a = document.createElement('a');
+  a.href = currentImageUrl;
+  a.download = `character_seed${currentSeed}.jpg`;
+  a.click();
+}
+
+function copyPrompt() {
+  navigator.clipboard.writeText(lastPrompt).then(() => {
+    document.getElementById('copyBtn').textContent = '✅ 복사됨';
+    setTimeout(() => document.getElementById('copyBtn').textContent = '📋 프롬프트 복사', 2000);
+  });
+}
+
+function useSeed() {
+  document.getElementById('seed').value = currentSeed;
+}
+
+function openModal(url) {
+  document.getElementById('modalImg').src = url;
+  document.getElementById('modal').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+// 저장된 API 키 복원 (sessionStorage)
+window.onload = () => {
+  init();
+  const saved = sessionStorage.getItem('stability_api_key');
+  if (saved) document.getElementById('apiKey').value = saved;
+  document.getElementById('apiKey').addEventListener('change', () => {
+    sessionStorage.setItem('stability_api_key', document.getElementById('apiKey').value);
+  });
+};
+</script>
+
+</body>
+</html>

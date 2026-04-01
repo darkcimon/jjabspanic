@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a0a2e">
+  <title>짭스패닉</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <!-- 토스페이먼츠 SDK (async: 결제 SDK 로딩 실패가 게임 진입을 막지 않도록) -->
+  <script src="https://js.tosspayments.com/v1/payment" async></script>
+</head>
+<body>
+
+<!-- ── Boot ──────────────────────────────────────────── -->
+<div id="screen-boot" class="screen active">
+  <div class="center-content">
+    <h1 class="logo">짭스패닉</h1>
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+  </div>
+</div>
+
+<!-- ── Main ──────────────────────────────────────────── -->
+<div id="screen-main" class="screen">
+  <div class="center-content">
+    <h1 class="logo">짭스패닉</h1>
+    <div class="stat-row">
+      <span>현재 스테이지 <b id="current-stage">1</b></span>
+      <span>최고 <b id="best-stage">0</b></span>
+    </div>
+    <div class="stat-row stat-row-score">
+      <span>누적 점수 <b id="main-total-score">0</b> pt</span>
+    </div>
+    <div class="menu-btns">
+      <button id="btn-start"   class="btn-primary">게임 시작</button>
+      <button id="btn-main-market" class="btn-market">🛒 마켓</button>
+      <button id="btn-gallery" class="btn-secondary">갤러리</button>
+      <button id="btn-help"    class="btn-secondary">도움말 / 조작법</button>
+      <button id="btn-ad-life" class="btn-ad">📺 광고 보고 3,000pt</button>
+      <button id="btn-reset"   class="btn-danger">초기화</button>
+    </div>
+    <footer class="main-footer">
+      <a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>
+    </footer>
+  </div>
+</div>
+
+<!-- ── Content Select ────────────────────────────────── -->
+<div id="screen-content-select" class="screen">
+  <div class="center-content">
+    <h2>콘텐츠 선택</h2>
+    <div class="rating-cards">
+      <button id="btn-general" class="rating-card">
+        <span class="rating-icon">🌸</span>
+        <span class="rating-title">일반</span>
+        <span class="rating-desc">귀여운 캐릭터</span>
+      </button>
+      <button id="btn-sexy" class="rating-card">
+        <span class="rating-icon">🔞</span>
+        <span class="rating-title">시크릿</span>
+        <span class="rating-desc">섹시 캐릭터</span>
+      </button>
+    </div>
+    <button id="btn-back-main" class="btn-back">← 뒤로</button>
+  </div>
+</div>
+
+<!-- ── Game ──────────────────────────────────────────── -->
+<div id="screen-game" class="screen">
+  <div id="hud">
+    <div class="hud-cell">
+      <span class="hud-label">STAGE</span>
+      <span id="hud-stage" class="hud-val">1</span>
+    </div>
+    <div class="hud-cell">
+      <span class="hud-label">SCORE</span>
+      <span id="hud-score" class="hud-val">0</span>
+    </div>
+    <div class="hud-cell">
+      <span class="hud-label">TIME</span>
+      <span id="hud-time" class="hud-val">120</span>
+    </div>
+    <div class="hud-cell">
+      <span id="hud-lives" class="hud-val">❤️❤️❤️</span>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div id="effect-timers"></div>
+
+  <div id="game-bottom">
+    <div id="dpad-spacer">
+      <label id="continuous-move-label">
+        <span class="move-mode-text">이동<br>방식</span>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="chk-continuous-move">
+          <span class="toggle-slider"></span>
+        </div>
+        <span class="move-mode-desc" id="move-mode-desc">탭</span>
+      </label>
+    </div>
+    <div id="dpad">
+      <div class="dpad-row"><button id="dpad-up"    class="dpad-btn">▲</button></div>
+      <div class="dpad-row">
+        <button id="dpad-left"  class="dpad-btn">◀</button>
+        <div class="dpad-center"></div>
+        <button id="dpad-right" class="dpad-btn">▶</button>
+      </div>
+      <div class="dpad-row"><button id="dpad-down"  class="dpad-btn">▼</button></div>
+    </div>
+    <div id="held-items-bar"></div>
+  </div>
+</div>
+
+<!-- ── Stage Clear ───────────────────────────────────── -->
+<div id="screen-stage-clear" class="screen">
+  <div class="result-content">
+    <h2 class="result-title success">✨ STAGE CLEAR!</h2>
+    <p class="result-sub">스테이지 <span id="clear-stage">1</span> 완료</p>
+    <img id="clear-image" src="" alt="캐릭터" style="display:none">
+    <div class="result-stats">
+      <div class="stat-item"><span>점수</span><b id="clear-score">0</b></div>
+      <div class="stat-item"><span>점령률</span><b id="clear-fill">0%</b></div>
+      <div class="stat-item"><span>남은 시간</span><b id="clear-time">0초</b></div>
+      <div class="stat-item bonus-row"><span>🏆 스테이지 보너스</span><b id="clear-stage-bonus">+0</b></div>
+      <div class="stat-item bonus-row"><span>📐 점령률 보너스</span><b id="clear-fill-bonus">+0</b></div>
+      <div class="stat-item bonus-row"><span>⏱ 시간 보너스</span><b id="clear-time-bonus">+0</b></div>
+      <div class="stat-item bonus-row" id="clear-allclear-row" style="display:none"><span>💥 전멸 보너스</span><b id="clear-allclear-bonus">+0</b></div>
+      <div class="stat-item bonus-row clear-total-row"><span>💰 누적 점수</span><b id="clear-total-score">0</b>pt</div>
+    </div>
+    <div class="result-btns">
+      <button id="btn-next-stage"  class="btn-primary">다음 스테이지 →</button>
+      <button id="btn-clear-market" class="btn-market" style="display:none">🛒 마켓 (3,000pt~)</button>
+      <button id="btn-ad-points-clear" class="btn-ad">📺 광고 보고 포인트 획득</button>
+      <button id="btn-ad-preview"  class="btn-ad">📺 다음 캐릭터 미리보기</button>
+      <button id="btn-back-menu"   class="btn-secondary">메인 메뉴</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Game Over ─────────────────────────────────────── -->
+<div id="screen-game-over" class="screen">
+  <div class="result-content">
+    <h2 class="result-title fail">💀 GAME OVER</h2>
+    <p class="result-sub">스테이지 <span id="over-stage">1</span></p>
+    <div id="over-points-warning" class="over-points-warning">
+      💸 이어하기를 하지 않으면<br>
+      보유한 <strong><span id="over-points-amount">0</span>pt</strong>가 사라지고,<br>
+      <span id="over-weapon-warning"></span>
+      📺 이어하기로 포인트와 장비를 지키세요!
+    </div>
+    <div class="result-btns">
+      <button id="btn-ad-continue" class="btn-ad">📺 광고 보고 이어하기</button>
+      <button id="btn-retry"       class="btn-primary">다시 시도</button>
+      <button id="btn-back-menu2"  class="btn-secondary">메인 메뉴</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Reward (100/200/300 스테이지 특전) ─────────────── -->
+<div id="screen-reward" class="screen">
+  <div class="reward-content">
+    <div class="reward-badge" id="reward-badge">🎉 100스테이지 달성!</div>
+    <h2 class="reward-title">특전 이미지</h2>
+    <p class="reward-desc">원하는 캐릭터를 자유롭게 묘사해 주세요<br><span class="reward-desc-sub">예) 파란 눈, 흰 드레스, 해변</span></p>
+
+    <div id="reward-input-area">
+      <textarea id="reward-keywords" class="reward-textarea" maxlength="200"
+        placeholder="캐릭터 특징을 입력하세요 (최대 200자)"></textarea>
+      <div class="reward-char-count"><span id="reward-char-now">0</span> / 200</div>
+      <button id="btn-reward-generate" class="btn-primary reward-gen-btn">✨ 이미지 생성</button>
+    </div>
+
+    <div id="reward-loading" class="reward-loading hidden">
+      <div class="reward-spinner"></div>
+      <p>이미지를 생성하는 중입니다…<br><span style="font-size:0.8rem;opacity:0.6">최대 30초 소요</span></p>
+    </div>
+
+    <div id="reward-result" class="reward-result hidden">
+      <img id="reward-result-img" src="" alt="특전 이미지">
+    </div>
+
+    <div class="reward-btns">
+      <button id="btn-reward-continue" class="btn-primary hidden">다음 스테이지 →</button>
+      <button id="btn-reward-skip"     class="btn-secondary">건너뛰기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Help ───────────────────────────────────────────── -->
+<div id="screen-help" class="screen">
+  <div class="help-header">
+    <h2>도움말</h2>
+    <button id="btn-back-help" class="btn-back">← 뒤로</button>
+  </div>
+
+  <div class="help-tabs">
+    <button class="help-tab active" data-tab="how">게임 방법</button>
+    <button class="help-tab" data-tab="tips">공략</button>
+    <button class="help-tab" data-tab="items">아이템</button>
+    <button class="help-tab" data-tab="enemies">적</button>
+    <button class="help-tab" data-tab="market">마켓</button>
+  </div>
+
+  <div class="help-body">
+
+    <!-- 게임 방법 -->
+    <div id="help-tab-how" class="help-section active">
+      <div class="help-card">
+        <div class="help-card-title">🎯 목표</div>
+        <p>제한 시간 안에 보드의 <b>75% 이상</b>을 점령하면 스테이지 클리어!</p>
+      </div>
+      <div class="help-card">
+        <div class="help-card-title">🕹 조작</div>
+        <ul class="help-list">
+          <li><b>이동</b> — 방향 버튼 또는 화면 스와이프</li>
+          <li><b>칼 사용</b> — Z키 또는 아이템 버튼 탭</li>
+          <li><b>총 사용</b> — X키 또는 아이템 버튼 탭</li>
+          <li><b>번개</b> — 번개 버튼 탭 후 화면 터치</li>
+        </ul>
+      </div>
+      <div class="help-card">
+        <div class="help-card-title">📐 영역 점령</div>
+        <ul class="help-list">
+          <li>경계선(흰 테두리)에서 출발해 이동하면 선이 그려집니다</li>
+          <li>다시 경계선에 닿으면 둘러싼 영역이 <b>한 번에 점령</b>됩니다</li>
+          <li>적이 없는 쪽이 점령 대상, 더 작은 쪽을 채우는 게 유리합니다</li>
+        </ul>
+      </div>
+      <div class="help-card">
+        <div class="help-card-title">💀 위험 상황</div>
+        <ul class="help-list">
+          <li>선 위에 있을 때 <b>적 또는 탄환에 닿으면</b> 목숨 1 감소</li>
+          <li>경계·점령 영역 위에서는 적이 닿아도 안전합니다</li>
+          <li>목숨이 0이 되면 게임 오버</li>
+          <li>제한 시간이 0이 되면 게임 오버</li>
+        </ul>
+      </div>
+      <div class="help-card">
+        <div class="help-card-title">⭐ 기타 팁</div>
+        <ul class="help-list">
+          <li>스테이지가 높아질수록 적이 많아지고 제한 시간이 줄어듭니다</li>
+          <li>10스테이지마다 <b>보스</b>가 등장합니다</li>
+          <li>10스테이지 클리어 시 <b>소장품</b> 이미지를 1장 선택할 수 있습니다</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 공략 -->
+    <div id="help-tab-tips" class="help-section">
+
+      <div class="help-card tips-highlight">
+        <div class="help-card-title">🏆 핵심 공략 요약</div>
+        <p>광고로 포인트를 모아 <b>총을 먼저 구입</b>하고, 장비를 업그레이드하면 훨씬 수월하게 진행할 수 있습니다!</p>
+      </div>
+
+      <div class="help-card">
+        <div class="help-card-title">📺 Step 1 — 포인트 모으기</div>
+        <ul class="help-list">
+          <li>메인 화면에서 <b>📺 광고 보기</b>를 탭하면 즉시 포인트 획득</li>
+          <li>스테이지가 높아질수록, 장비 업그레이드가 많을수록 <b>광고 포인트가 증가</b></li>
+          <li>스테이지 클리어 화면에서 <b>다음 스테이지 미리보기 광고</b>를 보면 추가 포인트 지급</li>
+          <li>게임오버 시 <b>광고 이어하기</b>를 선택하면 얻은 포인트가 그대로 유지됩니다</li>
+        </ul>
+      </div>
+
+      <div class="help-card">
+        <div class="help-card-title">🔫 Step 2 — 총 구입 (최우선)</div>
+        <ul class="help-list">
+          <li>마켓에서 <b>총 (30,000pt)</b>을 가장 먼저 구입하는 것을 추천</li>
+          <li>총이 있으면 선을 긋지 않아도 적을 처치할 수 있어 <b>생존력이 크게 상승</b></li>
+          <li>총알 5발로 적 5마리를 처치하면 <b>탄약 5발 자동 충전</b> (빛나는 효과로 표시)</li>
+          <li>총탄 업그레이드 10단 초과 시 <b>적을 뚫고 지나가는 관통 효과</b> 발동</li>
+        </ul>
+      </div>
+
+      <div class="help-card">
+        <div class="help-card-title">⬆️ Step 3 — 장비 업그레이드 순서</div>
+        <ul class="help-list">
+          <li><b>① 총 강화</b> — 데미지와 탄환 패턴이 강화됩니다. 단계가 높을수록 한 번에 여러 발</li>
+          <li><b>② 총탄 강화</b> — 총알 크기가 커져 적을 더 쉽게 맞출 수 있습니다</li>
+          <li><b>③ 칼 구입 / 칼 강화</b> — 칼로 5마리 처치 시 <b>"검사의 영혼"</b> 원형 범위 공격 발동</li>
+          <li><b>④ 생명의 정수 / 시간의 정수</b> — 매 스테이지 목숨·시간이 늘어 장기 생존에 유리</li>
+        </ul>
+      </div>
+
+      <div class="help-card">
+        <div class="help-card-title">🗺️ 구간별 전략</div>
+        <ul class="help-list">
+          <li><b>1~9스테이지</b> — 기본기 연습. 작은 영역을 빠르게 여러 번 점령하는 것이 안전</li>
+          <li><b>10~29스테이지</b> — 슈터 등장. 선을 짧게 그어 탄환에 노출되는 시간을 줄이세요</li>
+          <li><b>30~49스테이지</b> — 미드보스 등장. 미드보스가 일반 몬스터를 흡수하기 전에 먼저 처리</li>
+          <li><b>50스테이지 이상</b> — 총·칼 없이는 점점 어려워집니다. 마켓 투자가 핵심</li>
+          <li><b>10단위 스테이지</b> — 보스 등장! 보스를 영역 안에 가두거나 총으로 집중 공격</li>
+        </ul>
+      </div>
+
+      <div class="help-card">
+        <div class="help-card-title">💡 생존 팁</div>
+        <ul class="help-list">
+          <li>경계선(하얀 테두리)에 있으면 적에게 닿아도 안전 — 무리하지 말고 기다리세요</li>
+          <li>선을 짧게 여러 번 그으면 리스크가 줄어듭니다</li>
+          <li>💥 <b>분열 아이템</b>은 적이 적을 때 사용해야 유리합니다 (많아지면 역효과)</li>
+          <li>⬆️ <b>적 업그레이드 아이템</b>(빨간 화살표)은 절대 밟지 마세요!</li>
+          <li>모래시계(⏳)를 획득하면 느려진 틈에 대량 점령!</li>
+          <li>게임오버 시 <b>광고 이어하기</b>를 꼭 활용하세요 — 포인트와 진행 상황이 유지됩니다</li>
+        </ul>
+      </div>
+
+      <div class="help-card tips-highlight">
+        <div class="help-card-title">💥 전멸 보너스 — 적을 모두 없애면 대박!</div>
+        <ul class="help-list">
+          <li>스테이지 클리어 시 <b>살아있는 적이 0마리</b>이면 <b>전멸 보너스</b>가 추가 지급됩니다</li>
+          <li>보너스는 스테이지가 높아질수록 크게 증가 — 고스테이지에서 수만 pt 이상!</li>
+          <li>적이 없으면 어디든 자유롭게 점령 가능 → <b>점령률도 자연스럽게 올라갑니다</b></li>
+          <li>총·칼·번개 등 장비를 업그레이드해서 먼저 적을 처치한 뒤 영역을 넓히세요</li>
+        </ul>
+      </div>
+
+      <div class="help-card">
+        <div class="help-card-title">📈 스테이지별 보너스 배율</div>
+        <ul class="help-list">
+          <li>스테이지 보너스 · 시간 보너스 · 점령률 보너스 모두 <b>10스테이지마다 +30%씩 증가</b></li>
+          <li>스테이지 10: 1.3배 / 스테이지 20: 1.6배 / 스테이지 50: 2.5배 / 스테이지 100: 4.0배</li>
+          <li>고스테이지에서 남은 시간이 많을수록 시간 보너스가 폭발적으로 커집니다</li>
+          <li>점령률 75% 초과분은 1%당 추가 pt, 94% 초과분은 더 높은 배율로 계산됩니다</li>
+        </ul>
+      </div>
+
+      <div class="help-note">💰 광고 → 포인트 → 총 구입 → 업그레이드 → 전멸 후 점령 → 고스테이지 도전!</div>
+    </div>
+
+    <!-- 아이템 -->
+    <div id="help-tab-items" class="help-section">
+      <p class="help-intro">필드에 아이템이 등장합니다. 선 위에서 닿으면 획득!</p>
+
+      <div class="help-item-row">
+        <span class="help-item-icon">⏰</span>
+        <div>
+          <b>시계</b>
+          <span class="help-tag instant">즉시</span>
+          <p>남은 시간 +20초 / 대형 +40초</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">💊</span>
+        <div>
+          <b>회복약</b>
+          <span class="help-tag instant">즉시</span>
+          <p>목숨 +1 / 대형 +2</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">⏳</span>
+        <div>
+          <b>모래시계</b>
+          <span class="help-tag timed">15초</span>
+          <p>모든 적의 이동 속도 대폭 감소</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">🫧</span>
+        <div>
+          <b>버블</b>
+          <span class="help-tag special">특수</span>
+          <p>선 위에 있어도 적에게 닿지 않음. 경계에 닿을 때까지 지속</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">🛡️</span>
+        <div>
+          <b>방패</b>
+          <span class="help-tag timed">15초</span>
+          <p>무적 상태. 선 위에서 적에게 닿아도 목숨이 줄지 않음</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">💣</span>
+        <div>
+          <b>폭탄</b>
+          <span class="help-tag instant">즉시</span>
+          <p>화면 내 모든 적을 즉시 제거</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">⚡</span>
+        <div>
+          <b>번개</b>
+          <span class="help-tag held">보유</span>
+          <p>번개 버튼 탭 후 화면을 터치한 위치에 번개 공격 (1회)</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">💨</span>
+        <div>
+          <b>스피드</b>
+          <span class="help-tag held">보유</span>
+          <p>이동 속도 3배. 아이템 버튼 탭으로 발동</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">⚔️</span>
+        <div>
+          <b>칼</b>
+          <span class="help-tag held">보유</span>
+          <p>Z키 또는 탭으로 발동. <b>목숨 1 소모</b>하고 선 위 적 전부 제거</p>
+        </div>
+      </div>
+      <div class="help-item-row">
+        <span class="help-item-icon">🔫</span>
+        <div>
+          <b>총</b>
+          <span class="help-tag held">보유</span>
+          <p>X키 또는 탭으로 발동. 탄환 10발 (중첩 시 최대 30발). 진행 방향으로 발사</p>
+        </div>
+      </div>
+
+      <div class="help-note">💡 번개·스피드·칼·총은 획득 후 하단 슬롯에 보관 (최대 3개)</div>
+    </div>
+
+    <!-- 적 -->
+    <div id="help-tab-enemies" class="help-section">
+      <p class="help-intro">적은 영역 안을 자유롭게 이동합니다. 선 위의 플레이어에게 닿으면 위험!</p>
+
+      <div class="help-enemy-row">
+        <span class="help-enemy-dot" style="background:#ffcc00;box-shadow:0 0 8px #ffcc00"></span>
+        <div>
+          <b>일반 몬스터</b>
+          <p>기본 이동. 스테이지가 높아질수록 개수와 속도가 증가합니다</p>
+        </div>
+      </div>
+      <div class="help-enemy-row">
+        <span class="help-enemy-dot" style="background:#ff7700;box-shadow:0 0 8px #ff7700"></span>
+        <div>
+          <b>슈터 몬스터</b>
+          <p>이동하면서 <b>탄환을 발사</b>합니다. 탄환에 선 위에서 맞아도 목숨이 감소합니다</p>
+        </div>
+      </div>
+      <div class="help-enemy-row">
+        <span class="help-enemy-dot" style="background:#e74c3c;box-shadow:0 0 8px #e74c3c"></span>
+        <div>
+          <b>미드보스</b>
+          <p>일반 몬스터에 닿으면 <b>흡수해 덩치가 커집니다</b>. 합체할수록 강해지니 빨리 처리해야 합니다</p>
+        </div>
+      </div>
+      <div class="help-enemy-row">
+        <span class="help-enemy-dot" style="background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);box-shadow:0 0 10px #fff"></span>
+        <div>
+          <b>보스</b>
+          <p><b>10스테이지마다</b> 등장. 거대한 무지개 블랙홀 형태로 빠르게 회전합니다. 100·200·300 스테이지의 보스는 더욱 거대합니다</p>
+        </div>
+      </div>
+
+      <div class="help-card" style="margin-top:16px">
+        <div class="help-card-title">🗡 적 처치 방법</div>
+        <ul class="help-list">
+          <li><b>영역으로 가두기</b> — 적을 안에 넣고 점령하면 제거됩니다</li>
+          <li><b>폭탄 💣</b> — 화면 전체 적 즉시 제거</li>
+          <li><b>번개 ⚡</b> — 터치한 위치에 번개로 공격</li>
+          <li><b>칼 ⚔️</b> — 선 위 적 전체 제거 (목숨 1 소모)</li>
+          <li><b>총 🔫</b> — 진행 방향으로 탄환 발사</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 마켓 -->
+    <div id="help-tab-market" class="help-section">
+      <p class="help-intro">스테이지 점수를 누적해 마켓에서 아이템을 구입할 수 있습니다. 스테이지 클리어 화면 또는 메인 화면 → 🛒 마켓</p>
+
+      <div class="help-card">
+        <div class="help-card-title"><span class="market-tier-label normal">일반</span> 3,000pt</div>
+        <ul class="help-list">
+          <li>⏱️ <b>시간 연장</b> — 다음 스테이지 시작 시 +20초 (중첩 가능)</li>
+          <li>💊 <b>회복약</b> — 다음 스테이지 시작 시 목숨 +1</li>
+          <li>💨 <b>스피드</b> — 다음 스테이지 1회 한정 2배 속도</li>
+        </ul>
+      </div>
+
+      <div class="help-card" style="border-color:rgba(160,100,255,0.3)">
+        <div class="help-card-title"><span class="market-tier-label rare">레어</span> 10,000~20,000pt</div>
+        <ul class="help-list">
+          <li>❤️‍🔥 <b>생명의 정수</b> (12,000pt) — 매 스테이지 목숨 +1 <b>영구</b>. 단, 목숨이 3 이상일 때만 발동. 목숨이 2가 되면 효과가 다음 스테이지까지 일시 중단. 중첩 구매 시 추가 목숨 증가 (2개 구매 → 매 스테이지 5목숨 시작)</li>
+          <li>🕰️ <b>시간의 정수</b> (10,000pt) — 매 스테이지 +20초 <b>영구</b>. 중첩 가능</li>
+          <li>💫 <b>인내의 속도</b> (15,000pt) — 매 스테이지 시작 시 2배 속도 <b>영구</b>. 목숨을 잃으면 해당 스테이지 해제, 다음 스테이지 재발동</li>
+          <li>🌀 <b>초월의 속도</b> (20,000pt) — 3배 속도 <b>완전 영구</b>. 목숨을 잃어도 유지</li>
+        </ul>
+      </div>
+
+      <div class="help-card" style="border-color:rgba(255,179,71,0.35)">
+        <div class="help-card-title"><span class="market-tier-label legend">전설</span> 10,000~30,000pt</div>
+        <ul class="help-list">
+          <li>⚔️ <b>칼</b> (30,000pt) — Z키/탭으로 선 위 적 처치 (목숨 2 이상 필요)</li>
+          <li>🗡️ <b>신검</b> (30,000pt) — 칼 강화: 사정거리·공격력 증가 (칼 보유 시 표시)</li>
+          <li>🔫 <b>총</b> (30,000pt) — X키/탭으로 탄환 5발 발사</li>
+          <li>🔫 <b>탄약 ×5</b> (10,000pt) — 총알 5발 추가 (총 보유 시 표시)</li>
+          <li>⚡ <b>번개</b> (10,000pt) — 번개 버튼 탭 후 화면 터치로 3×3 범위 공격. 중첩 가능</li>
+          <li>🌩️ <b>제우스의 번개</b> (15,000pt) — 5×5 초광역 번개. 번개보다 넓은 범위 파괴. 중첩 가능</li>
+        </ul>
+      </div>
+
+      <div class="help-note">💡 레어·전설 아이템은 누적 점수로 구입하므로 고득점 플레이가 중요합니다!</div>
+    </div>
+
+  </div><!-- .help-body -->
+</div>
+
+<!-- ── Collection Pick ────────────────────────────────── -->
+<div id="screen-collection-pick" class="screen">
+  <div class="collection-pick-wrap">
+    <div class="collection-pick-header">
+      <h2>⭐ 소장품 선택</h2>
+      <p id="collection-pick-desc">하나를 골라 소장하세요</p>
+    </div>
+    <div id="collection-pick-grid" class="collection-pick-grid"></div>
+    <div class="collection-pick-footer">
+      <button id="btn-collection-confirm" class="btn-primary" disabled>소장하기</button>
+      <button id="btn-collection-skip" class="btn-secondary">건너뛰기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Gallery ───────────────────────────────────────── -->
+<div id="screen-gallery" class="screen">
+  <div class="gallery-header">
+    <h2>갤러리</h2>
+    <button id="btn-back-gallery" class="btn-back">← 뒤로</button>
+  </div>
+
+  <!-- 내 소장품 -->
+  <div class="pack-banner collection-banner">
+    <div class="pack-banner-info">
+      <span class="pack-banner-title">⭐ 내 소장품</span>
+      <span class="pack-banner-desc">10스테이지마다 직접 고른 이미지</span>
+    </div>
+  </div>
+  <div id="gallery-collection" class="gallery-grid-section"></div>
+
+  <!-- 팩 A (1~100) -->
+  <div class="pack-banner" id="pack-banner-a">
+    <div class="pack-banner-info">
+      <span class="pack-banner-title">팩 A — 스테이지 1~100</span>
+      <span id="pack-a-status" class="pack-banner-status"></span>
+    </div>
+    <button id="btn-pack-a" class="btn-pack">전체 즉시 해금 — 3,900원</button>
+  </div>
+
+  <!-- 팩 A 갤러리 그리드 -->
+  <div id="gallery-grid-a" class="gallery-grid-section"></div>
+
+  <!-- 팩 B (101~200) -->
+  <div class="pack-banner" id="pack-banner-b">
+    <div class="pack-banner-info">
+      <span class="pack-banner-title">팩 B — 스테이지 101~200</span>
+      <span id="pack-b-status" class="pack-banner-status"></span>
+    </div>
+    <button id="btn-pack-b" class="btn-pack">전체 즉시 해금 — 3,900원</button>
+  </div>
+
+  <!-- 팩 B 갤러리 그리드 -->
+  <div id="gallery-grid-b" class="gallery-grid-section"></div>
+
+  <!-- 팩 C (201~300) -->
+  <div class="pack-banner" id="pack-banner-c">
+    <div class="pack-banner-info">
+      <span class="pack-banner-title">팩 C — 스테이지 201~300</span>
+      <span id="pack-c-status" class="pack-banner-status"></span>
+    </div>
+    <button id="btn-pack-c" class="btn-pack">전체 즉시 해금 — 3,900원</button>
+  </div>
+
+  <!-- 팩 C 갤러리 그리드 -->
+  <div id="gallery-grid-c" class="gallery-grid-section"></div>
+
+  <!-- 완전판 팩 배너 -->
+  <div class="pack-banner pack-banner-all" id="pack-banner-all">
+    <div class="pack-banner-info">
+      <span class="pack-banner-title">완전판 팩 — 전 스테이지</span>
+      <span class="pack-banner-desc">팩 A+B+C 통합 할인</span>
+    </div>
+    <button id="btn-pack-all" class="btn-pack btn-pack-all">전 스테이지 즉시 해금 — 6,900원</button>
+  </div>
+
+  <!-- 구매 코드 복구 섹션 -->
+  <div class="pack-banner redeem-banner">
+    <div class="pack-banner-info">
+      <span class="pack-banner-title">🔑 구매 코드 복구</span>
+      <span class="pack-banner-desc">다른 기기에서 결제한 코드를 입력하세요</span>
+    </div>
+  </div>
+  <div class="redeem-section">
+    <input id="redeem-input" class="redeem-input" type="text"
+           placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" autocomplete="off">
+    <button id="btn-redeem" class="btn-primary redeem-btn">복구</button>
+    <p id="redeem-msg" class="redeem-msg"></p>
+  </div>
+
+  <button id="btn-back-main2" class="btn-back" style="margin:12px auto;display:block;width:fit-content">← 메인</button>
+</div>
+
+<!-- ── Image Lightbox ────────────────────────────────── -->
+<div id="img-lightbox" class="img-lightbox hidden">
+  <img id="img-lightbox-img" src="" alt="">
+  <button id="img-lightbox-close" class="img-lightbox-close">✕</button>
+</div>
+
+<!-- ── 구매 코드 안내 모달 ────────────────────────────── -->
+<div id="modal-redeem-code" class="confirm-modal">
+  <div class="confirm-modal-box">
+    <div class="confirm-modal-icon">🎉</div>
+    <h3 class="confirm-modal-title">구매 완료!</h3>
+    <p class="confirm-modal-desc">
+      아래 <strong>구매 복구 코드</strong>를 안전한 곳에 저장하세요.<br>
+      다른 기기에서 갤러리 화면의 <em>구매 코드 복구</em> 항목에<br>
+      입력하면 팩을 즉시 복구할 수 있습니다.
+    </p>
+    <div class="redeem-code-box">
+      <span id="modal-redeem-code-text" class="redeem-code-text"></span>
+      <button id="btn-copy-redeem-code" class="btn-copy-code" title="클립보드 복사">📋 복사</button>
+    </div>
+    <div class="confirm-modal-btns" style="margin-top:12px">
+      <button id="btn-redeem-code-ok" class="btn-primary">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ad Overlay ─────────────────────────────────────── -->
+<!-- ── 초기화 확인 모달 ───────────────────────────────── -->
+<div id="modal-reset" class="confirm-modal">
+  <div class="confirm-modal-box">
+    <div class="confirm-modal-icon">⚠️</div>
+    <h3 class="confirm-modal-title">진행 상황 초기화</h3>
+    <p class="confirm-modal-desc">
+      모든 스테이지 진행, 포인트, 장비 업그레이드가<br>
+      <strong>완전히 삭제</strong>됩니다.<br>
+      정말 초기화하시겠습니까?
+    </p>
+    <div class="confirm-modal-btns">
+      <button id="btn-reset-cancel" class="btn-secondary">취소</button>
+      <button id="btn-reset-confirm" class="btn-danger">초기화</button>
+    </div>
+  </div>
+</div>
+
+<div id="ad-overlay">
+  <div id="ad-overlay-box">
+    <p id="ad-overlay-label" class="ad-overlay-label">광고 시청 후 보상 지급</p>
+    <div id="ad-overlay-ad-area">
+      <!-- 실 광고 SDK 스크립트/iframe 삽입 위치 -->
+      <div class="ad-placeholder">
+        <span class="ad-placeholder-icon">📺</span>
+        <span class="ad-placeholder-text">광고 영역</span>
+      </div>
+    </div>
+    <div id="ad-overlay-countdown-wrap">
+      <span id="ad-overlay-countdown" class="ad-countdown">15</span>
+      <span class="ad-countdown-unit">초</span>
+    </div>
+    <p id="ad-overlay-msg" class="ad-overlay-msg">광고를 끝까지 시청해 주세요</p>
+  </div>
+</div>
+
+<!-- ── Market ──────────────────────────────────────────── -->
+<div id="screen-market" class="screen">
+  <div class="market-header">
+    <h2>🛒 마켓</h2>
+    <button id="btn-back-market" class="btn-back">← 뒤로</button>
+  </div>
+  <div class="market-score-row">
+    보유 점수 <b id="market-total-score">0</b> pt
+  </div>
+  <div class="market-desc-row">
+    <span class="market-tier-label normal">일반</span> 3,000pt &nbsp;·&nbsp;
+    <span class="market-tier-label rare">레어</span> 10,000~20,000pt &nbsp;·&nbsp;
+    <span class="market-tier-label legend">전설</span> 10,000~30,000pt
+  </div>
+  <div id="market-item-list" class="market-item-list"></div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+<script>
+  // Service Worker 등록
+  if ('serviceWorker' in navigator) {
+    document.addEventListener('DOMContentLoaded', () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => {
+        console.warn('[SW] 등록 실패:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
