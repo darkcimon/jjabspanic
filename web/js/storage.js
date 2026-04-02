@@ -11,7 +11,7 @@ function generateId() {
 
 export const Storage = {
   defaults() {
-    return { stage: 1, bestStage: 0, rating: 'g', sexyUnlocked: true, gallery: [], heldItems: [], collection: [], continuousMove: false, userId: generateId(), totalScore: 0, bonusLives: 0, persistentBonus: { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0 } };
+    return { stage: 1, bestStage: 0, rating: 'g', sexyUnlocked: true, gallery: [], heldItems: [], collection: [], rewardImages: [], continuousMove: false, userId: generateId(), totalScore: 0, bonusLives: 0, persistentBonus: { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0 } };
   },
   load() {
     try { return { ...this.defaults(), ...JSON.parse(localStorage.getItem(KEY)) }; }

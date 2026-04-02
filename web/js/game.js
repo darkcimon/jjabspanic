@@ -961,6 +961,7 @@ export class Game extends EventTarget {
     for(let i=0;i<mNormals;i++)   this.monsters.push(spawnRnd(NormalMonster));
     for(let i=0;i<mShooters;i++)  this.monsters.push(spawnRnd(ShooterMonster));
     for(let i=0;i<mMidBosses;i++) this.monsters.push(spawnRnd(MidBossMonster));
+    if(this.monsters.length>30) this.monsters.length=30;
     if(s%10===0){
       let gx,gy,tries=0;
       do{gx=rndI(4,this.COLS-4);gy=rndI(4,this.ROWS-4);tries++;}while(gx<8&&gy<8&&tries<30);

@@ -196,7 +196,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
                          rareLifeLost = false }) {
   // 화면 전환 플래그를 가장 먼저 설정 — 이후 코드 예외에 영향받지 않도록
   if (stage % 10 === 0)  pendingCollectionStage = stage;
-  if (stage % 100 === 0) pendingRewardStage = stage;
+  if (stage % 100 === 0 || stage === 1) pendingRewardStage = stage; // TODO: remove stage===1 test condition
 
   if (stage > save.bestStage) save.bestStage = stage;
   save.stage = stage + 1;
@@ -579,6 +579,36 @@ function makeCollectionPickCard(stageNum, purchases, onSelect) {
 async function showGallery() {
   show('gallery');
 
+  // 특전 이미지 렌더링
+  const rewardGrid = $('gallery-reward-images');
+  const rewardBanner = $('reward-images-banner');
+  rewardGrid.innerHTML = '';
+  const rewardImages = save.rewardImages || [];
+  if (rewardImages.length > 0) {
+    rewardBanner.style.display = '';
+    for (const { stage, url } of rewardImages) {
+      const card = document.createElement('div');
+      card.className = 'gallery-card';
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = `특전 ${stage}스테이지`;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;cursor:pointer;';
+      img.addEventListener('click', () => {
+        const lbImg = $('img-lightbox');
+        lbImg.src = url;
+        $('div-lightbox').classList.add('active');
+      });
+      const label = document.createElement('div');
+      label.className = 'card-label';
+      label.textContent = `${stage}스테이지 특전`;
+      card.appendChild(img);
+      card.appendChild(label);
+      rewardGrid.appendChild(card);
+    }
+  } else {
+    rewardBanner.style.display = 'none';
+  }
+
   // 내 소장품 렌더링
   const collectionGrid = $('gallery-collection');
   collectionGrid.innerHTML = '';
@@ -707,6 +737,7 @@ function showRewardScreen(completedStage) {
   $('reward-input-area').classList.remove('hidden');
   $('reward-loading').classList.add('hidden');
   $('reward-result').classList.add('hidden');
+  $('btn-reward-save').classList.add('hidden');
   $('btn-reward-continue').classList.add('hidden');
   $('btn-reward-skip').classList.remove('hidden');
   $('btn-reward-generate').disabled = false;
@@ -732,6 +763,22 @@ function showRewardScreen(completedStage) {
       if (data.imageUrl) {
         $('reward-result-img').src = data.imageUrl;
         $('reward-result').classList.remove('hidden');
+
+        // 저장 버튼: 이미 저장된 스테이지면 비활성화
+        const alreadySaved = (save.rewardImages || []).some(r => r.stage === completedStage);
+        const saveBtn = $('btn-reward-save');
+        saveBtn.classList.remove('hidden');
+        saveBtn.disabled = alreadySaved;
+        saveBtn.textContent = alreadySaved ? '✔ 저장됨' : '📥 갤러리에 저장';
+        saveBtn.onclick = () => {
+          if (!save.rewardImages) save.rewardImages = [];
+          const idx = save.rewardImages.findIndex(r => r.stage === completedStage);
+          if (idx >= 0) save.rewardImages[idx] = { stage: completedStage, url: data.imageUrl };
+          else save.rewardImages.push({ stage: completedStage, url: data.imageUrl });
+          Storage.save(save);
+          saveBtn.disabled = true;
+          saveBtn.textContent = '✔ 저장됨';
+        };
       }
       $('btn-reward-continue').classList.remove('hidden');
       $('btn-reward-skip').classList.remove('hidden');
