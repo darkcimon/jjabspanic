@@ -2,7 +2,7 @@
 // AdFit 단가 ID는 승인 후 아래 상수에 입력한다.
 // 심사 전에는 오버레이 카운트다운만 동작한다(시뮬레이션 모드).
 
-const ADFIT_UNIT_ID = 'DAN-XXXXXXXXXXXXXXXX'; // ← AdFit 승인 후 교체
+const ADFIT_UNIT_ID = 'DAN-DsktctrUEMdc4u8Z'; // ← AdFit 승인 후 교체
 
 const AD_STORE_KEY = 'galspanic_ad';
 
