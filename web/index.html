@@ -9,6 +9,8 @@
   <link rel="manifest" href="/manifest.json">
   <!-- 토스페이먼츠 SDK (async: 결제 SDK 로딩 실패가 게임 진입을 막지 않도록) -->
   <script src="https://js.tosspayments.com/v1/payment" async></script>
+  <!-- Kakao AdFit SDK (async: 광고 로딩 실패가 게임 진입을 막지 않도록) -->
+  <script src="https://t1.daumcdn.net/kas/static/ba.min.js" async></script>
 </head>
 <body>
 
@@ -181,6 +183,7 @@
 
     <div id="reward-result" class="reward-result hidden">
       <img id="reward-result-img" src="" alt="특전 이미지">
+      <button id="btn-reward-save" class="btn-reward-save hidden">📥 갤러리에 저장</button>
     </div>
 
     <div class="reward-btns">
@@ -528,6 +531,15 @@
     <h2>갤러리</h2>
     <button id="btn-back-gallery" class="btn-back">← 뒤로</button>
   </div>
+
+  <!-- 특전 이미지 -->
+  <div class="pack-banner collection-banner" id="reward-images-banner" style="display:none">
+    <div class="pack-banner-info">
+      <span class="pack-banner-title">🎁 특전 이미지</span>
+      <span class="pack-banner-desc">100/200/300스테이지 달성 특전</span>
+    </div>
+  </div>
+  <div id="gallery-reward-images" class="gallery-grid-section"></div>
 
   <!-- 내 소장품 -->
   <div class="pack-banner collection-banner">

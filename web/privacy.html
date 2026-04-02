@@ -3,277 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1a0a2e">
   <title>개인정보처리방침 — 짭스패닉</title>
-  <link rel="stylesheet" href="css/style.css">
   <style>
-    /* 개인정보처리방침 전용 스타일 */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      overflow: auto;
-      touch-action: auto;
-    }
-    .privacy-wrap {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 40px 24px 80px;
-      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0720;
+      color: #e0d6f5;
       line-height: 1.8;
+      padding: 24px 16px 60px;
     }
-    .privacy-header {
-      border-bottom: 1px solid rgba(200, 80, 192, 0.3);
-      padding-bottom: 20px;
-      margin-bottom: 32px;
-    }
-    .privacy-header h1 {
-      font-size: clamp(1.4rem, 5vw, 2rem);
-      font-weight: 900;
-      background: linear-gradient(135deg, #c850c0, #4158d0);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 8px;
-    }
-    .privacy-header .updated {
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-    .privacy-section {
-      margin-bottom: 36px;
-    }
-    .privacy-section h2 {
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: var(--accent);
-      margin-bottom: 12px;
-      padding-left: 10px;
-      border-left: 3px solid var(--accent);
-    }
-    .privacy-section p,
-    .privacy-section li {
-      font-size: 0.92rem;
-      color: var(--text);
-      margin-bottom: 8px;
-    }
-    .privacy-section ul {
-      padding-left: 20px;
-    }
-    .privacy-section li {
-      list-style: disc;
-      margin-bottom: 6px;
-    }
-    .privacy-section table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-      margin-top: 12px;
-    }
-    .privacy-section th,
-    .privacy-section td {
-      border: 1px solid rgba(200, 80, 192, 0.25);
-      padding: 8px 12px;
-      text-align: left;
-    }
-    .privacy-section th {
-      background: var(--card);
-      color: var(--accent);
-      font-weight: 700;
-    }
-    .privacy-section td {
-      color: var(--text);
-    }
-    .privacy-section a {
-      color: var(--accent2);
-      text-decoration: underline;
-      word-break: break-all;
-    }
-    .privacy-contact {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 16px 20px;
-      margin-top: 12px;
-    }
-    .privacy-contact p {
-      margin-bottom: 4px !important;
-    }
-    .back-link {
-      display: inline-block;
-      margin-bottom: 24px;
-      color: var(--muted);
-      font-size: 0.9rem;
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    .back-link:hover { color: var(--text); }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; color: #c084fc; margin-bottom: 8px; }
+    .updated { font-size: 0.85rem; color: #9c86c8; margin-bottom: 32px; }
+    h2 { font-size: 1.1rem; color: #a78bfa; margin: 28px 0 10px; border-left: 3px solid #7c3aed; padding-left: 10px; }
+    p  { margin-bottom: 12px; font-size: 0.95rem; }
+    ul { margin: 8px 0 12px 20px; }
+    li { margin-bottom: 6px; font-size: 0.95rem; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #3b2d6e; padding: 8px 10px; text-align: left; }
+    th { background: #1e1040; color: #c084fc; }
+    a  { color: #818cf8; }
   </style>
 </head>
 <body>
-<div class="privacy-wrap">
+<div class="container">
+  <h1>개인정보처리방침</h1>
+  <p class="updated">시행일: 2026년 04월 02일</p>
 
-  <a class="back-link" href="index.html">← 게임으로 돌아가기</a>
+  <p>
+    짭스패닉(이하 "서비스")은 이용자의 개인정보를 중요시하며,
+    「개인정보 보호법」 및 관련 법령을 준수합니다.
+    본 방침은 서비스가 수집하는 정보와 이용 목적, 보유 기간 등을 안내합니다.
+  </p>
 
-  <div class="privacy-header">
-    <h1>개인정보처리방침</h1>
-    <p class="updated">최초 작성일: 2026년 3월 17일 &nbsp;|&nbsp; 최종 수정일: 2026년 3월 17일</p>
-  </div>
+  <h2>1. 수집하는 정보</h2>
+  <table>
+    <tr><th>항목</th><th>수집 방법</th><th>목적</th></tr>
+    <tr><td>게임 진행 데이터 (스테이지, 목숨, 갤러리)</td><td>브라우저 localStorage</td><td>게임 상태 저장</td></tr>
+    <tr><td>랜덤 사용자 ID (UUID)</td><td>자동 생성</td><td>보상 이미지 식별</td></tr>
+    <tr><td>광고 시청 횟수</td><td>브라우저 localStorage</td><td>일일 광고 한도 관리</td></tr>
+    <tr><td>접속 IP, 브라우저 정보</td><td>서버 로그</td><td>서비스 안정성 모니터링</td></tr>
+  </table>
+  <p>서비스는 회원가입 없이 이용 가능하며, 이름·이메일·주민등록번호 등 민감한 개인정보를 수집하지 않습니다.</p>
 
-  <!-- 1. 개요 -->
-  <div class="privacy-section">
-    <h2>1. 개요</h2>
-    <p>
-      짭스패닉(이하 "본 서비스")은 웹 브라우저에서 실행되는 캐주얼 게임 서비스입니다.
-      본 방침은 서비스 이용 과정에서 수집되는 정보의 종류, 이용 목적, 보관 기간,
-      제3자 제공 현황 및 이용자의 권리를 안내합니다.
-    </p>
-    <p>
-      본 서비스는 회원 가입 절차 없이 이용할 수 있으며,
-      이용자를 직접 식별하는 성명·주민등록번호 등의 개인정보를 수집하지 않습니다.
-    </p>
-  </div>
+  <h2>2. 제3자 광고 서비스</h2>
+  <p>
+    서비스는 <strong>카카오 AdFit</strong>(Kakao Corp.)의 광고를 제공합니다.
+    AdFit은 광고 효율 측정을 위해 쿠키 및 기기 식별자를 수집할 수 있습니다.
+  </p>
+  <ul>
+    <li>AdFit 개인정보처리방침: <a href="https://policy.kakao.com/privacy" target="_blank" rel="noopener">policy.kakao.com/privacy</a></li>
+    <li>광고 맞춤 설정 거부: <a href="https://adfit.kakao.com/optout" target="_blank" rel="noopener">adfit.kakao.com/optout</a></li>
+  </ul>
 
-  <!-- 2. 수집하는 정보 -->
-  <div class="privacy-section">
-    <h2>2. 수집하는 정보</h2>
+  <h2>3. 정보 이용 목적</h2>
+  <ul>
+    <li>게임 진행 상태 저장 및 복원</li>
+    <li>AI 보상 이미지 생성 (Stability AI API 전송)</li>
+    <li>광고 보상(이어하기, 목숨, 포인트) 제공</li>
+    <li>서비스 이상 탐지 및 운영</li>
+  </ul>
 
-    <p><strong>2-1. 브라우저 로컬 저장소(localStorage)</strong></p>
-    <p>
-      게임 진행 데이터(스테이지, 점수, 갤러리 잠금 해제 현황, 보유 아이템 등)를
-      이용자의 기기 로컬 저장소에 저장합니다.
-      이 데이터는 서버로 전송되지 않으며, 이용자가 브라우저 데이터를 초기화하면 삭제됩니다.
-    </p>
+  <h2>4. 제3자 제공</h2>
+  <p>
+    서비스는 이용자 정보를 원칙적으로 외부에 제공하지 않습니다.
+    단, AI 이미지 생성 시 사용자 입력 키워드가 Stability AI(미국) 서버로 전송됩니다.
+    법령에 의한 요청이 있는 경우 예외적으로 제공할 수 있습니다.
+  </p>
 
-    <table>
-      <thead>
-        <tr><th>저장 키</th><th>내용</th><th>보관 위치</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>galspanic_save</td><td>게임 진행 데이터 (스테이지, 점수, 갤러리 등)</td><td>로컬 브라우저</td></tr>
-        <tr><td>galspanic_ad</td><td>당일 광고 시청 횟수 (어뷰징 방지용, 매일 초기화)</td><td>로컬 브라우저</td></tr>
-      </tbody>
-    </table>
+  <h2>5. 보유 및 이용 기간</h2>
+  <ul>
+    <li>게임 데이터 (localStorage): 이용자가 직접 삭제하거나 브라우저 데이터 삭제 시까지</li>
+    <li>서버 접속 로그: 최대 3개월</li>
+    <li>보상 이미지: 서버 재배포 전까지</li>
+  </ul>
 
-    <p style="margin-top:14px"><strong>2-2. 광고 쿠키 및 추적 기술</strong></p>
-    <p>
-      본 서비스는 Google AdSense 및 Kakao AdFit 광고 서비스를 사용합니다.
-      이 광고 파트너는 이용자의 브라우저에 쿠키를 설치하여 광고 노출 최적화,
-      클릭수 집계, 관심 기반 광고 제공 등에 활용할 수 있습니다.
-      수집·처리 주체는 각 광고사이며, 본 서비스는 해당 데이터에 접근하지 않습니다.
-    </p>
+  <h2>6. 이용자의 권리</h2>
+  <p>
+    이용자는 언제든지 브라우저의 "사이트 데이터 삭제" 기능으로 저장된 게임 데이터를 삭제할 수 있습니다.
+    그 밖의 개인정보 관련 문의는 아래 연락처로 요청하십시오.
+  </p>
 
-    <p><strong>2-3. 서버 접근 로그</strong></p>
-    <p>
-      이미지 API 서버는 요청 발생 시 IP 주소, 접속 일시, 요청 경로를
-      운영 목적으로 일시적으로 기록할 수 있습니다.
-      해당 로그는 30일 이후 자동 삭제되며, 개인 식별에 활용하지 않습니다.
-    </p>
-  </div>
+  <h2>7. 개인정보 보호책임자</h2>
+  <table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>서비스명</td><td>짭스패닉</td></tr>
+    <tr><td>이메일</td><td><a href="mailto:contact@jjabspanic.app">contact@jjabspanic.app</a></td></tr>
+    <tr><td>처리 기간</td><td>접수 후 7일 이내</td></tr>
+  </table>
 
-  <!-- 3. 제3자 제공 -->
-  <div class="privacy-section">
-    <h2>3. 제3자 광고 서비스 및 데이터 제공</h2>
-
-    <table>
-      <thead>
-        <tr><th>제공 대상</th><th>제공 정보</th><th>목적</th><th>개인정보처리방침</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Google AdSense</td>
-          <td>광고 쿠키, 브라우저 환경 정보</td>
-          <td>맞춤형 광고 제공, 광고 성과 측정</td>
-          <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google 개인정보처리방침</a></td>
-        </tr>
-        <tr>
-          <td>Kakao AdFit</td>
-          <td>광고 쿠키, 브라우저 환경 정보</td>
-          <td>광고 노출 최적화, 성과 측정</td>
-          <td><a href="https://www.kakao.com/policy/privacy" target="_blank" rel="noopener">Kakao 개인정보처리방침</a></td>
-        </tr>
-      </tbody>
-    </table>
-
-    <p style="margin-top:14px">
-      위 광고 파트너는 이용자의 관심사에 기반한 광고를 제공할 수 있습니다.
-      관심 기반 광고를 거부하려면 아래 쿠키 정책 섹션을 참고하세요.
-    </p>
-  </div>
-
-  <!-- 4. 쿠키 정책 -->
-  <div class="privacy-section">
-    <h2>4. 쿠키 정책 및 거부 방법</h2>
-
-    <p>
-      쿠키는 웹사이트가 이용자의 브라우저에 저장하는 소량의 텍스트 파일입니다.
-      본 서비스는 기능적 쿠키(게임 설정 저장)와 광고 쿠키(제3자 광고사 제공)를 사용합니다.
-    </p>
-
-    <p><strong>쿠키 거부 방법</strong></p>
-    <ul>
-      <li>
-        <strong>브라우저 설정</strong>: 각 브라우저의 설정 메뉴에서 쿠키를 차단하거나 삭제할 수 있습니다.
-        단, 쿠키 차단 시 게임 진행 데이터가 저장되지 않을 수 있습니다.
-      </li>
-      <li>
-        <strong>Google 광고 설정</strong>:
-        <a href="https://adssettings.google.com" target="_blank" rel="noopener">https://adssettings.google.com</a>
-        에서 맞춤형 광고를 비활성화할 수 있습니다.
-      </li>
-      <li>
-        <strong>Kakao 광고 설정</strong>:
-        Kakao 계정 설정에서 광고 수신 동의를 철회할 수 있습니다.
-      </li>
-      <li>
-        <strong>NAI 옵트아웃</strong>:
-        <a href="https://optout.networkadvertising.org/" target="_blank" rel="noopener">https://optout.networkadvertising.org/</a>
-        에서 참여 광고사 전체에 대해 옵트아웃할 수 있습니다.
-      </li>
-    </ul>
-
-    <p>
-      로컬 저장소(localStorage) 데이터는 브라우저의 개발자 도구 →
-      Application → Local Storage 메뉴에서 직접 확인하고 삭제할 수 있습니다.
-    </p>
-  </div>
-
-  <!-- 5. 이용자 권리 -->
-  <div class="privacy-section">
-    <h2>5. 이용자의 권리</h2>
-    <p>이용자는 다음 권리를 행사할 수 있습니다.</p>
-    <ul>
-      <li>로컬 저장소 데이터 확인 및 삭제 — 게임 내 "초기화" 버튼 또는 브라우저 설정</li>
-      <li>광고 쿠키 거부 — 위 4항 참고</li>
-      <li>서버 접근 로그 삭제 요청 — 아래 연락처로 문의</li>
-    </ul>
-  </div>
-
-  <!-- 6. 아동 개인정보 -->
-  <div class="privacy-section">
-    <h2>6. 아동 개인정보 보호</h2>
-    <p>
-      본 서비스의 일부 콘텐츠는 성인용입니다. 만 18세 미만 이용자는
-      보호자의 동의 없이 서비스를 이용할 수 없으며,
-      본 서비스는 아동의 개인정보를 의도적으로 수집하지 않습니다.
-    </p>
-  </div>
-
-  <!-- 7. 방침 변경 -->
-  <div class="privacy-section">
-    <h2>7. 개인정보처리방침 변경</h2>
-    <p>
-      본 방침이 변경될 경우 변경일로부터 7일 이전에 본 페이지를 통해 공지합니다.
-      중요한 변경이 있을 경우 별도의 고지를 제공할 수 있습니다.
-    </p>
-  </div>
-
-  <!-- 8. 문의 -->
-  <div class="privacy-section">
-    <h2>8. 개인정보 관련 문의</h2>
-    <div class="privacy-contact">
-      <p>개인정보 보호 관련 문의 및 요청 사항은 아래로 연락해 주세요.</p>
-      <p>이메일: <a href="mailto:privacy@galspanic.example.com">privacy@galspanic.example.com</a></p>
-      <p>처리 기간: 접수 후 영업일 기준 7일 이내 회신</p>
-    </div>
-  </div>
-
+  <h2>8. 방침 변경</h2>
+  <p>
+    본 방침은 법령·서비스 변경에 따라 개정될 수 있으며,
+    변경 시 서비스 내 공지 또는 본 페이지를 통해 안내합니다.
+  </p>
 </div>
 </body>
 </html>

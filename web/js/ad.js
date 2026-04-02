@@ -1,34 +1,51 @@
-// ── Ad module ─────────────────────────────────────────────────
-// 보상형 광고 래퍼. 실제 광고 SDK(AdSense/AdFit) 연동 전
-// 15초 카운트다운 오버레이로 시청 흐름을 시뮬레이션한다.
+// ── Ad module — Kakao AdFit 연동 ──────────────────────────────
+// AdFit 단가 ID는 승인 후 아래 상수에 입력한다.
+// 심사 전에는 오버레이 카운트다운만 동작한다(시뮬레이션 모드).
+
+const ADFIT_UNIT_ID = 'DAN-XXXXXXXXXXXXXXXX'; // ← AdFit 승인 후 교체
 
 const AD_STORE_KEY = 'galspanic_ad';
 
-export const AD_DAILY_LIMIT = { continue: Infinity, points: Infinity, preview: 5 };
+// 일일 한도: continue 3회, points 10회, preview 5회
+export const AD_DAILY_LIMIT = { continue: 3, points: 10, preview: 5 };
 
 // ── 구독 여부 (추후 IAPManager 연동 시 교체) ─────────────────
 function isSubscriber() {
   return false;
 }
 
-// ── 광고 차단기 감지 (추후 실 감지 로직으로 교체) ────────────
+// ── 광고 차단기 감지 ──────────────────────────────────────────
+let _adSdkStatus = 'unknown'; // 'unknown' | 'loaded' | 'blocked'
+
+function _detectAdBlocker() {
+  if (_adSdkStatus !== 'unknown') return;
+  const bait = document.createElement('div');
+  bait.className = 'ad-unit adsbox ad-banner';
+  bait.style.cssText = 'height:1px;width:1px;position:absolute;left:-9999px;';
+  document.body.appendChild(bait);
+  requestAnimationFrame(() => {
+    const blocked = bait.offsetParent === null || bait.offsetHeight === 0;
+    _adSdkStatus = blocked ? 'blocked' : 'loaded';
+    bait.remove();
+  });
+}
+
 export function isAdAvailable() {
-  return true;
+  _detectAdBlocker();
+  return _adSdkStatus !== 'blocked';
 }
 
 // ── 일일 횟수 저장 ────────────────────────────────────────────
 function _todayKey() {
-  return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  return new Date().toISOString().slice(0, 10);
 }
 
 function _loadAdData() {
   try {
     const raw = JSON.parse(localStorage.getItem(AD_STORE_KEY));
     if (raw) {
-      // totalViews는 날짜와 무관하게 영구 보존
       const totalViews = raw.totalViews || 0;
       if (raw.date === _todayKey()) return { ...raw, totalViews };
-      // 날짜가 바뀌면 일일 횟수만 초기화, totalViews 유지
       return { date: _todayKey(), counts: { continue: 0, points: 0, preview: 0 }, totalViews };
     }
   } catch { /* ignore */ }
@@ -48,7 +65,6 @@ export function getTotalAdViews() {
 }
 
 // ── 광고 시청 누적 수에 따른 보상 포인트 ─────────────────────
-// 많이 볼수록 보상이 올라가 재시청을 유도한다.
 export function getAdRewardPoints() {
   const v = getTotalAdViews();
   if (v <  5) return  3000;
@@ -62,9 +78,26 @@ export function getAdRewardPoints() {
 function _incrementAdCount(rewardType) {
   const data = _loadAdData();
   data.counts[rewardType] = (data.counts[rewardType] ?? 0) + 1;
-  // 'points' 타입 시청만 totalViews 증가 (보상형 광고 카운트)
   if (rewardType === 'points') data.totalViews = (data.totalViews || 0) + 1;
   _saveAdData(data);
+}
+
+// ── AdFit 배너 렌더링 ─────────────────────────────────────────
+function _renderAdFitBanner(container) {
+  if (ADFIT_UNIT_ID.startsWith('DAN-XXX')) return false; // 미설정 시 스킵
+
+  container.innerHTML = '';
+  const ins = document.createElement('ins');
+  ins.className = 'kakao_ad_area';
+  ins.setAttribute('data-ad-unit', ADFIT_UNIT_ID);
+  ins.setAttribute('data-ad-width', '320');
+  ins.setAttribute('data-ad-height', '100');
+  container.appendChild(ins);
+
+  if (window.kakao && window.kakao.adfit) {
+    try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
+  }
+  return true;
 }
 
 // ── 오버레이 DOM ──────────────────────────────────────────────
@@ -78,25 +111,27 @@ function _showOverlay(rewardType, onDone, onCancel, rewardLabel) {
   const overlay = _getOverlay();
   if (!overlay) { onCancel(); return; }
 
-  const labelEl  = overlay.querySelector('#ad-overlay-label');
-  const countEl  = overlay.querySelector('#ad-overlay-countdown');
-  const msgEl    = overlay.querySelector('#ad-overlay-msg');
+  const labelEl = overlay.querySelector('#ad-overlay-label');
+  const countEl = overlay.querySelector('#ad-overlay-countdown');
+  const msgEl   = overlay.querySelector('#ad-overlay-msg');
+  const adArea  = overlay.querySelector('#ad-overlay-ad-area');
 
   const defaultLabels = { continue: '이어하기', points: '포인트', preview: '미리보기' };
   const label = rewardLabel ?? defaultLabels[rewardType] ?? '보상';
   if (labelEl) labelEl.textContent = `광고 시청 후 "${label}" 지급`;
+
+  const adRendered = adArea ? _renderAdFitBanner(adArea) : false;
 
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
 
   let remaining = 15;
   if (countEl) countEl.textContent = remaining;
-  if (msgEl)   msgEl.textContent   = '광고를 끝까지 시청해 주세요';
+  if (msgEl)   msgEl.textContent   = adRendered ? '광고를 끝까지 시청해 주세요' : '잠시 기다려 주세요';
 
   _overlayTimer = setInterval(() => {
     remaining -= 1;
     if (countEl) countEl.textContent = remaining;
-
     if (remaining <= 0) {
       clearInterval(_overlayTimer);
       _overlayTimer = null;
@@ -116,23 +151,20 @@ function _hideOverlay() {
 // ── showRewardedAd ────────────────────────────────────────────
 /**
  * @param {'continue'|'points'|'preview'} rewardType
- * @param {() => void} onRewarded - 광고 완료 후 실행할 콜백
- * @param {string} [rewardLabel] - 오버레이에 표시할 보상 문구 (생략 시 기본값)
+ * @param {() => void} onRewarded
+ * @param {string} [rewardLabel]
  */
 export function showRewardedAd(rewardType, onRewarded, rewardLabel) {
-  // 구독자: 광고 없이 즉시 보상
   if (isSubscriber()) {
     onRewarded();
     return;
   }
 
-  // 광고 차단기
   if (!isAdAvailable()) {
     _showNotice('광고를 불러올 수 없습니다.\n광고 차단기를 해제해 주세요.');
     return;
   }
 
-  // 일일 한도 확인
   const limit = AD_DAILY_LIMIT[rewardType] ?? 0;
   const count = getAdCount(rewardType);
   if (count >= limit) {
@@ -140,19 +172,18 @@ export function showRewardedAd(rewardType, onRewarded, rewardLabel) {
     return;
   }
 
-  // 오버레이 표시 → 완료 시 횟수 증가 후 콜백
   _showOverlay(
     rewardType,
     () => {
       _incrementAdCount(rewardType);
       onRewarded();
     },
-    () => { /* 취소: 아무 보상 없음 */ },
+    () => { /* 취소: 보상 없음 */ },
     rewardLabel,
   );
 }
 
-// ── 알림 메시지 (간단한 토스트) ──────────────────────────────
+// ── 토스트 알림 ───────────────────────────────────────────────
 function _showNotice(msg) {
   const existing = document.getElementById('ad-notice-toast');
   if (existing) existing.remove();
@@ -163,7 +194,6 @@ function _showNotice(msg) {
   toast.textContent = msg;
   document.body.appendChild(toast);
 
-  // 강제 reflow → transition 적용
   void toast.offsetWidth;
   toast.classList.add('visible');
 
