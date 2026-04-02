@@ -2,7 +2,9 @@
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "com.yourcompany.galspanic",
-    "sha256_cert_fingerprints": ["YOUR_SIGNING_KEY_SHA256_HERE"]
+    "package_name": "com.jjabspanic.app",
+    "sha256_cert_fingerprints": [
+      "B0:77:44:D8:B9:85:9B:4F:A8:83:53:85:FD:ED:7D:7C:48:15:D2:04:8F:B9:87:89:DC:94:DC:1C:CE:5E:99:66"
+    ]
   }
 }]

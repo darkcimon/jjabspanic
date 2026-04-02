@@ -10,7 +10,7 @@
 
 ## Phase 1 — 팩 결제
 
-- [ ] 토스페이먼츠 계정 생성 및 테스트 키 발
+- [x] 토스페이먼츠 계정 생성 및 테스트 키 발급
 - [x] `server/purchaseStore.js` 구현
 - [x] `server/data/purchases.json` 초기화
 - [x] 결제 엔드포인트 추가 (`/payment/pack/success`, `/payment/pack/fail`, `/payment/redeem`)
@@ -18,21 +18,21 @@
 - [x] 결제 완료 후 구매 코드 안내 UI
 - [x] 구매 코드 복구 UI (갤러리 또는 설정 화면)
 - [x] 갤러리 UI에 팩 구매 버튼 추가 (블러 + 구매 유도)
-- [ ] 테스트 결제 1건 성공 확인
+- [x] 테스트 결제 1건 성공 확인
 
 ---
 
 ## Phase 2 — 배포
 
-- [ ] 도메인 구매 + HTTPS 적용
-- [ ] 클라우드 서버 배포 (Railway 또는 Render 추천)
-- [ ] `web/manifest.json` 작성
-- [ ] `web/sw.js` Service Worker 구현
-- [ ] 아이콘 제작 — 192×192, 512×512, maskable
-- [ ] 모바일 Chrome "홈 화면 추가" 동작 확인
-- [ ] Google Play Console 계정 생성 ($25, 1회)
-- [ ] `server/public/.well-known/assetlinks.json` 등록
-- [ ] Bubblewrap으로 TWA APK/AAB 빌드
+- [x] 도메인 구매 + HTTPS 적용 (Railway 서브도메인으로 대체, 커스텀 도메인 불필요)
+- [x] 클라우드 서버 배포 (Railway)
+- [x] `web/manifest.json` 작성
+- [x] `web/sw.js` Service Worker 구현
+- [x] 아이콘 제작 — 192×192, 512×512, maskable
+- [x] 모바일 Chrome "홈 화면 추가" 동작 확인
+- [x] Google Play Console 계정 생성 ($25, 1회)
+- [x] `server/public/.well-known/assetlinks.json` 등록
+- [x] Bubblewrap으로 TWA APK/AAB 빌드
 - [ ] 내부 테스트 트랙 배포 및 QA
 - [ ] 콘텐츠 등급 설정 (성인 콘텐츠 정책 검토)
 - [ ] 정식 출시

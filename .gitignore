@@ -13,6 +13,9 @@ server/data/purchases.json
 *.log
 npm-debug.log*
 
+# TWA Android 빌드 (키스토어 포함 — 별도 백업 필수)
+twa/
+
 # OS
 .DS_Store
 Thumbs.db
