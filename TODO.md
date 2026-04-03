@@ -55,12 +55,12 @@
 
 ## Phase 4 — 구독 (선택, 트래픽 확보 후 검토)
 
-- [ ] 토스페이먼츠 계정 생성 및 테스트 키 발급
-- [ ] `server/purchaseStore.js` 구현
-- [ ] `server/data/purchases.json` 초기화
-- [ ] 결제 엔드포인트 추가 (`/payment/pack/success`, `/payment/pack/fail`, `/payment/redeem`)
-- [ ] `web/js/payment.js` 구현 (결제 요청)
-- [ ] 결제 완료 후 구매 코드 안내 UI
-- [ ] 구매 코드 복구 UI (갤러리 또는 설정 화면)
-- [ ] 갤러리 UI에 팩 구매 버튼 추가 (블러 + 구매 유도)
-- [ ] 테스트 결제 1건 성공 확인
+- [ ] 구독 플랜 설계 (광고 제거, 보상 이미지 횟수 증가 등 혜택 정의)
+- [ ] 토스페이먼츠 정기결제(빌링) 키 발급
+- [ ] `server/subscriptionStore.js` 구현 (구독 상태, 갱신일, 해지 관리)
+- [ ] 정기결제 엔드포인트 추가 (`/payment/sub/start`, `/payment/sub/webhook`, `/payment/sub/cancel`)
+- [ ] `web/js/subscription.js` 구현 (구독 상태 조회 및 결제 요청)
+- [ ] `ad.js`의 `isSubscriber()` 실제 구독 상태와 연동
+- [ ] 구독 관리 UI (현재 플랜 확인, 해지 버튼)
+- [ ] 웹훅으로 갱신/해지 자동 처리
+- [ ] 테스트 정기결제 1건 성공 확인
