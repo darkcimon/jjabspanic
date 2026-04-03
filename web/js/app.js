@@ -1039,7 +1039,7 @@ function getMarketItems() {
     { id:'timeboost',      tier:'normal', cost:3000,  icon:'⏱️', name:'시간 연장',   desc:'+20초 (다음 스테이지 시작 시)' },
     { id:'extraLife',      tier:'normal', cost:3000,  icon:'💊', name:'회복약',      desc:'목숨 +1 (다음 스테이지 시작 시)' },
     { id:'speed',          tier:'normal', cost:3000,  icon:'💨', name:'스피드',      desc:'이동 속도 2배 (1스테이지)' },
-    { id:'splitCharge',    tier:'normal', cost:2000,  icon:'💥', name:'분열 아이템', desc:'게임 중 사용 시 현재 모든 적을 복제 (중첩 구매 가능)' },
+    { id:'splitCharge',    tier:'normal', cost:Math.min(3000 + Math.floor((save.stage||1) / 10) * 1000, 30000),  icon:'💥', name:'분열 아이템', desc:'게임 중 사용 시 현재 모든 적을 복제 (중첩 구매 가능)' },
     // Rare
     { id:'rareLife',       tier:'rare',   cost:12000, icon:'❤️‍🔥', name:'생명의 정수', desc:'매 스테이지 목숨 +1 (목숨 3 이상일 때만 발동, 누적 가능)' },
     { id:'rareClock',      tier:'rare',   cost:10000, icon:'🕰️', name:'시간의 정수', desc:'매 스테이지 +20초 (영구 축적)' },
