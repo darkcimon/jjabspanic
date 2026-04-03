@@ -15,11 +15,11 @@ const MODEL   = 'sd3-medium';
 const GENERAL_BASE = [
     "anime girl, cute, pink twin tails, cherry blossoms, beautiful spring scene",
     "anime girl, silver long hair, night sky, elegant dress, moonlight, stars",
-    "anime girl, toddler, red short hair, sporty outfit, energetic pose, outdoor",
-    "anime girl, elementary school,blonde hair, fantasy warrior, armor, glowing sword",
-    "anime girl, school uniform,blue twin tails, magical girl, sparkles, wand, pastel sky",
+    "anime girl, red short hair, sporty outfit, energetic pose, outdoor",
+    "anime girl, blonde hair, fantasy warrior, armor, glowing sword",
+    "anime girl, blue twin tails, magical girl, sparkles, wand, pastel sky",
     "anime girl, dark purple hair, gothic lolita, black roses, mysterious",
-    "anime girl, toddler,orange ponytail, maid outfit, cafe, warm light, friendly",
+    "anime girl, orange ponytail, maid outfit, cafe, warm light, friendly",
     "anime girl, white hair, shrine maiden, torii gate, autumn leaves",
     "anime girl, super cute, green hair, forest elf, nature, fairy wings",
     "anime girl, black hair, cyberpunk, neon lights, futuristic city",
@@ -27,28 +27,25 @@ const GENERAL_BASE = [
     "anime girl, rainbow gradient hair, celestial being, cosmos, divine aura",
 ];
 
-const SEXY_MODIFIER  = ", sexy pose, alluring expression, mature female, swimsuit or lingerie outfit";
 const QUALITY_SUFFIX = ", white background, full body portrait, high quality, masterpiece, ultra detailed, 2d illustration, clean lineart, soft shading";
 const NEGATIVE       = "nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, ugly, blurry, watermark, extra limbs, deformed";
 
-function buildPrompt(stage, rating) {
-    let base = GENERAL_BASE[(stage - 1) % GENERAL_BASE.length];
-    if (rating === 's') base += SEXY_MODIFIER;
+function buildPrompt(stage) {
+    const base = GENERAL_BASE[(stage - 1) % GENERAL_BASE.length];
     return base + QUALITY_SUFFIX;
 }
 
-function calcSeed(stage, rating) {
-    const offset = rating === 's' ? 999999 : 0;
-    return ((stage * 137) + offset) % 2147483647;
+function calcSeed(stage) {
+    return ((stage * 137)) % 2147483647;
 }
 
 // ── 단일 이미지 생성 ──────────────────────────────────────
-async function generateImage(stage, rating) {
+async function generateImage(stage, rating = 'g') {
     const apiKey = process.env.STABILITY_API_KEY;
     if (!apiKey) throw new Error('STABILITY_API_KEY 환경변수가 설정되지 않았습니다.');
 
-    const prompt = buildPrompt(stage, rating);
-    const seed   = calcSeed(stage, rating);
+    const prompt = buildPrompt(stage);
+    const seed   = calcSeed(stage);
 
     const form = new FormData();
     form.append('prompt',          prompt);
@@ -102,11 +99,9 @@ async function generateBatch(batchIndex, rating) {
     console.log(`[Batch] 배치 ${batchIndex} 완료`);
 }
 
-// ── 두 레인 동시 배치 생성 ───────────────────────────────
+// ── 배치 생성 (일반 레인만) ───────────────────────────────
 async function generateBatchBothRatings(batchIndex) {
-    // General과 Sexy를 순차 생성 (API 비용 절약: 스테이지당 2개)
     await generateBatch(batchIndex, 'g');
-    await generateBatch(batchIndex, 's');
 }
 
 // ── 보상 이미지 생성 (커스텀 키워드) ─────────────────────
@@ -115,13 +110,13 @@ async function generateRewardImage(userId, keywords) {
     if (!apiKey) throw new Error('STABILITY_API_KEY 미설정');
 
     // 금지 키워드 필터
-    const BLOCKED = ['nsfw', 'loli', 'gore', 'violence', 'blood', 'death'];
+    const BLOCKED = ['nsfw', 'loli', 'gore', 'violence', 'blood', 'death', 'sexy', 'nude', 'naked', 'lingerie', 'swimsuit', 'bikini', 'adult', 'mature', 'porn', 'hentai', 'erotic', 'lewd'];
     const lc = keywords.toLowerCase();
     for (const word of BLOCKED) {
         if (lc.includes(word)) throw new Error('허용되지 않는 키워드가 포함되어 있습니다.');
     }
 
-    const prompt = `anime girl, ${keywords}${QUALITY_SUFFIX}, mature female`;
+    const prompt = `anime girl, ${keywords}${QUALITY_SUFFIX}`;
 
     const form = new FormData();
     form.append('prompt',          prompt);

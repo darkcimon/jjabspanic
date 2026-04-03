@@ -117,7 +117,7 @@ html,body{width:100%;height:100%;background:#030008;overflow:hidden;touch-action
   <h2 style="color:#fff;margin-bottom:8px;font-size:1.3rem;">콘텐츠 선택</h2>
   <div class="rc">
     <button class="card" id="b-gen"><span class="ci">🌸</span><span class="ct">일반</span><span class="cd">귀여운 캐릭터</span></button>
-    <button class="card" id="b-sex"><span class="ci">🔞</span><span class="ct">시크릿</span><span class="cd">섹시 캐릭터</span></button>
+    <button class="card" id="b-sex" style="display:none"></button>
   </div>
   <button class="bk" id="b-bk">← 뒤로</button>
 </div>
@@ -869,7 +869,7 @@ canvas.addEventListener('touchmove',e=>{
 document.getElementById('b-start').onclick=()=>show('s-sel');
 document.getElementById('b-bk').onclick=()=>show('s-menu');
 document.getElementById('b-gen').onclick=()=>{save.r='g';startGame(save.stage,'g');};
-document.getElementById('b-sex').onclick=()=>{save.r='s';startGame(save.stage,'s');};
+document.getElementById('b-sex').onclick=null;
 document.getElementById('b-next').onclick=()=>startGame(save.stage,save.r);
 document.getElementById('b-cm').onclick=()=>{appState='menu';show('s-menu');};
 document.getElementById('b-retry').onclick=()=>startGame(stageN,rating);

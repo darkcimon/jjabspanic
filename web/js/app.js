@@ -237,6 +237,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   $('btn-clear-market').style.display = totalScore >= 3000 ? 'block' : 'none';
   const clearTotalEl = $('clear-total-score');
   if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString();
+  _updateAdButton();
   show('stage-clear');
 }
 
@@ -796,7 +797,7 @@ function showRewardScreen(completedStage) {
 }
 
 // ── Button bindings ──────────────────────────────────────────
-$('btn-start').onclick = () => show('content-select');
+$('btn-start').onclick = () => { save.rating = 'g'; startGame(save.stage, 'g'); };
 $('btn-gallery').onclick = () => showGallery();
 $('btn-help').onclick = () => { show('help'); switchHelpTab('how'); };
 $('btn-back-help').onclick = () => show('main');
@@ -812,10 +813,7 @@ document.querySelectorAll('.help-tab').forEach(btn =>
   btn.addEventListener('click', () => switchHelpTab(btn.dataset.tab)));
 
 $('btn-general').onclick = () => { save.rating = 'g'; startGame(save.stage, 'g'); };
-$('btn-sexy').onclick    = () => {
-  save.rating = 's';
-  startGame(save.stage, 's');
-};
+$('btn-sexy').onclick    = null;
 $('btn-back-main').onclick    = () => show('main');
 $('btn-back-main2').onclick   = () => show('main');
 $('btn-back-gallery').onclick = () => show('main');
@@ -922,8 +920,6 @@ $('btn-ad-life').onclick = () => {
 };
 
 function _updateAdButton() {
-  const btn = $('btn-ad-life');
-  if (!btn) return;
   const pts = getAdRewardPoints() + _getAdPointsBonus();
   const views = getTotalAdViews();
   const nextTiers = [5, 15, 30, 60, 100];
@@ -932,7 +928,13 @@ function _updateAdButton() {
   const bonus = _getAdPointsBonus();
   const bonusSuffix = bonus > 0 ? ` +${bonus.toLocaleString()}(스테이지/장비보너스)` : '';
   const suffix = idx >= 0 ? ` (${views}회↑${nextTiers[idx]}회→${nextPts[idx].toLocaleString()}pt)` : ' (MAX)';
-  btn.textContent = `📺 광고 보고 ${pts.toLocaleString()}pt${suffix}${bonusSuffix}`;
+  const label = `📺 광고 보고 ${pts.toLocaleString()}pt${suffix}${bonusSuffix}`;
+
+  const mainBtn = $('btn-ad-life');
+  if (mainBtn) mainBtn.textContent = label;
+
+  const clearBtn = $('btn-ad-points-clear');
+  if (clearBtn) clearBtn.textContent = label;
 }
 
 function _showPointsGrantedToast(pts) {
@@ -1259,7 +1261,7 @@ chkContinuous.addEventListener('change', () => {
 async function boot() {
   show('boot');
   save = Storage.load();
-  save.sexyUnlocked = true; // always unlocked
+  save.rating = 'g'; // general only
   if (!save.heldItems) save.heldItems = [];
   if (!save.persistentBonus) save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0 };
   chkContinuous.checked = !!save.continuousMove;
