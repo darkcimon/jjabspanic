@@ -238,6 +238,21 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   const clearTotalEl = $('clear-total-score');
   if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString();
   _updateAdButton();
+
+  // 10스테이지 배수일 때만 배너 광고 표시
+  const clearAdfitWrap = $('clear-adfit-wrap');
+  if (clearAdfitWrap) {
+    if (stage % 10 === 0) {
+      clearAdfitWrap.style.display = '';
+      const ins = clearAdfitWrap.querySelector('.kakao_ad_area');
+      if (ins && window.kakao && window.kakao.adfit) {
+        try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
+      }
+    } else {
+      clearAdfitWrap.style.display = 'none';
+    }
+  }
+
   show('stage-clear');
 }
 
