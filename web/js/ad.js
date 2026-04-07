@@ -1,8 +1,6 @@
 // ── Ad module — Kakao AdFit 연동 ──────────────────────────────
-// AdFit 단가 ID는 승인 후 아래 상수에 입력한다.
-// 심사 전에는 오버레이 카운트다운만 동작한다(시뮬레이션 모드).
 
-const ADFIT_UNIT_ID = 'DAN-jCMCzlH7QPngK1Tm'; // ← AdFit 승인 후 교체
+const ADFIT_UNIT_ID = 'DAN-X2fnjKjDjY3Njq8A';
 
 const AD_STORE_KEY = 'galspanic_ad';
 
@@ -84,14 +82,12 @@ function _incrementAdCount(rewardType) {
 
 // ── AdFit 배너 렌더링 ─────────────────────────────────────────
 function _renderAdFitBanner(container) {
-  if (ADFIT_UNIT_ID.startsWith('DAN-XXX')) return false; // 미설정 시 스킵
-
   container.innerHTML = '';
   const ins = document.createElement('ins');
   ins.className = 'kakao_ad_area';
   ins.setAttribute('data-ad-unit', ADFIT_UNIT_ID);
-  ins.setAttribute('data-ad-width', '320');
-  ins.setAttribute('data-ad-height', '100');
+  ins.setAttribute('data-ad-width', '300');
+  ins.setAttribute('data-ad-height', '250');
   container.appendChild(ins);
 
   if (window.kakao && window.kakao.adfit) {

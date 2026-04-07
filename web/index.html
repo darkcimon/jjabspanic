@@ -9,8 +9,10 @@
   <link rel="manifest" href="/manifest.json">
   <!-- 토스페이먼츠 SDK (async: 결제 SDK 로딩 실패가 게임 진입을 막지 않도록) -->
   <script src="https://js.tosspayments.com/v1/payment" async></script>
+  <!-- Google AdSense 소유권 확인 / 광고 SDK -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5609288406160464" crossorigin="anonymous"></script>
   <!-- Kakao AdFit SDK (async: 광고 로딩 실패가 게임 진입을 막지 않도록) -->
-  <script src="https://t1.daumcdn.net/kas/static/ba.min.js" async></script>
+  <script src="//t1.daumcdn.net/kas/static/ba.min.js" async></script>
 </head>
 <body>
 
@@ -47,12 +49,12 @@
   </div>
 </div>
 
-<!-- ── Content Select (hidden, kept for DOM compatibility) ── -->
+<!-- ── Content Select (removed — general only) ── -->
 <div id="screen-content-select" class="screen">
   <div class="center-content">
-    <button id="btn-general" class="btn-primary" style="display:none">일반</button>
+    <button id="btn-general" style="display:none"></button>
     <button id="btn-sexy"    style="display:none"></button>
-    <button id="btn-back-main" class="btn-back">← 뒤로</button>
+    <button id="btn-back-main" style="display:none"></button>
   </div>
 </div>
 
@@ -123,8 +125,8 @@
       <div class="stat-item bonus-row clear-total-row"><span>💰 누적 점수</span><b id="clear-total-score">0</b>pt</div>
     </div>
     <div class="adfit-wrap" id="clear-adfit-wrap" style="display:none;">
-      <ins class="kakao_ad_area"
-        data-ad-unit="DAN-jCMCzlH7QPngK1Tm"
+      <ins class="kakao_ad_area" style="display:none;"
+        data-ad-unit="DAN-X2fnjKjDjY3Njq8A"
         data-ad-width="300"
         data-ad-height="250"></ins>
     </div>
@@ -151,7 +153,7 @@
     </div>
     <div class="adfit-wrap">
       <ins class="kakao_ad_area" style="display:none;"
-        data-ad-unit="DAN-jCMCzlH7QPngK1Tm"
+        data-ad-unit="DAN-X2fnjKjDjY3Njq8A"
         data-ad-width="300"
         data-ad-height="250"></ins>
     </div>

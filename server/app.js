@@ -46,15 +46,12 @@ app.get('/api/config', (req, res) => {
 // ── 이미지 URL 조회 ───────────────────────────────────────
 app.get('/api/image', (req, res) => {
     const stage  = parseInt(req.query.stage, 10);
-    const rating = req.query.rating === 's' ? 's' : 'g';
-
     if (!stage || stage < 1 || stage > store.MAX_STAGE)
         return res.status(400).json({ error: '잘못된 스테이지 번호' });
 
     const batchIndex = store.getBatchIndex(stage);
     const batch      = store.getBatchStatus(batchIndex);
-    const url        = store.getImageUrl(stage, rating)
-                    || (rating === 's' ? store.getImageUrl(stage, 'g') : null); // fallback to g
+    const url        = store.getImageUrl(stage, 'g');
 
     if (url) {
         return res.json({ status: 'ready', url });

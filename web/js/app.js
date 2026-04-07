@@ -690,7 +690,6 @@ function updateMainStats() {
   _updateAdButton();
 }
 
-function updateSexyButton() { /* unlocked */ }
 
 // ── 팩 구매 버튼 핸들러 ──────────────────────────────────────
 async function onPackBuy(packId) {
@@ -1282,8 +1281,6 @@ async function boot() {
   chkContinuous.checked = !!save.continuousMove;
   updateMoveDesc();
   updateMainStats();
-  updateSexyButton();
-
   // Warm up batch 0
   api.getBatchStatus(0).catch(() => {});
 
