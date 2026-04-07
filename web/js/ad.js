@@ -4,8 +4,8 @@ const ADFIT_UNIT_ID = 'DAN-X2fnjKjDjY3Njq8A';
 
 const AD_STORE_KEY = 'galspanic_ad';
 
-// 일일 한도: continue 3회, points 10회, preview 5회
-export const AD_DAILY_LIMIT = { continue: 3, points: 10, preview: 5 };
+// 일일 한도: continue 무제한, points 10회, preview 5회
+export const AD_DAILY_LIMIT = { continue: Infinity, points: 10, preview: 5 };
 
 // ── 구독 여부 (추후 IAPManager 연동 시 교체) ─────────────────
 function isSubscriber() {

@@ -9,7 +9,6 @@ const path = require('path');
 
 const DB_PATH  = path.join(__dirname, 'data', 'images.json');
 const IMG_DIR  = process.env.IMAGE_DIR || path.join(__dirname, 'public', 'images');
-const BASE_URL = process.env.IMAGE_BASE_URL || 'http://localhost:3000/images';
 
 const BATCH_SIZE  = 30;
 const MAX_STAGE   = 300;
@@ -98,7 +97,7 @@ function getImageUrl(stage, rating) {
     const db = load();
     const filename = db.images[getImageKey(stage, rating)];
     if (!filename) return null;
-    return `${BASE_URL}/${filename}`;
+    return `/images/${filename}`;
 }
 
 function getImageFilePath(stage, rating) {
@@ -120,7 +119,7 @@ function setRewardImageUrl(userId, filename) {
 function getRewardImageUrl(userId) {
     const db = load();
     if (!db.rewards || !db.rewards[userId]) return null;
-    return `${BASE_URL}/rewards/${db.rewards[userId]}`;
+    return `/images/rewards/${db.rewards[userId]}`;
 }
 
 module.exports = {
@@ -140,5 +139,4 @@ module.exports = {
     setRewardImageUrl,
     getRewardImageUrl,
     IMG_DIR,
-    BASE_URL,
 };

@@ -180,6 +180,8 @@ async function startGame(stage, rating, resumeState = null) {
     // 이어하기: extraLives만 재적용
     // (extraTime은 resumeState.timeLeft에 이미 포함, speed는 resumeState.heldItems에 포함)
     if (pb && pb.extraLives > 0 && !pb.rareLifeSuspended) game.lives += pb.extraLives;
+    // 시간 소진 게임오버 후 이어하기 시 최소 30초 보장
+    if (game.timeLeft <= 0) game.timeLeft = 30;
   }
   game._persistentSpeedLevel = pb?.speedLevel || 0;
   game.setWeaponLevels(pb?.gunLevel || 0, pb?.swordLevel || 0, pb?.bulletLevel || 0);
