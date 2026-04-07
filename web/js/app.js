@@ -198,7 +198,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
                          rareLifeLost = false }) {
   // 화면 전환 플래그를 가장 먼저 설정 — 이후 코드 예외에 영향받지 않도록
   if (stage % 10 === 0)  pendingCollectionStage = stage;
-  if (stage % 100 === 0 || stage === 1) pendingRewardStage = stage; // TODO: remove stage===1 test condition
+  if (stage % 100 === 0) pendingRewardStage = stage;
 
   if (stage > save.bestStage) save.bestStage = stage;
   save.stage = stage + 1;
