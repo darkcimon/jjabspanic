@@ -21,6 +21,7 @@ html, body {
   font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
   overflow: hidden;
   touch-action: none;
+  user-select: none; -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -196,6 +197,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   display: flex; flex-direction: row; align-items: center;
   background: rgba(13,7,32,0.95);
   border-top: 1px solid rgba(200,80,192,0.2);
+  user-select: none; -webkit-user-select: none;
 }
 #dpad-spacer { flex: 1; display: flex; align-items: center; justify-content: center; }
 #continuous-move-label {
@@ -270,7 +272,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   display: flex; flex-direction: column;
   align-items: center; gap: 12px; padding: 20px 24px;
   width: min(400px, 95%);
-  margin: auto;
+  margin: 0 auto;
 }
 
 .result-title { font-size: clamp(1.6rem, 6vw, 2.4rem); font-weight: 900; }
