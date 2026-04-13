@@ -21,11 +21,21 @@ export class API {
     return r.json();
   }
 
-  async rewardGenerate(userId, keywords) {
+  async rewardToken(userId, stage) {
+    const r = await fetch(`${this.base}/api/reward/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, stage }),
+    });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'API error'); }
+    return r.json(); // { token }
+  }
+
+  async rewardGenerate(userId, keywords, token) {
     const r = await fetch(`${this.base}/api/reward/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, keywords }),
+      body: JSON.stringify({ userId, keywords, token }),
     });
     if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'API error'); }
     return r.json();

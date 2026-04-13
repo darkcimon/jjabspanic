@@ -1,10 +1,16 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.jjabspanic.app",
-    "sha256_cert_fingerprints": [
-      "B0:77:44:D8:B9:85:9B:4F:A8:83:53:85:FD:ED:7D:7C:48:15:D2:04:8F:B9:87:89:DC:94:DC:1C:CE:5E:99:66"
-    ]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.jjabspanic.app",
+      "sha256_cert_fingerprints": [
+        "B0:77:44:D8:B9:85:9B:4F:A8:83:53:85:FD:ED:7D:7C:48:15:D2:04:8F:B9:87:89:DC:94:DC:1C:CE:5E:99:66",
+        "BC:AB:DF:82:E0:7A:38:E5:ED:7C:3E:45:68:6E:02:5E:29:F2:7B:61:B0:B7:11:E2:94:4B:86:6D:BC:A9:86:59"
+      ]
+    }
   }
-}]
+]

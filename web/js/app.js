@@ -86,6 +86,7 @@ function updateHeldItemsBar(heldItems) {
   const bar = $('held-items-bar');
   bar.innerHTML = '';
   for (const item of heldItems) {
+    if (item.type === 'speed') continue;
     bar.appendChild(makeHeldItemButton(item, game));
   }
 }
@@ -744,7 +745,7 @@ function proceedAfterReward() {
   }
 }
 
-function showRewardScreen(completedStage) {
+async function showRewardScreen(completedStage) {
   $('reward-badge').textContent = `🎉 ${completedStage}스테이지 달성!`;
 
   // 입력 영역 초기화
@@ -761,6 +762,16 @@ function showRewardScreen(completedStage) {
 
   show('reward');
 
+  // 스테이지 클리어 직후 일회용 토큰 발급
+  const rewardUserId = `${save.userId}_stage${completedStage}`;
+  let rewardToken = null;
+  try {
+    const tokenData = await api.rewardToken(rewardUserId, completedStage);
+    rewardToken = tokenData.token;
+  } catch (e) {
+    console.warn('[Reward] 토큰 발급 실패:', e.message);
+  }
+
   textarea.addEventListener('input', () => {
     $('reward-char-now').textContent = textarea.value.length;
   }, { once: false });
@@ -774,8 +785,7 @@ function showRewardScreen(completedStage) {
     $('btn-reward-skip').classList.add('hidden');
 
     try {
-      const rewardUserId = `${save.userId}_stage${completedStage}`;
-      const data = await api.rewardGenerate(rewardUserId, keywords);
+      const data = await api.rewardGenerate(rewardUserId, keywords, rewardToken);
       $('reward-loading').classList.add('hidden');
       if (data.imageUrl) {
         $('reward-result-img').src = data.imageUrl;
@@ -1070,7 +1080,8 @@ function getMarketItems() {
   if (!hasSword) items.push(
     { id:'sword',          tier:'legend', cost:30000, icon:'⚔️', name:'칼',          desc:'Z키로 적 처치 (목숨 2 이상)' }
   );
-  if (hasSword) items.push(
+  const swordCount = save.heldItems.find(h => h.type === 'sword')?.count || 0;
+  if (hasSword && swordCount < 2) items.push(
     { id:'swordUpgrade',   tier:'legend', cost:30000, icon:'🗡️', name:'신검',        desc:'칼 강화: 사정거리·공격력 증가' }
   );
   if (!hasGun) items.push(
