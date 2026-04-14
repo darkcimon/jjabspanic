@@ -82,16 +82,22 @@ function _incrementAdCount(rewardType) {
 
 // ── AdFit 배너 렌더링 ─────────────────────────────────────────
 function _renderAdFitBanner(container) {
-  container.innerHTML = '';
+  // placeholder 유지, 그 위에 ins 추가 (승인 전엔 ins가 숨겨진 채로 남음)
   const ins = document.createElement('ins');
   ins.className = 'kakao_ad_area';
+  ins.style.display = 'none';
   ins.setAttribute('data-ad-unit', ADFIT_UNIT_ID);
   ins.setAttribute('data-ad-width', '300');
   ins.setAttribute('data-ad-height', '250');
   container.appendChild(ins);
 
   if (window.kakao && window.kakao.adfit) {
-    try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
+    try {
+      window.kakao.adfit.fill(ins);
+      // 광고가 채워지면 placeholder 숨김
+      const placeholder = container.querySelector('.ad-placeholder');
+      if (placeholder) placeholder.style.display = 'none';
+    } catch { /* ignore */ }
   }
   return true;
 }

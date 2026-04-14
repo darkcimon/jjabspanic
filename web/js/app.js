@@ -242,17 +242,13 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString();
   _updateAdButton();
 
-  // 10스테이지 배수일 때만 배너 광고 표시
+  // 스테이지 클리어마다 배너 광고 표시
   const clearAdfitWrap = $('clear-adfit-wrap');
   if (clearAdfitWrap) {
-    if (stage % 10 === 0) {
-      clearAdfitWrap.style.display = '';
-      const ins = clearAdfitWrap.querySelector('.kakao_ad_area');
-      if (ins && window.kakao && window.kakao.adfit) {
-        try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
-      }
-    } else {
-      clearAdfitWrap.style.display = 'none';
+    clearAdfitWrap.style.display = '';
+    const ins = clearAdfitWrap.querySelector('.kakao_ad_area');
+    if (ins && window.kakao && window.kakao.adfit) {
+      try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
     }
   }
 
@@ -290,6 +286,13 @@ function onGameOver({ stage, gridSnapshot, heldItems, fillPct, timeLeft, score }
       }
     }
     warningEl.style.display = (totalScore > 0 || weaponParts.length > 0) ? '' : 'none';
+  }
+  const overAdWrap = document.querySelector('#screen-game-over .adfit-wrap');
+  if (overAdWrap) {
+    const ins = overAdWrap.querySelector('.kakao_ad_area');
+    if (ins && window.kakao && window.kakao.adfit) {
+      try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
+    }
   }
   show('game-over');
 }
