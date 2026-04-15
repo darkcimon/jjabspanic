@@ -82,14 +82,17 @@ function _incrementAdCount(rewardType) {
 
 // ── AdFit 배너 렌더링 ─────────────────────────────────────────
 function _renderAdFitBanner(container) {
-  // placeholder 유지, 그 위에 ins 추가 (승인 전엔 ins가 숨겨진 채로 남음)
-  const ins = document.createElement('ins');
-  ins.className = 'kakao_ad_area';
-  ins.style.display = 'none';
-  ins.setAttribute('data-ad-unit', ADFIT_UNIT_ID);
-  ins.setAttribute('data-ad-width', '300');
-  ins.setAttribute('data-ad-height', '250');
-  container.appendChild(ins);
+  // 정적 HTML에 이미 삽입된 ins를 재사용 (동적 생성 X)
+  let ins = container.querySelector('.kakao_ad_area');
+  if (!ins) {
+    ins = document.createElement('ins');
+    ins.className = 'kakao_ad_area';
+    ins.style.display = 'none';
+    ins.setAttribute('data-ad-unit', ADFIT_UNIT_ID);
+    ins.setAttribute('data-ad-width', '300');
+    ins.setAttribute('data-ad-height', '250');
+    container.appendChild(ins);
+  }
 
   if (window.kakao && window.kakao.adfit) {
     try {
