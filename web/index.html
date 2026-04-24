@@ -11,8 +11,7 @@
   <script src="https://js.tosspayments.com/v1/payment" async></script>
   <!-- Google AdSense 소유권 확인 / 광고 SDK -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5609288406160464" crossorigin="anonymous"></script>
-  <!-- Kakao AdFit SDK (async: 광고 로딩 실패가 게임 진입을 막지 않도록) -->
-  <script src="//t1.daumcdn.net/kas/static/ba.min.js" async></script>
+
 </head>
 <body>
 
@@ -130,12 +129,7 @@
       <div class="stat-item bonus-row" id="clear-allclear-row" style="display:none"><span>💥 전멸 보너스</span><b id="clear-allclear-bonus">+0</b></div>
       <div class="stat-item bonus-row clear-total-row"><span>💰 누적 점수</span><b id="clear-total-score">0</b>pt</div>
     </div>
-    <div class="adfit-wrap" id="clear-adfit-wrap" style="display:none;">
-      <ins class="kakao_ad_area" style="display:none;"
-        data-ad-unit="DAN-X2fnjKjDjY3Njq8A"
-        data-ad-width="300"
-        data-ad-height="250"></ins>
-    </div>
+    <div class="adfit-wrap" id="clear-adfit-wrap" style="display:none;"></div>
     <div class="result-btns">
       <button id="btn-next-stage"  class="btn-primary">다음 스테이지 →</button>
       <button id="btn-clear-market" class="btn-market" style="display:none">🛒 마켓 (3,000pt~)</button>
@@ -157,12 +151,7 @@
       <span id="over-weapon-warning"></span>
       📺 이어하기로 포인트와 장비를 지키세요!
     </div>
-    <div class="adfit-wrap">
-      <ins class="kakao_ad_area" style="display:none;"
-        data-ad-unit="DAN-X2fnjKjDjY3Njq8A"
-        data-ad-width="300"
-        data-ad-height="250"></ins>
-    </div>
+    <div class="adfit-wrap" id="over-adfit-wrap"></div>
     <div class="result-btns">
       <button id="btn-ad-continue" class="btn-ad">📺 광고 보고 이어하기</button>
       <button id="btn-retry"       class="btn-primary">다시 시도</button>
@@ -647,6 +636,17 @@
   </div>
 </div>
 
+<!-- ── 알림 모달 ──────────────────────────────────────── -->
+<div id="modal-alert" class="confirm-modal">
+  <div class="confirm-modal-box">
+    <div class="confirm-modal-icon">ℹ️</div>
+    <p class="confirm-modal-desc" id="modal-alert-msg"></p>
+    <div class="confirm-modal-btns">
+      <button id="btn-alert-ok" class="btn-primary">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Ad Overlay ─────────────────────────────────────── -->
 <!-- ── 초기화 확인 모달 ───────────────────────────────── -->
 <div id="modal-reset" class="confirm-modal">
@@ -669,10 +669,6 @@
   <div id="ad-overlay-box">
     <p id="ad-overlay-label" class="ad-overlay-label">광고 시청 후 보상 지급</p>
     <div id="ad-overlay-ad-area">
-      <ins class="kakao_ad_area" style="display:none;"
-        data-ad-unit="DAN-X2fnjKjDjY3Njq8A"
-        data-ad-width="300"
-        data-ad-height="250"></ins>
       <div class="ad-placeholder">
         <span class="ad-placeholder-icon">📺</span>
         <span class="ad-placeholder-text">광고 영역</span>

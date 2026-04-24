@@ -14,11 +14,40 @@ import {
 // ── Screen management ────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const screens = ['boot','main','content-select','game','stage-clear','game-over','gallery','collection-pick','reward','help','market'];
+
+const ADFIT_UNIT  = 'DAN-X2fnjKjDjY3Njq8A';
+const ADFIT_W     = '300';
+const ADFIT_H     = '250';
+
+// 유닛 ID는 페이지 내 유일해야 하므로, 메인 화면 ins만 정적으로 두고
+// 다른 화면은 노출 시 ins를 동적 생성 → 화면 이탈 시 제거
+function _injectAdFit(containerId) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const ins = document.createElement('ins');
+  ins.className = 'kakao_ad_area';
+  ins.style.display = 'none';
+  ins.dataset.adUnit   = ADFIT_UNIT;
+  ins.dataset.adWidth  = ADFIT_W;
+  ins.dataset.adHeight = ADFIT_H;
+  wrap.appendChild(ins);
+  if (window.kakao?.adfit) {
+    try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
+  }
+}
+function _removeAdFit(containerId) {
+  const wrap = $(containerId);
+  if (wrap) wrap.innerHTML = '';
+}
+
 function show(name) {
   screens.forEach(s => $(`screen-${s}`).classList.toggle('active', s === name));
-  // 화면 전환 후 해당 화면의 AdFit ins 태그를 명시적으로 fill
-  // (SDK가 비가시 요소는 초기화 시 스킵하므로 화면 노출 시점에 재요청 필요)
+  // 화면 이탈 시 동적 광고 제거 (유닛 중복 방지)
+  if (name !== 'stage-clear') _removeAdFit('clear-adfit-wrap');
+  if (name !== 'game-over')   _removeAdFit('over-adfit-wrap');
   if (name === 'main') {
+    // 메인 화면 ins는 정적으로 존재 — 화면이 visible 된 후 fill
     setTimeout(() => {
       const ins = document.querySelector('#screen-main .kakao_ad_area');
       if (ins && window.kakao?.adfit) {
@@ -252,15 +281,10 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString();
   _updateAdButton();
 
-  // 스테이지 클리어마다 배너 광고 표시
+  // 스테이지 클리어마다 배너 광고 동적 삽입
   const clearAdfitWrap = $('clear-adfit-wrap');
-  if (clearAdfitWrap) {
-    clearAdfitWrap.style.display = '';
-    const ins = clearAdfitWrap.querySelector('.kakao_ad_area');
-    if (ins && window.kakao && window.kakao.adfit) {
-      try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
-    }
-  }
+  if (clearAdfitWrap) clearAdfitWrap.style.display = '';
+  _injectAdFit('clear-adfit-wrap');
 
   show('stage-clear');
 }
@@ -297,13 +321,7 @@ function onGameOver({ stage, gridSnapshot, heldItems, fillPct, timeLeft, score }
     }
     warningEl.style.display = (totalScore > 0 || weaponParts.length > 0) ? '' : 'none';
   }
-  const overAdWrap = document.querySelector('#screen-game-over .adfit-wrap');
-  if (overAdWrap) {
-    const ins = overAdWrap.querySelector('.kakao_ad_area');
-    if (ins && window.kakao && window.kakao.adfit) {
-      try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
-    }
-  }
+  _injectAdFit('over-adfit-wrap');
   show('game-over');
 }
 
