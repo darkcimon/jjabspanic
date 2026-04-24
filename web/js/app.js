@@ -16,6 +16,16 @@ const $ = id => document.getElementById(id);
 const screens = ['boot','main','content-select','game','stage-clear','game-over','gallery','collection-pick','reward','help','market'];
 function show(name) {
   screens.forEach(s => $(`screen-${s}`).classList.toggle('active', s === name));
+  // 화면 전환 후 해당 화면의 AdFit ins 태그를 명시적으로 fill
+  // (SDK가 비가시 요소는 초기화 시 스킵하므로 화면 노출 시점에 재요청 필요)
+  if (name === 'main') {
+    setTimeout(() => {
+      const ins = document.querySelector('#screen-main .kakao_ad_area');
+      if (ins && window.kakao?.adfit) {
+        try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
+      }
+    }, 100);
+  }
 }
 
 // ── State ────────────────────────────────────────────────────
@@ -706,7 +716,7 @@ async function onPackBuy(packId) {
     // requestPackPurchase는 토스 리다이렉트로 끝남 — 이후 코드는 실행되지 않음
   } catch (err) {
     console.error('[Pack] 결제 오류:', err);
-    alert('결제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    showAlert(err.message || '결제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
   }
 }
 
@@ -733,7 +743,7 @@ async function onPackBuy(packId) {
     // 갤러리 화면을 열어 구매 결과 바로 확인
     setTimeout(() => showGallery(), 100);
   } else if (result === 'fail') {
-    alert('결제가 취소되었거나 실패했습니다.');
+    showAlert('결제가 취소되었거나 실패했습니다.');
   }
 })();
 
@@ -762,6 +772,7 @@ async function showRewardScreen(completedStage) {
   $('btn-reward-continue').classList.add('hidden');
   $('btn-reward-skip').classList.remove('hidden');
   $('btn-reward-generate').disabled = false;
+  $('btn-reward-generate').textContent = '✨ 이미지 생성';
 
   show('reward');
 
@@ -773,6 +784,8 @@ async function showRewardScreen(completedStage) {
     rewardToken = tokenData.token;
   } catch (e) {
     console.warn('[Reward] 토큰 발급 실패:', e.message);
+    $('btn-reward-generate').disabled = true;
+    $('btn-reward-generate').textContent = '⚠️ 이미지 생성 불가';
   }
 
   textarea.addEventListener('input', () => {
@@ -780,6 +793,7 @@ async function showRewardScreen(completedStage) {
   }, { once: false });
 
   $('btn-reward-generate').onclick = async () => {
+    if (!rewardToken) return;
     const keywords = textarea.value.trim();
     if (!keywords) { textarea.focus(); return; }
 
@@ -817,7 +831,7 @@ async function showRewardScreen(completedStage) {
       $('reward-input-area').classList.remove('hidden');
       $('btn-reward-skip').classList.remove('hidden');
       $('btn-reward-generate').disabled = false;
-      alert('이미지 생성에 실패했습니다. 다시 시도해 주세요.\n' + err.message);
+      showAlert('이미지 생성에 실패했습니다. 다시 시도해 주세요.');
     }
   };
 
@@ -1055,6 +1069,16 @@ $('btn-reset-confirm').onclick = () => {
   updateMainStats();
   show('main');
 };
+
+// ── Alert modal ──────────────────────────────────────────────
+function showAlert(msg) {
+  $('modal-alert-msg').textContent = msg;
+  $('modal-alert').classList.add('active');
+}
+$('btn-alert-ok').onclick = () => $('modal-alert').classList.remove('active');
+$('modal-alert').addEventListener('pointerdown', e => {
+  if (e.target === $('modal-alert')) $('modal-alert').classList.remove('active');
+});
 
 // ── Market ───────────────────────────────────────────────────
 function getMarketItems() {
