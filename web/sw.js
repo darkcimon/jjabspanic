@@ -7,8 +7,8 @@
  *   - activate 시               → 구버전 캐시 삭제
  */
 
-const CACHE_NAME   = 'galspanic-v2';
-const API_CACHE    = 'galspanic-api-v2';
+const CACHE_NAME   = 'galspanic-v3';
+const API_CACHE    = 'galspanic-api-v3';
 
 // install 시 pre-cache할 정적 자산 목록
 const STATIC_ASSETS = [
@@ -53,6 +53,9 @@ self.addEventListener('activate', event => {
 // ── fetch ─────────────────────────────────────────────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
+
+  // 외부 도메인 요청은 서비스 워커가 개입하지 않음
+  if (url.origin !== self.location.origin) return;
 
   // /api/* → Network First
   if (url.pathname.startsWith('/api/')) {
