@@ -20,7 +20,6 @@ html, body {
   color: var(--text);
   font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
   overflow: hidden;
-  touch-action: none;
   user-select: none; -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -68,7 +67,13 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 /* ── Main menu ──────────────────────────────────────────── */
 #screen-main {
   background: radial-gradient(ellipse at top, #2d1b4e 0%, var(--bg) 70%);
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#screen-main .center-content {
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .stat-row {
@@ -139,6 +144,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 #screen-game {
   background: #000;
   display: none; flex-direction: column;
+  touch-action: none;
 }
 #screen-game.active { display: flex; }
 

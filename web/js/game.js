@@ -1362,11 +1362,12 @@ export class Game extends EventTarget {
     ctx.save(); ctx.translate(sx,sy);
 
     // 1. Background
-    if (this.charImage) {
-      const iw=this.charImage.naturalWidth,ih=this.charImage.naturalHeight,iar=iw/ih,car=w/h;
+    const cimg=this.charImage;
+    if (cimg && cimg.naturalWidth>0 && cimg.naturalHeight>0) {
+      const iw=cimg.naturalWidth,ih=cimg.naturalHeight,iar=iw/ih,car=w/h;
       let sx2=0,sy2=0,sw=iw,sh=ih;
       if (iar>car) { sw=ih*car; sx2=(iw-sw)/2; } else { sh=iw/car; sy2=(ih-sh)/2; }
-      ctx.drawImage(this.charImage,sx2,sy2,sw,sh,0,0,w,h);
+      ctx.drawImage(cimg,sx2,sy2,sw,sh,0,0,w,h);
     } else { this._drawPlaceholder(ctx,w,h); }
 
     // 2. Fog
