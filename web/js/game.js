@@ -675,7 +675,7 @@ export class Game extends EventTarget {
     this.speedActive=false; this.heldItems=[];
     this.swordActive=false; this.swordTimer=0; this.swordDx=1; this.swordDy=0; this.swordReach=2;
     this.lightningMode=false; this.activeWeapon=null;
-    this._lastDx=1; this._lastDy=0;
+    this._lastDx=0; this._lastDy=1;
     this._itemSchedule=[]; this._itemScheduleIdx=0; this._itemContinuousTimer=20;
     this._monsterSpeed=1;
   }
