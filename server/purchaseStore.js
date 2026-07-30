@@ -86,4 +86,15 @@ function getPurchaseByCode(redeemCode) {
     return db[key] || null;
 }
 
-module.exports = { init, createPurchase, getPurchaseByCode };
+// ── orderId로 구매 조회 ───────────────────────────────────────
+/**
+ * orderId로 이미 처리된 구매가 있는지 조회한다 (결제 콜백 중복 요청 대비).
+ * @param {string} orderId
+ * @returns {{ packId: string, orderId: string, redeemCode: string } | null}
+ */
+function getPurchaseByOrderId(orderId) {
+    const db = load();
+    return Object.values(db).find(p => p.orderId === orderId) || null;
+}
+
+module.exports = { init, createPurchase, getPurchaseByCode, getPurchaseByOrderId };

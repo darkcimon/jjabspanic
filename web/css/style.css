@@ -329,7 +329,6 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 .clear-total-row b { color: #ffe566; font-size: 1rem; }
 
 .result-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-.adfit-wrap { width: 300px; min-height: 0; margin: 8px auto; }
 
 /* ── Help Screen ─────────────────────────────────────────── */
 #screen-help {
@@ -563,6 +562,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 /* 팩 구매 버튼 */
 .btn-pack {
   flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
   background: linear-gradient(135deg, var(--accent2), var(--accent));
   color: #fff; font-size: 0.75rem; font-weight: 700;
   padding: 8px 12px; border-radius: 8px;
@@ -575,6 +575,25 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   background: linear-gradient(135deg, #f7971e, #c850c0);
   font-size: 0.78rem;
 }
+
+.btn-pack-price {
+  display: flex; align-items: baseline; gap: 5px;
+}
+.price-original {
+  font-size: 0.7em; font-weight: 400; opacity: 0.65;
+  text-decoration: line-through;
+}
+.price-discount {
+  font-size: 1.05em; font-weight: 900;
+}
+.discount-badge {
+  font-size: 0.68em; font-weight: 800;
+  color: #ffe566;
+  background: rgba(0,0,0,0.22);
+  padding: 1px 5px; border-radius: 6px;
+}
+.discount-badge::before { content: '-'; }
+.discount-badge::after  { content: ' 할인'; }
 
 /* 갤러리 카드 — 잠금 상태 */
 .gallery-card-locked {
@@ -678,17 +697,6 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 }
 .collection-banner .pack-banner-title { color: #f9d423; }
 
-/* ── Ad button ───────────────────────────────────────── */
-.btn-ad {
-  background: linear-gradient(135deg, #1a472a, #2d6a4f);
-  color: #d8f3dc;
-  font-size: 0.95rem; font-weight: 700;
-  padding: 12px 24px; border-radius: var(--radius);
-  border: 1px solid rgba(84, 239, 153, 0.35);
-  transition: transform 0.1s, opacity 0.1s;
-}
-.btn-ad:active { transform: scale(0.97); opacity: 0.9; }
-
 /* ── 확인 모달 ────────────────────────────────────────── */
 .confirm-modal {
   position: fixed; inset: 0; z-index: 900;
@@ -766,65 +774,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 }
 .btn-copy-code:hover { background: rgba(255,255,255,0.2); }
 
-/* ── Ad overlay ──────────────────────────────────────── */
-#ad-overlay {
-  position: fixed; inset: 0; z-index: 800;
-  background: rgba(5, 2, 18, 0.93);
-  display: none;
-  align-items: center; justify-content: center;
-  flex-direction: column;
-}
-#ad-overlay.active { display: flex; }
-
-#ad-overlay-box {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 18px;
-  width: min(400px, 92%);
-  background: var(--surface);
-  border: 1px solid rgba(200, 80, 192, 0.4);
-  border-radius: 18px;
-  padding: 28px 24px;
-}
-
-.ad-overlay-label {
-  font-size: 0.9rem; font-weight: 700;
-  color: var(--muted); text-align: center;
-}
-
-#ad-overlay-ad-area {
-  width: 100%;
-  min-height: 160px;
-  background: var(--card);
-  border-radius: var(--radius);
-  border: 1px dashed rgba(200, 80, 192, 0.25);
-  display: flex; align-items: center; justify-content: center;
-}
-
-.ad-placeholder {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 8px;
-  color: var(--muted);
-}
-.ad-placeholder-icon { font-size: 2.4rem; }
-.ad-placeholder-text { font-size: 0.78rem; letter-spacing: 1px; }
-
-#ad-overlay-countdown-wrap {
-  display: flex; align-items: baseline; gap: 4px;
-}
-.ad-countdown {
-  font-size: 2.8rem; font-weight: 900;
-  color: var(--accent);
-  min-width: 3ch; text-align: right;
-  transition: color 0.4s;
-}
-.ad-countdown-unit { font-size: 1rem; color: var(--muted); }
-
-.ad-overlay-msg {
-  font-size: 0.82rem; color: var(--muted);
-  text-align: center;
-}
-
-/* ── Ad toast ────────────────────────────────────────── */
+/* ── Toast ─────────────────────────────────────────────── */
 .ad-toast {
   position: fixed; bottom: 80px; left: 50%;
   transform: translateX(-50%) translateY(16px);
@@ -934,12 +884,6 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 }
 .market-buy-btn:disabled {
   opacity: 0.35; cursor: not-allowed; pointer-events: none;
-}
-
-/* ── Preview fade-in animation ───────────────────────── */
-@keyframes ad-preview-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
 }
 
 /* ── Main footer ─────────────────────────────────────── */

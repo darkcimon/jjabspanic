@@ -7,8 +7,8 @@
  *   - activate 시               → 구버전 캐시 삭제
  */
 
-const CACHE_NAME   = 'galspanic-v4';
-const API_CACHE    = 'galspanic-api-v4';
+const CACHE_NAME   = 'galspanic-v5';
+const API_CACHE    = 'galspanic-api-v5';
 
 // install 시 pre-cache할 정적 자산 목록
 const STATIC_ASSETS = [
@@ -21,7 +21,6 @@ const STATIC_ASSETS = [
   '/js/game.js',
   '/js/storage.js',
   '/js/payment.js',
-  '/js/ad.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

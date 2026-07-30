@@ -589,10 +589,10 @@ class Player {
 
 // ── Kill score helper ─────────────────────────────────────────
 function _killScore(m) {
-  if (m instanceof BossMonster)     return 1000;
-  if (m instanceof MidBossMonster)  return 700;
-  if (m instanceof ShooterMonster)  return 300;
-  return 100;
+  if (m instanceof BossMonster)     return 2000;
+  if (m instanceof MidBossMonster)  return 1400;
+  if (m instanceof ShooterMonster)  return 600;
+  return 200;
 }
 
 // ── LaserBeam ─────────────────────────────────────────────────
@@ -1318,8 +1318,8 @@ export class Game extends EventTarget {
   }
 
   _onStageClear() {
-    // 스테이지 비례 보너스 배율 (10스테이지마다 +30%)
-    const bonusMult=1+Math.floor(this.stage/10)*0.3;
+    // 스테이지 비례 보너스 배율 (10스테이지마다 +30%) — 포인트 획득 난이도 완화를 위해 2배 지급
+    const bonusMult=(1+Math.floor(this.stage/10)*0.3)*2;
     const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult);
     const _pos=((this.stage-1)%10)+1, _cyc=Math.floor((this.stage-1)/10);
     const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult);

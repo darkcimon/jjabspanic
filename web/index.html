@@ -10,9 +10,6 @@
   <link rel="manifest" href="/manifest.json">
   <!-- 토스페이먼츠 SDK (async: 결제 SDK 로딩 실패가 게임 진입을 막지 않도록) -->
   <script src="https://js.tosspayments.com/v1/payment" async></script>
-  <!-- Google AdSense 소유권 확인 / 광고 SDK -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5609288406160464" crossorigin="anonymous"></script>
-
 </head>
 <body>
 
@@ -40,14 +37,7 @@
       <button id="btn-main-market" class="btn-market">🛒 마켓</button>
       <button id="btn-gallery" class="btn-secondary">갤러리</button>
       <button id="btn-help"    class="btn-secondary">도움말 / 조작법</button>
-      <button id="btn-ad-life" class="btn-ad">📺 광고 보고 3,000pt</button>
       <button id="btn-reset"   class="btn-danger">초기화</button>
-    </div>
-    <div class="adfit-wrap">
-      <ins class="kakao_ad_area" style="display:none;"
-        data-ad-unit="DAN-X2fnjKjDjY3Njq8A"
-        data-ad-width="300"
-        data-ad-height="250"></ins>
     </div>
     <footer class="main-footer">
       <a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>
@@ -130,12 +120,9 @@
       <div class="stat-item bonus-row" id="clear-allclear-row" style="display:none"><span>💥 전멸 보너스</span><b id="clear-allclear-bonus">+0</b></div>
       <div class="stat-item bonus-row clear-total-row"><span>💰 누적 점수</span><b id="clear-total-score">0</b>pt</div>
     </div>
-    <div class="adfit-wrap" id="clear-adfit-wrap" style="display:none;"></div>
     <div class="result-btns">
       <button id="btn-next-stage"  class="btn-primary">다음 스테이지 →</button>
       <button id="btn-clear-market" class="btn-market" style="display:none">🛒 마켓 (3,000pt~)</button>
-      <button id="btn-ad-points-clear" class="btn-ad">📺 광고 보고 포인트 획득</button>
-      <button id="btn-ad-preview"  class="btn-ad">📺 다음 캐릭터 미리보기</button>
       <button id="btn-back-menu"   class="btn-secondary">메인 메뉴</button>
     </div>
   </div>
@@ -147,14 +134,9 @@
     <h2 class="result-title fail">💀 GAME OVER</h2>
     <p class="result-sub">스테이지 <span id="over-stage">1</span></p>
     <div id="over-points-warning" class="over-points-warning">
-      💸 이어하기를 하지 않으면<br>
-      보유한 <strong><span id="over-points-amount">0</span>pt</strong>가 사라지고,<br>
       <span id="over-weapon-warning"></span>
-      📺 이어하기로 포인트와 장비를 지키세요!
     </div>
-    <div class="adfit-wrap" id="over-adfit-wrap"></div>
     <div class="result-btns">
-      <button id="btn-ad-continue" class="btn-ad">📺 광고 보고 이어하기</button>
       <button id="btn-retry"       class="btn-primary">다시 시도</button>
       <button id="btn-back-menu2"  class="btn-secondary">메인 메뉴</button>
     </div>
@@ -256,16 +238,15 @@
 
       <div class="help-card tips-highlight">
         <div class="help-card-title">🏆 핵심 공략 요약</div>
-        <p>광고로 포인트를 모아 <b>총을 먼저 구입</b>하고, 장비를 업그레이드하면 훨씬 수월하게 진행할 수 있습니다!</p>
+        <p>스테이지를 클리어해 포인트를 모아 <b>총을 먼저 구입</b>하고, 장비를 업그레이드하면 훨씬 수월하게 진행할 수 있습니다!</p>
       </div>
 
       <div class="help-card">
-        <div class="help-card-title">📺 Step 1 — 포인트 모으기</div>
+        <div class="help-card-title">💰 Step 1 — 포인트 모으기</div>
         <ul class="help-list">
-          <li>메인 화면에서 <b>📺 광고 보기</b>를 탭하면 즉시 포인트 획득</li>
-          <li>스테이지가 높아질수록, 장비 업그레이드가 많을수록 <b>광고 포인트가 증가</b></li>
-          <li>스테이지 클리어 화면에서 <b>다음 스테이지 미리보기 광고</b>를 보면 추가 포인트 지급</li>
-          <li>게임오버 시 <b>광고 이어하기</b>를 선택하면 얻은 포인트가 그대로 유지됩니다</li>
+          <li>스테이지 클리어마다 <b>스테이지·시간·점령률 보너스</b>로 포인트 획득</li>
+          <li>스테이지가 높아질수록 <b>보너스 배율이 증가</b>해 포인트도 함께 늘어납니다</li>
+          <li>살아있는 적을 모두 없애고 클리어하면 <b>전멸 보너스</b>가 추가 지급됩니다</li>
         </ul>
       </div>
 
@@ -308,7 +289,6 @@
           <li>💥 <b>분열 아이템</b>은 적이 적을 때 사용해야 유리합니다 (많아지면 역효과)</li>
           <li>⬆️ <b>적 업그레이드 아이템</b>(빨간 화살표)은 절대 밟지 마세요!</li>
           <li>모래시계(⏳)를 획득하면 느려진 틈에 대량 점령!</li>
-          <li>게임오버 시 <b>광고 이어하기</b>를 꼭 활용하세요 — 포인트와 진행 상황이 유지됩니다</li>
         </ul>
       </div>
 
@@ -325,14 +305,14 @@
       <div class="help-card">
         <div class="help-card-title">📈 스테이지별 보너스 배율</div>
         <ul class="help-list">
-          <li>스테이지 보너스 · 시간 보너스 · 점령률 보너스 모두 <b>10스테이지마다 +30%씩 증가</b></li>
-          <li>스테이지 10: 1.3배 / 스테이지 20: 1.6배 / 스테이지 50: 2.5배 / 스테이지 100: 4.0배</li>
+          <li>스테이지 보너스 · 시간 보너스 · 점령률 보너스 모두 <b>10스테이지마다 +30%씩 증가</b> (기본 2배 지급 적용)</li>
+          <li>스테이지 10: 2.6배 / 스테이지 20: 3.2배 / 스테이지 50: 5.0배 / 스테이지 100: 8.0배</li>
           <li>고스테이지에서 남은 시간이 많을수록 시간 보너스가 폭발적으로 커집니다</li>
           <li>점령률 75% 초과분은 1%당 추가 pt, 94% 초과분은 더 높은 배율로 계산됩니다</li>
         </ul>
       </div>
 
-      <div class="help-note">💰 광고 → 포인트 → 총 구입 → 업그레이드 → 전멸 후 점령 → 고스테이지 도전!</div>
+      <div class="help-note">💰 스테이지 클리어 → 포인트 → 총 구입 → 업그레이드 → 전멸 후 점령 → 고스테이지 도전!</div>
     </div>
 
     <!-- 아이템 -->
@@ -555,7 +535,10 @@
       <span class="pack-banner-title">팩 A — 스테이지 1~100</span>
       <span id="pack-a-status" class="pack-banner-status"></span>
     </div>
-    <button id="btn-pack-a" class="btn-pack">전체 즉시 해금 — 3,900원</button>
+    <button id="btn-pack-a" class="btn-pack">
+      전체 즉시 해금
+      <span class="btn-pack-price"><s class="price-original">3,900원</s><b class="price-discount">700원</b><span class="discount-badge">80%</span></span>
+    </button>
   </div>
 
   <!-- 팩 A 갤러리 그리드 -->
@@ -567,7 +550,10 @@
       <span class="pack-banner-title">팩 B — 스테이지 101~200</span>
       <span id="pack-b-status" class="pack-banner-status"></span>
     </div>
-    <button id="btn-pack-b" class="btn-pack">전체 즉시 해금 — 3,900원</button>
+    <button id="btn-pack-b" class="btn-pack">
+      전체 즉시 해금
+      <span class="btn-pack-price"><s class="price-original">3,900원</s><b class="price-discount">700원</b><span class="discount-badge">80%</span></span>
+    </button>
   </div>
 
   <!-- 팩 B 갤러리 그리드 -->
@@ -579,7 +565,10 @@
       <span class="pack-banner-title">팩 C — 스테이지 201~300</span>
       <span id="pack-c-status" class="pack-banner-status"></span>
     </div>
-    <button id="btn-pack-c" class="btn-pack">전체 즉시 해금 — 3,900원</button>
+    <button id="btn-pack-c" class="btn-pack">
+      전체 즉시 해금
+      <span class="btn-pack-price"><s class="price-original">3,900원</s><b class="price-discount">700원</b><span class="discount-badge">80%</span></span>
+    </button>
   </div>
 
   <!-- 팩 C 갤러리 그리드 -->
@@ -591,7 +580,10 @@
       <span class="pack-banner-title">완전판 팩 — 전 스테이지</span>
       <span class="pack-banner-desc">팩 A+B+C 통합 할인</span>
     </div>
-    <button id="btn-pack-all" class="btn-pack btn-pack-all">전 스테이지 즉시 해금 — 6,900원</button>
+    <button id="btn-pack-all" class="btn-pack btn-pack-all">
+      전 스테이지 즉시 해금
+      <span class="btn-pack-price"><s class="price-original">6,900원</s><b class="price-discount">1,300원</b><span class="discount-badge">80%</span></span>
+    </button>
   </div>
 
   <!-- 구매 코드 복구 섹션 -->
@@ -666,23 +658,6 @@
   </div>
 </div>
 
-<div id="ad-overlay">
-  <div id="ad-overlay-box">
-    <p id="ad-overlay-label" class="ad-overlay-label">광고 시청 후 보상 지급</p>
-    <div id="ad-overlay-ad-area">
-      <div class="ad-placeholder">
-        <span class="ad-placeholder-icon">📺</span>
-        <span class="ad-placeholder-text">광고 영역</span>
-      </div>
-    </div>
-    <div id="ad-overlay-countdown-wrap">
-      <span id="ad-overlay-countdown" class="ad-countdown">15</span>
-      <span class="ad-countdown-unit">초</span>
-    </div>
-    <p id="ad-overlay-msg" class="ad-overlay-msg">광고를 끝까지 시청해 주세요</p>
-  </div>
-</div>
-
 <!-- ── Market ──────────────────────────────────────────── -->
 <div id="screen-market" class="screen">
   <div class="market-header">
@@ -711,6 +686,5 @@
     });
   }
 </script>
-<script type="text/javascript" src="//t1.daumcdn.net/kas/static/ba.min.js" async></script>
 </body>
 </html>

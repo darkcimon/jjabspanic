@@ -1,7 +1,6 @@
 import { Game }    from './game.js';
 import { Storage } from './storage.js';
 import { API }     from './api.js';
-import { showRewardedAd, getAdRewardPoints, getTotalAdViews } from './ad.js';
 import {
   getPurchases, hasPack, stageUnlockedByPack, invalidatePurchaseCache,
   requestPackPurchase, redeemPurchase, saveLocalPurchase, PACK_DEFS,
@@ -15,46 +14,8 @@ import {
 const $ = id => document.getElementById(id);
 const screens = ['boot','main','content-select','game','stage-clear','game-over','gallery','collection-pick','reward','help','market'];
 
-const ADFIT_UNIT  = 'DAN-X2fnjKjDjY3Njq8A';
-const ADFIT_W     = '300';
-const ADFIT_H     = '250';
-
-// 유닛 ID는 페이지 내 유일해야 하므로, 메인 화면 ins만 정적으로 두고
-// 다른 화면은 노출 시 ins를 동적 생성 → 화면 이탈 시 제거
-function _injectAdFit(containerId) {
-  const wrap = $(containerId);
-  if (!wrap) return;
-  wrap.innerHTML = '';
-  const ins = document.createElement('ins');
-  ins.className = 'kakao_ad_area';
-  ins.style.display = 'none';
-  ins.dataset.adUnit   = ADFIT_UNIT;
-  ins.dataset.adWidth  = ADFIT_W;
-  ins.dataset.adHeight = ADFIT_H;
-  wrap.appendChild(ins);
-  if (window.kakao?.adfit) {
-    try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
-  }
-}
-function _removeAdFit(containerId) {
-  const wrap = $(containerId);
-  if (wrap) wrap.innerHTML = '';
-}
-
 function show(name) {
   screens.forEach(s => $(`screen-${s}`).classList.toggle('active', s === name));
-  // 화면 이탈 시 동적 광고 제거 (유닛 중복 방지)
-  if (name !== 'stage-clear') _removeAdFit('clear-adfit-wrap');
-  if (name !== 'game-over')   _removeAdFit('over-adfit-wrap');
-  if (name === 'main') {
-    // 메인 화면 ins는 정적으로 존재 — 화면이 visible 된 후 fill
-    setTimeout(() => {
-      const ins = document.querySelector('#screen-main .kakao_ad_area');
-      if (ins && window.kakao?.adfit) {
-        try { window.kakao.adfit.fill(ins); } catch { /* ignore */ }
-      }
-    }, 100);
-  }
 }
 
 // ── State ────────────────────────────────────────────────────
@@ -62,7 +23,6 @@ let save = Storage.load();
 let game = null;
 let api  = new API('');
 let pendingCollectionStage = 0; // 10스테이지 완료 후 소장품 선택 대기 중인 스테이지 번호
-let pendingResume = null;       // 광고 이어하기용 게임 상태 스냅샷
 let pendingRewardStage = 0;     // 100/200/300 특전 이미지 대기 중인 스테이지
 let marketReturnScreen = 'main'; // 마켓 진입 전 화면
 
@@ -279,18 +239,11 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   $('btn-clear-market').style.display = totalScore >= 3000 ? 'block' : 'none';
   const clearTotalEl = $('clear-total-score');
   if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString();
-  _updateAdButton();
-
-  // 스테이지 클리어마다 배너 광고 동적 삽입
-  const clearAdfitWrap = $('clear-adfit-wrap');
-  if (clearAdfitWrap) clearAdfitWrap.style.display = '';
-  _injectAdFit('clear-adfit-wrap');
 
   show('stage-clear');
 }
 
-function onGameOver({ stage, gridSnapshot, heldItems, fillPct, timeLeft, score }) {
-  pendingResume = { gridSnapshot, heldItems, fillPct, timeLeft, score };
+function onGameOver({ stage }) {
   save.heldItems = [];
   // 게임오버 패널티: 영구 무기 업그레이드 -3
   if (save.persistentBonus) {
@@ -301,10 +254,8 @@ function onGameOver({ stage, gridSnapshot, heldItems, fillPct, timeLeft, score }
   }
   Storage.save(save);
   $('over-stage').textContent = stage;
-  const totalScore = save.totalScore || 0;
   const warningEl = $('over-points-warning');
   if (warningEl) {
-    $('over-points-amount').textContent = totalScore.toLocaleString();
     // 보유 장비 현황 문구 생성
     const pb = save.persistentBonus || {};
     const weaponParts = [];
@@ -313,15 +264,12 @@ function onGameOver({ stage, gridSnapshot, heldItems, fillPct, timeLeft, score }
     if ((pb.swordLevel || 0) > 0)  weaponParts.push(`⚔️ 칼 ${pb.swordLevel}단`);
     const weaponEl = $('over-weapon-warning');
     if (weaponEl) {
-      if (weaponParts.length > 0) {
-        weaponEl.innerHTML = `보유 중인 <strong>${weaponParts.join(' · ')}</strong> 장비도 잃게 됩니다 ㅠ<br>`;
-      } else {
-        weaponEl.textContent = '';
-      }
+      weaponEl.innerHTML = weaponParts.length > 0
+        ? `보유 중인 <strong>${weaponParts.join(' · ')}</strong> 장비 단계가 3단계 낮아졌습니다 ㅠ`
+        : '';
     }
-    warningEl.style.display = (totalScore > 0 || weaponParts.length > 0) ? '' : 'none';
+    warningEl.style.display = weaponParts.length > 0 ? '' : 'none';
   }
-  _injectAdFit('over-adfit-wrap');
   show('game-over');
 }
 
@@ -721,7 +669,6 @@ function updateMainStats() {
   $('current-stage').textContent = save.stage;
   const tsEl = $('main-total-score');
   if (tsEl) tsEl.textContent = (save.totalScore || 0).toLocaleString();
-  _updateAdButton();
 }
 
 
@@ -730,7 +677,7 @@ async function onPackBuy(packId) {
   const def = PACK_DEFS[packId];
   if (!def) return;
   try {
-    await requestPackPurchase(packId, def.amount);
+    await requestPackPurchase(packId);
     // requestPackPurchase는 토스 리다이렉트로 끝남 — 이후 코드는 실행되지 않음
   } catch (err) {
     console.error('[Pack] 결제 오류:', err);
@@ -930,143 +877,9 @@ $('btn-next-stage').onclick = () => {
   }
 };
 $('btn-collection-skip').onclick = () => startGame(save.stage, save.rating);
-$('btn-retry').onclick      = () => { pendingResume = null; save.heldItems = []; startGame(save.stage, save.rating); };
+$('btn-retry').onclick      = () => { save.heldItems = []; startGame(save.stage, save.rating); };
 $('btn-back-menu').onclick  = () => show('main');
 $('btn-back-menu2').onclick = () => show('main');
-
-// ── Ad button bindings ───────────────────────────────────────
-
-// 게임 오버 → 광고 보고 이어하기 (점령 타일·아이템 복원, 목숨 1개)
-$('btn-ad-continue').onclick = () => {
-  showRewardedAd('continue', () => {
-    const resume = pendingResume;
-    pendingResume = null;
-    // 이어하기 시 실패 구간에서 얻은 점수를 즉시 totalScore에 확정 저장
-    // → 이후 또 게임오버 후 재시도해도 이 점수는 유지됨
-    if (resume && resume.score > 0) {
-      save.totalScore = (save.totalScore || 0) + resume.score;
-      Storage.save(save);
-      resume.score = 0; // totalScore에 반영했으므로 게임 내 스코어는 0부터 재시작
-    }
-    startGame(save.stage, save.rating, resume);
-  });
-};
-
-// 스테이지·장비 수준에 따른 광고 포인트 추가 보너스
-function _getAdPointsBonus() {
-  const stage = save.stage || 1;
-  const pb = save.persistentBonus || {};
-  const weaponTotal = (pb.gunLevel||0) + (pb.swordLevel||0) + (pb.bulletLevel||0);
-  const stageBonus  = Math.floor(stage / 10) * 500;
-  const weaponBonus = Math.floor(weaponTotal / 10) * 300;
-  return stageBonus + weaponBonus;
-}
-
-// 미리보기 광고 시 지급 포인트 (스테이지 비례)
-function _getPreviewPoints() {
-  const stage = save.stage || 1;
-  return Math.min(10000, 1000 + Math.floor(stage / 10) * 500);
-}
-
-// 메인 화면 → 광고 보고 포인트 (시청 횟수 + 스테이지·장비 보너스)
-$('btn-ad-life').onclick = () => {
-  const pts = getAdRewardPoints() + _getAdPointsBonus();
-  showRewardedAd('points', () => {
-    save.totalScore = (save.totalScore || 0) + pts;
-    Storage.save(save);
-    updateMainStats();
-    _updateAdButton();
-    _showPointsGrantedToast(pts);
-  }, `${pts.toLocaleString()}pt`);
-};
-
-function _updateAdButton() {
-  const pts = getAdRewardPoints() + _getAdPointsBonus();
-  const views = getTotalAdViews();
-  const nextTiers = [5, 15, 30, 60, 100];
-  const nextPts =  [5000, 8000, 12000, 18000, 30000];
-  const idx = nextTiers.findIndex(t => views < t);
-  const bonus = _getAdPointsBonus();
-  const bonusSuffix = bonus > 0 ? ` +${bonus.toLocaleString()}(스테이지/장비보너스)` : '';
-  const suffix = idx >= 0 ? ` (${views}회↑${nextTiers[idx]}회→${nextPts[idx].toLocaleString()}pt)` : ' (MAX)';
-  const label = `📺 광고 보고 ${pts.toLocaleString()}pt${suffix}${bonusSuffix}`;
-
-  const mainBtn = $('btn-ad-life');
-  if (mainBtn) mainBtn.textContent = label;
-
-  const clearBtn = $('btn-ad-points-clear');
-  if (clearBtn) clearBtn.textContent = label;
-}
-
-function _showPointsGrantedToast(pts) {
-  const toast = document.createElement('div');
-  toast.className = 'ad-toast visible';
-  toast.textContent = `${pts.toLocaleString()}pt가 지급되었습니다!`;
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.remove('visible');
-    setTimeout(() => toast.remove(), 400);
-  }, 2800);
-}
-
-// 스테이지 클리어 화면 → 광고 보고 포인트 획득 (메인 화면과 동일 로직)
-$('btn-ad-points-clear').onclick = () => {
-  const pts = getAdRewardPoints() + _getAdPointsBonus();
-  showRewardedAd('points', () => {
-    save.totalScore = (save.totalScore || 0) + pts;
-    Storage.save(save);
-    updateMainStats();
-    const clearTotalEl = $('clear-total-score');
-    if (clearTotalEl) clearTotalEl.textContent = (save.totalScore || 0).toLocaleString();
-    _updateAdButton();
-    _showPointsGrantedToast(pts);
-  }, `${pts.toLocaleString()}pt`);
-};
-
-// 스테이지 클리어 → 광고 보고 다음 스테이지 캐릭터 미리보기 + 포인트 지급
-$('btn-ad-preview').onclick = () => {
-  const previewPtsLabel = _getPreviewPoints();
-  showRewardedAd('preview', () => {
-    const nextStage = save.stage; // save.stage는 이미 다음 스테이지로 업데이트된 상태
-    const previewImg = document.createElement('img');
-    previewImg.alt   = `Stage ${nextStage} 미리보기`;
-    previewImg.style.cssText =
-      'position:fixed;inset:0;width:100%;height:100%;object-fit:contain;' +
-      'background:rgba(0,0,0,0.88);z-index:900;cursor:pointer;' +
-      'animation:ad-preview-fade-in 0.3s ease';
-    previewImg.title = '탭하면 닫힘';
-
-    // API로 다음 스테이지 이미지 로드
-    api.getImage(nextStage, save.rating).then(data => {
-      if (data.status === 'ready' && data.url) {
-        previewImg.src = data.url;
-        document.body.appendChild(previewImg);
-        // 5초 후 자동 제거
-        const tid = setTimeout(() => previewImg.remove(), 5000);
-        previewImg.onclick = () => { clearTimeout(tid); previewImg.remove(); };
-        // 미리보기 성공 시 포인트 지급
-        const previewPts = _getPreviewPoints();
-        save.totalScore = (save.totalScore || 0) + previewPts;
-        Storage.save(save);
-        updateMainStats();
-        _showPointsGrantedToast(previewPts);
-      } else {
-        _showPreviewUnavailableToast();
-      }
-    }).catch(() => _showPreviewUnavailableToast());
-  }, `미리보기 +${previewPtsLabel.toLocaleString()}pt`);
-};
-
-function _showPreviewUnavailableToast() {
-  const toast = document.createElement('div');
-  toast.className = 'ad-toast visible';
-  toast.textContent = '미리보기 이미지를 아직 준비 중입니다.';
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.remove('visible');
-    setTimeout(() => toast.remove(), 400);
-  }, 2800);
-}
 
 $('btn-reset').onclick = () => {
   $('modal-reset').classList.add('active');
@@ -1110,7 +923,7 @@ function getMarketItems() {
     { id:'timeboost',      tier:'normal', cost:3000,  icon:'⏱️', name:'시간 연장',   desc:'+20초 (다음 스테이지 시작 시)' },
     { id:'extraLife',      tier:'normal', cost:3000,  icon:'💊', name:'회복약',      desc:'목숨 +1 (다음 스테이지 시작 시)' },
     { id:'speed',          tier:'normal', cost:3000,  icon:'💨', name:'스피드',      desc:'이동 속도 2배 (1스테이지)' },
-    { id:'splitCharge',    tier:'normal', cost:Math.min(3000 + Math.floor((save.stage||1) / 10) * 1000, 30000),  icon:'💥', name:'분열 아이템', desc:'게임 중 사용 시 현재 모든 적을 복제 (중첩 구매 가능)' },
+    { id:'splitCharge',    tier:'normal', cost:4000,  icon:'💥', name:'분열 아이템', desc:'게임 중 사용 시 현재 모든 적을 복제 (중첩 구매 가능)' },
     // Rare
     { id:'rareLife',       tier:'rare',   cost:12000, icon:'❤️‍🔥', name:'생명의 정수', desc:'매 스테이지 목숨 +1 (목숨 3 이상일 때만 발동, 누적 가능)' },
     { id:'rareClock',      tier:'rare',   cost:10000, icon:'🕰️', name:'시간의 정수', desc:'매 스테이지 +20초 (영구 축적)' },

@@ -8,16 +8,19 @@
  *   POST /payment/cancel       구독 해지
  *
  * 엔드포인트 — 콘텐츠 팩:
- *   GET  /payment/pack/success  팩 일회성 결제 성공 콜백 → 구매 내역 저장 + 복구 코드 발급
+ *   POST /payment/pack/init     결제 주문 생성 (서버가 금액을 산정 — 클라이언트 위변조 방지)
+ *   GET  /payment/pack/success  팩 일회성 결제 성공 콜백 → 토스 결제승인(confirm) 검증 후 구매 내역 저장 + 복구 코드 발급
  *   GET  /payment/pack/fail     팩 결제 실패 콜백
  *   GET  /payment/purchases     현재 유저의 팩 구매 내역 조회
  *   POST /payment/redeem        구매 복구 코드로 팩 조회
  *
  * 참고: https://docs.tosspayments.com/reference/using-api/api-keys
+ *       https://docs.tosspayments.com/reference#결제-승인
  */
 
 const express        = require('express');
 const axios          = require('axios');
+const crypto         = require('crypto');
 const userStore      = require('./userStore');
 const purchaseStore  = require('./purchaseStore');
 const { requireAuth } = require('./auth');
@@ -29,7 +32,22 @@ const SUBSCRIPTION_AMOUNT = 3900;   // 월 구독 금액 (원)
 const SUBSCRIPTION_DAYS   = 30;     // 구독 유효 기간 (일)
 
 // ── 콘텐츠 팩 정의 ────────────────────────────────────────────
-const VALID_PACKS = new Set(['pack_a', 'pack_b', 'pack_c', 'pack_all']);
+// 금액은 서버가 산정하는 값이 유일한 기준이다 (클라이언트가 보낸 amount는 절대 신뢰하지 않음).
+// 80% 할인가 (정가 3,900원/6,900원 → 100원 단위 절삭)
+const PACK_AMOUNTS = { pack_a: 700, pack_b: 700, pack_c: 700, pack_all: 1300 };
+const VALID_PACKS  = new Set(Object.keys(PACK_AMOUNTS));
+
+// ── 결제 대기 주문 (orderId → { packId, amount, createdAt }) ──
+// 짧은 TTL만 필요하므로 인메모리로 충분 (rewardTokens와 동일 패턴)
+const PENDING_ORDER_TTL_MS = 30 * 60 * 1000; // 30분
+const pendingOrders = new Map();
+
+function _cleanupPendingOrders() {
+    const now = Date.now();
+    for (const [orderId, o] of pendingOrders) {
+        if (now - o.createdAt > PENDING_ORDER_TTL_MS) pendingOrders.delete(orderId);
+    }
+}
 
 // 토스페이먼츠 API Base64 인증 헤더 생성
 function tossAuthHeader() {
@@ -211,22 +229,77 @@ function extractUserId(req) {
     return null;
 }
 
+// ── POST /payment/pack/init ─────────────────────────────────────
+/**
+ * 팩 결제 주문을 생성한다. 금액은 서버가 산정하며, 클라이언트는 이 값을
+ * 그대로 토스페이먼츠 결제창에 전달해야 한다 (클라이언트 위변조 방지).
+ * body: { packId }
+ * response: { orderId, amount }
+ */
+router.post('/pack/init', (req, res) => {
+    const { packId } = req.body || {};
+
+    if (!packId || !VALID_PACKS.has(packId)) {
+        return res.status(400).json({ error: '잘못된 팩 ID입니다.' });
+    }
+
+    _cleanupPendingOrders();
+
+    const amount  = PACK_AMOUNTS[packId];
+    const orderId = `pack_${packId}_${crypto.randomUUID()}`;
+    pendingOrders.set(orderId, { packId, amount, createdAt: Date.now() });
+
+    res.json({ orderId, amount });
+});
+
 // ── GET /payment/pack/success ──────────────────────────────────
 /**
  * 토스페이먼츠 팩 결제 성공 후 리다이렉트 콜백.
- * 쿼리: packId, orderId, paymentKey, amount
+ * 쿼리: orderId, paymentKey (packId/amount는 서버가 /pack/init에서 저장해둔 값을 사용 — 쿼리값은 신뢰하지 않음)
  *
- * TODO (상용): paymentKey + amount를 토스 서버 API로 검증 후 저장할 것
+ * 결제 승인(confirm) API로 paymentKey가 실제로 이 orderId/금액에 대해 승인되었는지
+ * 토스 서버와 직접 검증한 뒤에만 팩을 지급한다.
  */
 router.get('/pack/success', async (req, res) => {
-    const { packId, orderId, paymentKey, amount } = req.query;
+    const { orderId, paymentKey } = req.query;
 
-    if (!packId || !VALID_PACKS.has(packId)) {
-        return res.status(400).send('잘못된 팩 ID입니다.');
+    if (!orderId || !paymentKey) {
+        return res.status(400).send('잘못된 결제 콜백입니다.');
     }
-    if (!orderId) {
-        return res.status(400).send('주문 ID가 없습니다.');
+
+    const pending = pendingOrders.get(orderId);
+
+    if (!pending) {
+        // 새로고침/뒤로가기 등으로 이미 처리된 주문이 재요청된 경우 — 기존 구매 내역으로 안내
+        const existing = purchaseStore.getPurchaseByOrderId(orderId);
+        if (existing) {
+            return res.redirect(`/?purchase=success&packId=${encodeURIComponent(existing.packId)}&redeemCode=${encodeURIComponent(existing.redeemCode)}`);
+        }
+        return res.status(400).send('유효하지 않거나 만료된 주문입니다.');
     }
+
+    const { packId, amount } = pending;
+
+    try {
+        // 결제 승인 — 토스 서버에 paymentKey+orderId+amount가 실제로 일치하는지 확인
+        const confirmRes = await axios.post(
+            'https://api.tosspayments.com/v1/payments/confirm',
+            { paymentKey, orderId, amount },
+            { headers: { Authorization: tossAuthHeader(), 'Content-Type': 'application/json' } }
+        );
+
+        const paid = confirmRes.data;
+        if (paid.orderId !== orderId || paid.totalAmount !== amount || paid.status !== 'DONE') {
+            throw new Error('결제 승인 응답이 주문 내용과 일치하지 않습니다.');
+        }
+    } catch (err) {
+        pendingOrders.delete(orderId);
+        const errData = err.response?.data;
+        console.error('[Payment/Pack] 결제 승인 실패:', errData || err.message);
+        return res.redirect(`/?purchase=fail&packId=${encodeURIComponent(packId)}`);
+    }
+
+    pendingOrders.delete(orderId);
 
     const userId = extractUserId(req);
 
@@ -260,7 +333,7 @@ router.get('/pack/success', async (req, res) => {
     }
 
     // 구매 코드 생성 (기기 분실 시 복구용)
-    const redeemCode = purchaseStore.createPurchase(packId, orderId || `direct_${Date.now()}`);
+    const redeemCode = purchaseStore.createPurchase(packId, orderId);
 
     // 갤러리 화면으로 리다이렉트 (구매 완료 플래그 + 복구 코드 포함)
     res.redirect(`/?purchase=success&packId=${encodeURIComponent(packId)}&redeemCode=${encodeURIComponent(redeemCode)}`);

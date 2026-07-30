@@ -9,25 +9,31 @@
  */
 
 // ── 상품 정의 ────────────────────────────────────────────────
+// amount: 실제 결제 금액 (80% 할인 적용, 100원 단위 절삭)
+// originalAmount: 할인 전 정가 (UI에 취소선으로 표시)
 export const PACK_DEFS = {
   pack_a: {
     name:    '갤러리 팩 A',
-    amount:  3900,
+    originalAmount: 3900,
+    amount:  700,
     stages:  [1, 100],    // 해금 범위 (포함)
   },
   pack_b: {
     name:    '갤러리 팩 B',
-    amount:  3900,
+    originalAmount: 3900,
+    amount:  700,
     stages:  [101, 200],
   },
   pack_c: {
     name:    '갤러리 팩 C',
-    amount:  3900,
+    originalAmount: 3900,
+    amount:  700,
     stages:  [201, 300],
   },
   pack_all: {
     name:    '완전판 팩',
-    amount:  6900,
+    originalAmount: 6900,
+    amount:  1300,
     stages:  [1, 300],
   },
 };
@@ -150,32 +156,44 @@ export function stageUnlockedByPack(stageNum, purchases) {
 // ── 토스페이먼츠 결제 요청 ────────────────────────────────────
 /**
  * 팩 일회성 결제를 요청한다.
+ * 결제 금액은 서버(/payment/pack/init)가 산정한다 — 클라이언트가 임의 금액을
+ * 넘길 수 없도록, 여기서 계산한 값을 결제창에 넘기지 않는다.
  * 성공 시 토스페이먼츠가 successUrl로 리다이렉트하고,
- * 서버가 구매 내역을 저장한 뒤 갤러리 화면으로 다시 리다이렉트한다.
+ * 서버가 결제 승인(confirm)까지 검증한 뒤 구매 내역을 저장하고
+ * 갤러리 화면으로 다시 리다이렉트한다.
  *
  * @param {string} packId   'pack_a' | 'pack_b' | 'pack_c' | 'pack_all'
- * @param {number} [amount] 생략 시 PACK_DEFS에서 자동 결정
  */
-export async function requestPackPurchase(packId, amount) {
+export async function requestPackPurchase(packId) {
   const def = PACK_DEFS[packId];
   if (!def) throw new Error(`알 수 없는 팩: ${packId}`);
 
   // 클라이언트 키: 서버 주입 우선, 없으면 /api/config에서 조회
   const clientKey = await resolveClientKey();
   if (!clientKey) {
-    alert('결제 설정을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
-    return;
+    throw new Error('결제 설정을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 
+  // 주문 생성: 서버가 orderId와 금액을 산정해 반환
+  const initRes = await fetch('/payment/pack/init', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ packId }),
+  });
+  if (!initRes.ok) {
+    const err = await initRes.json().catch(() => ({}));
+    throw new Error(err.error || '결제 준비 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+  }
+  const { orderId, amount } = await initRes.json();
+
   const tossPayments = TossPayments(clientKey);  // 토스페이먼츠 SDK (전역)
-  const orderId      = `pack_${packId}_${Date.now()}`;
-  const origin       = location.origin;
+  const origin        = location.origin;
 
   await tossPayments.requestPayment('카드', {
-    amount:      amount ?? def.amount,
+    amount,
     orderId,
     orderName:   def.name,
-    successUrl: `${origin}/payment/pack/success?packId=${packId}&orderId=${orderId}`,
+    successUrl: `${origin}/payment/pack/success?packId=${packId}`,
     failUrl:    `${origin}/payment/pack/fail?packId=${packId}`,
   });
   // requestPayment는 리다이렉트로 끝나므로 이후 코드는 실행되지 않음
