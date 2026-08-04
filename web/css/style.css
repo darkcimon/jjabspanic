@@ -325,8 +325,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 .stat-item b    { font-size: 1.2rem; color: var(--accent); }
 .bonus-row { grid-column: span 1; }
 .bonus-row b { font-size: 1rem; color: #ffe566; }
-.clear-total-row { grid-column: span 3; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px; margin-top: 2px; }
-.clear-total-row b { color: #ffe566; font-size: 1rem; }
+#clear-total-score { color: #ffe566; }
 
 .result-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 

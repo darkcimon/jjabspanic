@@ -209,9 +209,9 @@ class PlayerBullet {
     this.px=px; this.py=py; this.vx=vx; this.vy=vy; this.dmg=dmg; this.r=r; this.dead=false;
   }
   _touchesWall(grid, cs) {
-    // 맵 외곽 경계(border)에 닿을 때만 소멸 — CAPTURED 내부는 통과
+    // 맵 완전히 벗어났을 때만 소멸 — 플레이어 시작 위치(경계 행/열)에서도 발사 가능하도록 경계 셀 자체는 허용
     const x=Math.floor(this.px/cs), y=Math.floor(this.py/cs);
-    return x<=0||x>=grid.cols-1||y<=0||y>=grid.rows-1;
+    return x<0||x>=grid.cols||y<0||y>=grid.rows;
   }
   update(dt, grid, cs) {
     this.px+=this.vx*dt; this.py+=this.vy*dt;
@@ -1320,15 +1320,15 @@ export class Game extends EventTarget {
   _onStageClear() {
     // 스테이지 비례 보너스 배율 (10스테이지마다 +30%) — 포인트 획득 난이도 완화를 위해 2배 지급
     const bonusMult=(1+Math.floor(this.stage/10)*0.3)*2;
-    const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult);
+    const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult*3);
     const _pos=((this.stage-1)%10)+1, _cyc=Math.floor((this.stage-1)/10);
-    const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult);
+    const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult*2);
     const fillPct100=Math.floor(this.fillPct*100);
     const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*100*bonusMult):0;
     const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*1000*bonusMult):0;
     const fillBonus=fillBonus75+fillBonus94;
     // 전멸 보너스: 클리어 시 살아있는 적이 없으면 추가 지급
-    const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult):0;
+    const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult*3):0;
     this.score+=timeBonus+stageBonus+fillBonus+allClearBonus; this.stop();
     this.dispatchEvent(new CustomEvent('stageClear', { detail: {
       stage:this.stage, fill:this.fillPct, timeLeft:Math.ceil(this.timeLeft),

@@ -56,7 +56,6 @@ function makeHeldItemButton(item, game) {
   let sub = '';
   if (item.type === 'gun')       sub = `×${item.ammo}`;
   if (item.type === 'sword')     sub = `×${item.count || 1}`;
-  if (item.type === 'timeboost') sub = `+${(item.count||1)*20}s`;
   if (item.type === 'lightning' || item.type === 'zeusLightning') sub = `×${item.count || 1}`;
   if (item.type === 'split') sub = `×${item.count || 1}`;
 
@@ -85,7 +84,7 @@ function updateHeldItemsBar(heldItems) {
   const bar = $('held-items-bar');
   bar.innerHTML = '';
   for (const item of heldItems) {
-    if (item.type === 'speed') continue;
+    if (item.type === 'speed' || item.type === 'timeboost') continue;
     bar.appendChild(makeHeldItemButton(item, game));
   }
 }
@@ -238,7 +237,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   const totalScore = save.totalScore || 0;
   $('btn-clear-market').style.display = totalScore >= 3000 ? 'block' : 'none';
   const clearTotalEl = $('clear-total-score');
-  if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString();
+  if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString() + 'pt';
 
   show('stage-clear');
 }
