@@ -7,8 +7,8 @@
  *   - activate 시               → 구버전 캐시 삭제
  */
 
-const CACHE_NAME   = 'galspanic-v6';
-const API_CACHE    = 'galspanic-api-v6';
+const CACHE_NAME   = 'galspanic-v7';
+const API_CACHE    = 'galspanic-api-v7';
 
 // install 시 pre-cache할 정적 자산 목록
 const STATIC_ASSETS = [
