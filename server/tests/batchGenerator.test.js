@@ -123,28 +123,38 @@ describe('generateImage', () => {
         expect(prompt).toContain('masterpiece');
     });
 
-    test('stage 1과 stage 13은 같은 기본 프롬프트 (12-cycle)', async () => {
+    test('stage 1과 stage 31은 같은 기본 프롬프트 (30-cycle)', async () => {
         await generator.generateImage(1, 'g');
         const prompt1 = getFormField('prompt');
 
         jest.clearAllMocks();
 
-        await generator.generateImage(13, 'g');
-        const prompt13 = getFormField('prompt');
+        await generator.generateImage(31, 'g');
+        const prompt31 = getFormField('prompt');
 
-        expect(prompt1).toBe(prompt13);
+        expect(prompt1).toBe(prompt31);
     });
 
-    test('stage 2와 stage 14는 같은 기본 프롬프트 (12-cycle)', async () => {
+    test('stage 2와 stage 32는 같은 기본 프롬프트 (30-cycle)', async () => {
         await generator.generateImage(2, 'g');
         const prompt2 = getFormField('prompt');
 
         jest.clearAllMocks();
 
-        await generator.generateImage(14, 'g');
-        const prompt14 = getFormField('prompt');
+        await generator.generateImage(32, 'g');
+        const prompt32 = getFormField('prompt');
 
-        expect(prompt2).toBe(prompt14);
+        expect(prompt2).toBe(prompt32);
+    });
+
+    test('한 배치(30단계) 안에서는 프롬프트가 모두 서로 다름', async () => {
+        const prompts = new Set();
+        for (let stage = 1; stage <= 30; stage++) {
+            jest.clearAllMocks();
+            await generator.generateImage(stage, 'g');
+            prompts.add(getFormField('prompt'));
+        }
+        expect(prompts.size).toBe(30);
     });
 
     test('stage 1과 stage 2는 다른 프롬프트', async () => {

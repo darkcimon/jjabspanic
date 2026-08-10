@@ -11,20 +11,38 @@ const store    = require('./imageStore');
 const API_URL = 'https://api.stability.ai/v2beta/stable-image/generate/sd3';
 const MODEL   = 'sd3-medium';
 
-// ── 프롬프트 풀 (12개 순환, PRD-04 기준) ─────────────────
+// ── 프롬프트 풀 (30개 순환 = 배치 크기와 동일 → 한 배치 안에서 중복 없음) ──
 const GENERAL_BASE = [
     "anime girl, cute, pink twin tails, cherry blossoms, beautiful spring scene",
     "anime girl, silver long hair, night sky, elegant dress, moonlight, stars",
     "anime girl, red short hair, sporty outfit, energetic pose, outdoor",
     "anime girl, blonde hair, fantasy warrior, armor, glowing sword",
     "anime girl, blue twin tails, magical girl, sparkles, wand, pastel sky",
-    "anime girl, dark purple hair, gothic lolita, black roses, mysterious",
+    "anime girl, dark purple hair, gothic dress, black roses, mysterious",
     "anime girl, orange ponytail, maid outfit, cafe, warm light, friendly",
     "anime girl, white hair, shrine maiden, torii gate, autumn leaves",
     "anime girl, super cute, green hair, forest elf, nature, fairy wings",
     "anime girl, black hair, cyberpunk, neon lights, futuristic city",
     "anime girl, lavender hair, idol singer, stage performance, microphone",
     "anime girl, rainbow gradient hair, celestial being, cosmos, divine aura",
+    "anime girl, teal hair, mermaid tail, ocean waves, coral reef, shimmering scales",
+    "anime girl, golden hair, astronaut suit, starfield, spaceship window, cosmic wonder",
+    "anime girl, black hair, samurai armor, cherry blossom dojo, katana, honor",
+    "anime girl, brown hair, witch hat, potion bottles, cozy library, candlelight",
+    "anime girl, pink hair, tennis outfit, sunny court, energetic serve, cheerful",
+    "anime girl, mint hair, chef uniform, bakery kitchen, fresh bread, warm smile",
+    "anime girl, violet hair, painter smock, art studio, easel, colorful paint splashes",
+    "anime girl, icy blue hair, ice queen gown, frozen palace, snowflakes, crystal crown",
+    "anime girl, crimson hair, dancer costume, stage spotlight, flowing ribbon, grace",
+    "anime girl, sandy blonde hair, explorer outfit, jungle ruins, adventure, torchlight",
+    "anime girl, sky blue hair, DJ headphones, concert stage, neon lights, music notes",
+    "anime girl, copper hair, florist apron, flower shop, blooming roses, gentle smile",
+    "anime girl, platinum hair, pilot uniform, clouds, airplane cockpit, adventurous",
+    "anime girl, jade green hair, scientist coat, laboratory, glowing test tubes, curious",
+    "anime girl, peach hair, baker outfit, pastry shop, sweets display, cheerful",
+    "anime girl, steel gray hair, knight armor, castle courtyard, shield, noble",
+    "anime girl, coral hair, gamer hoodie, gaming room, RGB lights, controller in hand",
+    "anime girl, amber hair, violinist, orchestra stage, elegant gown, music sheets",
 ];
 
 const QUALITY_SUFFIX = ", white background, full body portrait, high quality, masterpiece, ultra detailed, 2d illustration, clean lineart, soft shading";

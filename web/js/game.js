@@ -800,6 +800,7 @@ export class Game extends EventTarget {
   useSword() {
     const sw=this.heldItems.find(h=>h.type==='sword');
     if(!sw) return;
+    if(this.lives<=1) return; // 목숨 2 이상일 때만 사용 가능 (마켓 설명 참고)
     const dx=this._lastDx,dy=this._lastDy;
     if(dx===0&&dy===0) return;
     const swordLv=this._swordLevel||0;
@@ -1305,7 +1306,8 @@ export class Game extends EventTarget {
     this.lives--;
     if (this.lives<=2) this._rareLifeLost=true;
     if (this.speedActive && this._persistentSpeedLevel < 2) { this.speedActive=false; this.player.speed=this.PLAYER_SPEED; this.heldItems=this.heldItems.filter(h=>h.type!=='speed'); }
-    if (this.lives<=1) this.heldItems=this.heldItems.filter(h=>h.type!=='sword');
+    // 칼은 목숨 1 이하일 때 삭제하지 않고 useSword()에서 사용만 막는다 —
+    // 총과 동일하게 한 번 구입하면 목숨과 무관하게 보유·강화가 유지되도록.
     this.grid.clearLine();
     this.player.isDrawing=false; this.player.path=[]; this.player.trail=[];
     this.player.gx=Math.floor(this.COLS/2); this.player.gy=0;
