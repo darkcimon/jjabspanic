@@ -3,7 +3,7 @@ import { Storage } from './storage.js';
 import { API }     from './api.js';
 import {
   getPurchases, hasPack, stageUnlockedByPack, invalidatePurchaseCache,
-  requestPackPurchase, redeemPurchase, saveLocalPurchase, PACK_DEFS,
+  requestPackPurchase, saveLocalPurchase, PACK_DEFS,
 } from './payment.js';
 import {
   COLS, ROWS, PLAYER_SPEED, CLEAR_THRESHOLD,
@@ -719,12 +719,6 @@ async function onPackBuy(packId) {
   if (result === 'success' && packId) {
     saveLocalPurchase(packId);   // localStorage에 즉시 저장
     invalidatePurchaseCache();
-    const redeemCode = params.get('redeemCode');
-    if (redeemCode) {
-      // 구매 코드 모달 표시
-      $('modal-redeem-code-text').textContent = redeemCode;
-      $('modal-redeem-code').classList.add('active');
-    }
     // 갤러리 화면을 열어 구매 결과 바로 확인
     setTimeout(() => showGallery(), 100);
   } else if (result === 'fail') {
@@ -853,37 +847,6 @@ $('btn-back-gallery').onclick = () => show('main');
 // $('btn-pack-b').onclick   = () => onPackBuy('pack_b');
 // $('btn-pack-c').onclick   = () => onPackBuy('pack_c');
 // $('btn-pack-all').onclick = () => onPackBuy('pack_all');
-
-// 구매 코드 안내 모달
-$('btn-copy-redeem-code').onclick = () => {
-  const code = $('modal-redeem-code-text').textContent;
-  navigator.clipboard?.writeText(code).then(() => {
-    $('btn-copy-redeem-code').textContent = '✅ 복사됨';
-    setTimeout(() => { $('btn-copy-redeem-code').textContent = '📋 복사'; }, 2000);
-  });
-};
-$('btn-redeem-code-ok').onclick = () => $('modal-redeem-code').classList.remove('active');
-
-// 구매 코드 복구 (갤러리)
-$('btn-redeem').onclick = async () => {
-  const code = $('redeem-input').value.trim();
-  const msg  = $('redeem-msg');
-  if (!code) { msg.textContent = '코드를 입력해주세요.'; msg.className = 'redeem-msg error'; return; }
-  $('btn-redeem').disabled = true;
-  msg.textContent = '확인 중...'; msg.className = 'redeem-msg';
-  const res = await redeemPurchase(code);
-  $('btn-redeem').disabled = false;
-  if (res.ok) {
-    msg.textContent = `✅ 복구 완료! (${PACK_DEFS[res.packId]?.name || res.packId})`;
-    msg.className = 'redeem-msg success';
-    $('redeem-input').value = '';
-    invalidatePurchaseCache();
-    showGallery();   // 갤러리 새로고침
-  } else {
-    msg.textContent = `❌ ${res.error}`;
-    msg.className = 'redeem-msg error';
-  }
-};
 
 $('btn-next-stage').onclick = () => {
   if (pendingRewardStage > 0) {
