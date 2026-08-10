@@ -186,6 +186,11 @@ async function startGame(stage, rating, resumeState = null) {
   game.setWeaponLevels(pb?.gunLevel || 0, pb?.swordLevel || 0, pb?.bulletLevel || 0);
   game.start();
   setupInput(canvas, game);
+  // HUD의 첫 tick(최대 0.1초 지연)을 기다리지 않고 즉시 갱신 —
+  // 그 전까지 이전 스테이지의 held-items-bar 버튼(멈춘 이전 game 인스턴스를 참조)이
+  // 그대로 남아있어, 시작 직후 총(무기) 버튼을 바로 누르면 죽은 game 객체에 발사되어
+  // 총알이 나가지 않는 것처럼 보이는 문제가 있었음.
+  updateHeldItemsBar(game.heldItems);
 
   // Pre-trigger next batch if needed
   const nextBatch = getBatchIndex(stage + 15);
@@ -434,6 +439,10 @@ $('img-lightbox').addEventListener('click', e => {
 /**
  * 팩 배너의 구매 버튼 상태를 갱신한다.
  * 구매 완료 시 버튼을 숨기고 완료 메시지를 표시.
+ *
+ * [팩 구매 보류] 광고를 통한 팩 해금으로 전환 검토 중이라 실 결제 구매는
+ * 일단 막아둔다. 버튼은 항상 숨기고 "준비중" 안내만 보여준다.
+ * 재개하려면 아래 else 분기를 원래 구현(주석 처리된 코드)으로 되돌리면 된다.
  */
 function updatePackBanner(packId, owned) {
   const suffixMap = { pack_a: 'a', pack_b: 'b', pack_c: 'c', pack_all: 'all' };
@@ -449,14 +458,18 @@ function updatePackBanner(packId, owned) {
     status.textContent   = '✔ 해금 완료';
     status.classList.add('pack-owned');
   } else {
-    btn.style.display    = '';
-    status.textContent   = '';
+    // -- 구매 재개 시 아래로 원복 --
+    // btn.style.display    = '';
+    // status.textContent   = '';
+    // status.classList.remove('pack-owned');
+    btn.style.display    = 'none';
+    status.textContent   = '준비중 (추후 광고로 해금 예정)';
     status.classList.remove('pack-owned');
   }
 }
 
 // ── Collection Pick ──────────────────────────────────────────
-const COLLECTION_LIMIT = 5;
+const COLLECTION_LIMIT = 10;
 
 function hasUnlimitedCollection(purchases) {
   return purchases.includes('pack_all') ||
@@ -490,7 +503,8 @@ async function showCollectionPick(completedStage) {
     slotEl.textContent = `소장 ${collCount} / ${COLLECTION_LIMIT}`;
   }
 
-  // 가득 찬 경우 안내 문구
+  // 가득 찬 경우 안내 문구 — 더 이상 선택을 막지 않고, 확정 시 가장 오래된
+  // 소장품을 덮어쓴다는 것을 알려준다.
   let fullNoteEl = $('collection-full-note');
   if (isFull) {
     if (!fullNoteEl) {
@@ -499,7 +513,7 @@ async function showCollectionPick(completedStage) {
       fullNoteEl.className = 'collection-full-note';
       slotEl.insertAdjacentElement('afterend', fullNoteEl);
     }
-    fullNoteEl.textContent = '소장 공간이 가득 찼습니다. 팩을 구매하면 무제한으로 소장할 수 있어요.';
+    fullNoteEl.textContent = `소장 공간이 가득 찼습니다 (최대 ${COLLECTION_LIMIT}개). 새로 선택하면 가장 오래된 소장품을 덮어씁니다.`;
   } else if (fullNoteEl) {
     fullNoteEl.remove();
   }
@@ -514,7 +528,8 @@ async function showCollectionPick(completedStage) {
   for (let s = fromStage; s <= completedStage; s++) {
     const card = makeCollectionPickCard(s, purchases, stageNum => {
       selectedStage = stageNum;
-      confirmBtn.disabled = isFull;
+      // 가득 찬 상태에서도 선택은 가능 — 확정 시 덮어쓰기로 처리한다.
+      confirmBtn.disabled = false;
       grid.querySelectorAll('.collection-pick-card').forEach(c => {
         c.classList.toggle('selected', +c.dataset.stage === stageNum);
       });
@@ -523,9 +538,13 @@ async function showCollectionPick(completedStage) {
   }
 
   confirmBtn.onclick = () => {
-    if (!selectedStage || isFull) return;
+    if (!selectedStage) return;
     if (!save.collection) save.collection = [];
-    if (!save.collection.includes(selectedStage)) save.collection.push(selectedStage);
+    if (!save.collection.includes(selectedStage)) {
+      // 소장 공간이 가득 찼으면 가장 오래(먼저) 소장한 항목을 밀어내고 새로 추가한다 (FIFO 덮어쓰기).
+      if (isFull) save.collection.shift();
+      save.collection.push(selectedStage);
+    }
     Storage.save(save);
     startGame(save.stage, save.rating);
   };
@@ -630,10 +649,12 @@ async function showGallery() {
   }
 
   // 완전판 팩 버튼: 전체 구매 완료 시 숨김
+  // [팩 구매 보류] 실 결제 구매를 막아두는 동안은 항상 숨김.
   const allOwned = purchases.includes('pack_all') ||
     (['pack_a', 'pack_b', 'pack_c'].every(p => purchases.includes(p)));
   const btnAll = $('btn-pack-all');
-  if (btnAll) btnAll.style.display = allOwned ? 'none' : '';
+  // if (btnAll) btnAll.style.display = allOwned ? 'none' : '';
+  if (btnAll) btnAll.style.display = 'none';
 
   // 팩별 그리드 렌더링
   for (const [packId, range] of Object.entries(PACK_RANGES)) {
@@ -826,10 +847,12 @@ $('btn-back-main2').onclick   = () => show('main');
 $('btn-back-gallery').onclick = () => show('main');
 
 // 팩 구매 버튼
-$('btn-pack-a').onclick   = () => onPackBuy('pack_a');
-$('btn-pack-b').onclick   = () => onPackBuy('pack_b');
-$('btn-pack-c').onclick   = () => onPackBuy('pack_c');
-$('btn-pack-all').onclick = () => onPackBuy('pack_all');
+// [팩 구매 보류] 실 결제 구매 도입을 미루고 광고 기반 해금을 검토 중이라
+// 버튼 자체를 숨겨뒀다 (updatePackBanner/showGallery 참고). 재개 시 아래 주석 해제.
+// $('btn-pack-a').onclick   = () => onPackBuy('pack_a');
+// $('btn-pack-b').onclick   = () => onPackBuy('pack_b');
+// $('btn-pack-c').onclick   = () => onPackBuy('pack_c');
+// $('btn-pack-all').onclick = () => onPackBuy('pack_all');
 
 // 구매 코드 안내 모달
 $('btn-copy-redeem-code').onclick = () => {
