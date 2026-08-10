@@ -57,6 +57,26 @@ const rewardLimiter = rateLimit({
 const rewardCooldown = new Map(); // userId → lastGeneratedAt (ms)
 const REWARD_COOLDOWN_MS = 60 * 60 * 1000;
 
+// 서버 전체 일일 상한 — IP/userId를 여러 개로 바꿔가며 우회하더라도(예: 여러
+// 기기·프록시로 rewardLimiter의 IP당 하루 3회를 각각 새로 채우는 경우) 특전
+// 이미지(고비용 sd3-large 모델)에 쓰이는 Stability AI 크레딧이 하루에 무제한으로
+// 소진되지 않도록, 요청 출처와 무관한 절대 상한선을 둔다.
+const REWARD_GLOBAL_DAILY_CAP = parseInt(process.env.REWARD_GLOBAL_DAILY_CAP, 10) || 30;
+const REWARD_GLOBAL_WINDOW_MS = 24 * 60 * 60 * 1000;
+let rewardGlobalCount = 0;
+let rewardGlobalWindowStart = Date.now();
+
+function consumeGlobalRewardQuota() {
+    const now = Date.now();
+    if (now - rewardGlobalWindowStart >= REWARD_GLOBAL_WINDOW_MS) {
+        rewardGlobalWindowStart = now;
+        rewardGlobalCount = 0;
+    }
+    if (rewardGlobalCount >= REWARD_GLOBAL_DAILY_CAP) return false;
+    rewardGlobalCount++;
+    return true;
+}
+
 // ── 클라이언트 설정 노출 ──────────────────────────────────
 // 프론트엔드에서 /api/config를 호출해 토스 클라이언트 키를 가져간다.
 // 비밀 키(TOSS_SECRET_KEY)는 절대 포함하지 않는다.
@@ -179,6 +199,12 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
         return res.status(429).json({ error: `특전 이미지는 1시간에 1회만 생성할 수 있습니다. ${remaining}분 후 다시 시도해주세요.` });
     }
 
+    // 서버 전체 일일 상한 체크 — 유료 API 호출(generateRewardImage) 전에 막는다.
+    // 한도 초과 시 토큰/쿨다운을 소모하지 않아 유저는 내일 같은 토큰으로 재시도 가능.
+    if (!consumeGlobalRewardQuota()) {
+        return res.status(429).json({ error: '오늘 전체 특전 이미지 생성 한도를 초과했습니다. 내일 다시 시도해주세요.' });
+    }
+
     rewardTokens.delete(token); // 일회용: 생성 시도 시 소모
     try {
         rewardCooldown.set(userId, Date.now());
@@ -187,9 +213,18 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
         res.json({ status: 'ready', imageUrl });
     } catch (err) {
         rewardCooldown.delete(userId); // 실패 시 쿨다운 취소
+        rewardGlobalCount = Math.max(0, rewardGlobalCount - 1); // 실패 시 전역 한도도 환급
         console.error(`[Server] 보상 이미지 생성 실패: ${err.message}`);
         res.status(500).json({ error: err.message });
     }
 });
 
-module.exports = { app };
+module.exports = {
+    app,
+    // 테스트 전용: 전역 특전 이미지 생성 카운터를 초기화한다 (모듈이 프로세스
+    // 생명주기 동안 한 번만 로드되므로, 테스트 간 상태가 새지 않도록 필요).
+    __resetRewardGlobalQuotaForTests: () => {
+        rewardGlobalCount = 0;
+        rewardGlobalWindowStart = Date.now();
+    },
+};
