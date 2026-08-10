@@ -25,13 +25,14 @@ jest.mock('../batchGenerator', () => ({
 }));
 
 const request   = require('supertest');
-const { app }   = require('../app');
+const { app, __resetRewardGlobalQuotaForTests } = require('../app');
 const store     = require('../imageStore');
 const generator = require('../batchGenerator');
 
 // ── 공통 설정 ─────────────────────────────────────────────
 beforeEach(() => {
     jest.clearAllMocks();
+    __resetRewardGlobalQuotaForTests();
 });
 
 // ─────────────────────────────────────────────────────────

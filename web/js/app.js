@@ -22,8 +22,12 @@ function show(name) {
 let save = Storage.load();
 let game = null;
 let api  = new API('');
-let pendingCollectionStage = 0; // 10스테이지 완료 후 소장품 선택 대기 중인 스테이지 번호
-let pendingRewardStage = 0;     // 100/200/300 특전 이미지 대기 중인 스테이지
+// 10스테이지 완료 후 소장품 선택 / 100단계 특전 대기 중인 스테이지 번호.
+// save.pendingCollectionStage·save.pendingRewardStage로도 함께 저장해서, 모바일에서
+// 페이지가 백그라운드 재로드되어 이 변수가 날아가도(=화면이 안 뜨고 다음 스테이지로
+// 넘어가버리는 문제) boot() 시점에 복구할 수 있게 한다.
+let pendingCollectionStage = 0;
+let pendingRewardStage = 0;
 let marketReturnScreen = 'main'; // 마켓 진입 전 화면
 
 // ── Canvas sizing ────────────────────────────────────────────
@@ -200,9 +204,10 @@ async function startGame(stage, rating, resumeState = null) {
 function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
                          timeBonus = 0, stageBonus = 0, fillBonus = 0, allClearBonus = 0, heldItems = [],
                          rareLifeLost = false }) {
-  // 화면 전환 플래그를 가장 먼저 설정 — 이후 코드 예외에 영향받지 않도록
-  if (stage % 10 === 0)  pendingCollectionStage = stage;
-  if (stage % 100 === 0) pendingRewardStage = stage;
+  // 화면 전환 플래그를 가장 먼저 설정 — 이후 코드 예외에 영향받지 않도록.
+  // save에도 함께 기록해 페이지 재로드로 이 값이 유실돼도 복구 가능하게 한다.
+  if (stage % 10 === 0)  { pendingCollectionStage = stage; save.pendingCollectionStage = stage; }
+  if (stage % 100 === 0) { pendingRewardStage = stage;     save.pendingRewardStage = stage; }
 
   if (stage > save.bestStage) save.bestStage = stage;
   save.stage = stage + 1;
@@ -731,6 +736,8 @@ function proceedAfterReward() {
   if (pendingCollectionStage > 0) {
     const s = pendingCollectionStage;
     pendingCollectionStage = 0;
+    save.pendingCollectionStage = 0;
+    Storage.save(save);
     showCollectionPick(s);
   } else {
     startGame(save.stage, save.rating);
@@ -852,10 +859,14 @@ $('btn-next-stage').onclick = () => {
   if (pendingRewardStage > 0) {
     const s = pendingRewardStage;
     pendingRewardStage = 0;
+    save.pendingRewardStage = 0;
+    Storage.save(save);
     showRewardScreen(s);
   } else if (pendingCollectionStage > 0) {
     const s = pendingCollectionStage;
     pendingCollectionStage = 0;
+    save.pendingCollectionStage = 0;
+    Storage.save(save);
     showCollectionPick(s);
   } else {
     startGame(save.stage, save.rating);
@@ -927,6 +938,15 @@ function getMarketItems() {
   if (hasSword && swordCount < 2) items.push(
     { id:'swordUpgrade',   tier:'legend', cost:30000, icon:'🗡️', name:'신검',        desc:'칼 강화: 사정거리·공격력 증가' }
   );
+  // 칼 강화 — 칼 관련 항목끼리 묶이도록 칼/신검 바로 다음에 배치 (기존엔 목록
+  // 맨 끝에 있어 모바일에서 스크롤을 끝까지 내려야만 보였음)
+  const swordLv = (save.persistentBonus?.swordLevel) || 0;
+  if (hasSword && swordLv < 100) {
+    const swCost = 5000 + Math.floor(swordLv / 5) * 1000;
+    const swIcons=['⚪','🔴','🟠','🟡','🟢','🔵','🔷','🟣','⚫','🩵','🌈'];
+    const swIcon = swIcons[Math.min(Math.floor(swordLv/10),10)];
+    items.push({id:'swordLevelUp', tier: swordLv<10?'normal':swordLv<30?'rare':'legend', cost:swCost, icon:swIcon+'⚔️', name:`칼 강화 (${swordLv}→${swordLv+1}단)`, desc:`칼 단계 업그레이드 (${swordLv+1}/100)`});
+  }
   if (!hasGun) items.push(
     { id:'gun',            tier:'legend', cost:30000, icon:'🔫', name:'총',          desc:'X키로 총알 5발 발사' }
   );
@@ -964,14 +984,6 @@ function getMarketItems() {
     const bulletCost = 3000 + Math.floor(bulletLv / 5) * 1000;
     const bulletSz = Math.round((0.25 + (Math.min(bulletLv+1,100)-1)/99*1.75)*10)/10;
     items.push({id:'bulletUpgrade', tier: bulletLv<10?'normal':bulletLv<50?'rare':'legend', cost:bulletCost, icon:'🔵', name:`총탄 강화 (${bulletLv}→${bulletLv+1}단)`, desc:`총알 크기 ${bulletSz}블록`});
-  }
-  // Sword upgrade — 칼 보유 시에만 표시
-  const swordLv = (save.persistentBonus?.swordLevel) || 0;
-  if (hasSword && swordLv < 100) {
-    const swCost = 5000 + Math.floor(swordLv / 5) * 1000;
-    const swIcons=['⚪','🔴','🟠','🟡','🟢','🔵','🔷','🟣','⚫','🩵','🌈'];
-    const swIcon = swIcons[Math.min(Math.floor(swordLv/10),10)];
-    items.push({id:'swordLevelUp', tier: swordLv<10?'normal':swordLv<30?'rare':'legend', cost:swCost, icon:swIcon+'⚔️', name:`칼 강화 (${swordLv}→${swordLv+1}단)`, desc:`칼 단계 업그레이드 (${swordLv+1}/100)`});
   }
   return items;
 }
@@ -1134,6 +1146,11 @@ async function boot() {
   save.rating = 'g'; // general only
   if (!save.heldItems) save.heldItems = [];
   if (!save.persistentBonus) save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0 };
+  // 스테이지 클리어 직후 특전/소장품 선택 화면으로 넘어가기 전에 모바일 백그라운드
+  // 재로드 등으로 앱이 다시 시작된 경우, save에 저장해둔 대기 상태를 복구한다
+  // (그렇지 않으면 100단계 특전 화면 등이 조용히 스킵된 것처럼 보임).
+  pendingCollectionStage = save.pendingCollectionStage || 0;
+  pendingRewardStage     = save.pendingRewardStage || 0;
   chkContinuous.checked = !!save.continuousMove;
   updateMoveDesc();
   updateMainStats();
@@ -1141,7 +1158,21 @@ async function boot() {
   api.getBatchStatus(0).catch(() => {});
 
   await new Promise(r => setTimeout(r, 800));
-  show('main');
+  if (pendingRewardStage > 0) {
+    const s = pendingRewardStage;
+    pendingRewardStage = 0;
+    save.pendingRewardStage = 0;
+    Storage.save(save);
+    showRewardScreen(s);
+  } else if (pendingCollectionStage > 0) {
+    const s = pendingCollectionStage;
+    pendingCollectionStage = 0;
+    save.pendingCollectionStage = 0;
+    Storage.save(save);
+    showCollectionPick(s);
+  } else {
+    show('main');
+  }
 }
 
 window.addEventListener('resize', () => { if (game?.running) resizeCanvas(); });
