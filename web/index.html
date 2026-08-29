@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#1a0a2e">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
-  <title>짭스패닉</title>
+  <title data-i18n="brand.name">짭스패닉</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="/manifest.json">
   <!-- 토스페이먼츠 SDK (async: 결제 SDK 로딩 실패가 게임 진입을 막지 않도록) -->
@@ -16,7 +16,7 @@
 <!-- ── Boot ──────────────────────────────────────────── -->
 <div id="screen-boot" class="screen active">
   <div class="center-content">
-    <h1 class="logo">짭스패닉</h1>
+    <h1 class="logo" data-i18n="brand.name">짭스패닉</h1>
     <div class="loading-dots"><span></span><span></span><span></span></div>
   </div>
 </div>
@@ -24,23 +24,26 @@
 <!-- ── Main ──────────────────────────────────────────── -->
 <div id="screen-main" class="screen">
   <div class="center-content">
-    <h1 class="logo">짭스패닉</h1>
+    <h1 class="logo" data-i18n="brand.name">짭스패닉</h1>
     <div class="stat-row">
-      <span>현재 스테이지 <b id="current-stage">1</b></span>
-      <span>최고 <b id="best-stage">0</b></span>
+      <span><span data-i18n="main.stageLabel">현재 스테이지</span> <b id="current-stage">1</b></span>
+      <span><span data-i18n="main.bestLabel">최고</span> <b id="best-stage">0</b></span>
     </div>
     <div class="stat-row stat-row-score">
-      <span>누적 점수 <b id="main-total-score">0</b> pt</span>
+      <span><span data-i18n="main.totalScoreLabel">누적 점수</span> <b id="main-total-score">0</b> pt</span>
     </div>
     <div class="menu-btns">
-      <button id="btn-start"   class="btn-primary">게임 시작</button>
-      <button id="btn-main-market" class="btn-market">🛒 마켓</button>
-      <button id="btn-gallery" class="btn-secondary">갤러리</button>
-      <button id="btn-help"    class="btn-secondary">도움말 / 조작법</button>
-      <button id="btn-reset"   class="btn-danger">초기화</button>
+      <button id="btn-start"   class="btn-primary" data-i18n="main.btnStart">게임 시작</button>
+      <button id="btn-main-market" class="btn-market" data-i18n="main.btnMarket">🛒 마켓</button>
+      <button id="btn-gallery" class="btn-secondary" data-i18n="main.btnGallery">갤러리</button>
+      <button id="btn-help"    class="btn-secondary" data-i18n="main.btnHelp">도움말 / 조작법</button>
+      <button id="btn-reset"   class="btn-danger" data-i18n="common.reset">초기화</button>
+    </div>
+    <div class="lang-switch-row">
+      <button id="btn-lang-toggle" class="btn-lang-toggle" type="button">🌐 <span id="lang-toggle-label">EN</span></button>
     </div>
     <footer class="main-footer">
-      <a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>
+      <a href="privacy.html" target="_blank" rel="noopener" data-i18n="main.privacyLink">개인정보처리방침</a>
     </footer>
   </div>
 </div>
@@ -83,12 +86,12 @@
   <div id="game-bottom">
     <div id="dpad-spacer">
       <label id="continuous-move-label">
-        <span class="move-mode-text">이동<br>방식</span>
+        <span class="move-mode-text" data-i18n-html="game.moveModeLabel">이동<br>방식</span>
         <div class="toggle-wrap">
           <input type="checkbox" id="chk-continuous-move">
           <span class="toggle-slider"></span>
         </div>
-        <span class="move-mode-desc" id="move-mode-desc">탭</span>
+        <span class="move-mode-desc" id="move-mode-desc" data-i18n="game.moveModeTap">탭</span>
       </label>
     </div>
     <div id="dpad">
@@ -108,22 +111,22 @@
 <div id="screen-stage-clear" class="screen">
   <div class="result-content">
     <h2 class="result-title success">✨ STAGE CLEAR!</h2>
-    <p class="result-sub">스테이지 <span id="clear-stage">1</span> 완료</p>
-    <img id="clear-image" src="" alt="캐릭터" style="display:none">
+    <p class="result-sub"><span data-i18n="common.stage">스테이지</span> <span id="clear-stage">1</span> <span data-i18n="clear.complete">완료</span></p>
+    <img id="clear-image" src="" alt="캐릭터" data-i18n-alt="common.characterAlt" style="display:none">
     <div class="result-stats">
-      <div class="stat-item"><span>점수</span><b id="clear-score">0</b></div>
-      <div class="stat-item"><span>💰 누적 점수</span><b id="clear-total-score">0</b></div>
-      <div class="stat-item"><span>점령률</span><b id="clear-fill">0%</b></div>
-      <div class="stat-item"><span>남은 시간</span><b id="clear-time">0초</b></div>
-      <div class="stat-item bonus-row"><span>🏆 스테이지 보너스</span><b id="clear-stage-bonus">+0</b></div>
-      <div class="stat-item bonus-row"><span>📐 점령률 보너스</span><b id="clear-fill-bonus">+0</b></div>
-      <div class="stat-item bonus-row"><span>⏱ 시간 보너스</span><b id="clear-time-bonus">+0</b></div>
-      <div class="stat-item bonus-row" id="clear-allclear-row" style="display:none"><span>💥 전멸 보너스</span><b id="clear-allclear-bonus">+0</b></div>
+      <div class="stat-item"><span data-i18n="clear.score">점수</span><b id="clear-score">0</b></div>
+      <div class="stat-item"><span data-i18n="clear.totalScore">💰 누적 점수</span><b id="clear-total-score">0</b></div>
+      <div class="stat-item"><span data-i18n="clear.fillRate">점령률</span><b id="clear-fill">0%</b></div>
+      <div class="stat-item"><span data-i18n="clear.timeLeft">남은 시간</span><b id="clear-time">0초</b></div>
+      <div class="stat-item bonus-row"><span data-i18n="clear.stageBonus">🏆 스테이지 보너스</span><b id="clear-stage-bonus">+0</b></div>
+      <div class="stat-item bonus-row"><span data-i18n="clear.fillBonus">📐 점령률 보너스</span><b id="clear-fill-bonus">+0</b></div>
+      <div class="stat-item bonus-row"><span data-i18n="clear.timeBonus">⏱ 시간 보너스</span><b id="clear-time-bonus">+0</b></div>
+      <div class="stat-item bonus-row" id="clear-allclear-row" style="display:none"><span data-i18n="clear.allClearBonus">💥 전멸 보너스</span><b id="clear-allclear-bonus">+0</b></div>
     </div>
     <div class="result-btns">
-      <button id="btn-next-stage"  class="btn-primary">다음 스테이지 →</button>
-      <button id="btn-clear-market" class="btn-market" style="display:none">🛒 마켓 (3,000pt~)</button>
-      <button id="btn-back-menu"   class="btn-secondary">메인 메뉴</button>
+      <button id="btn-next-stage"  class="btn-primary" data-i18n="common.nextStage">다음 스테이지 →</button>
+      <button id="btn-clear-market" class="btn-market" style="display:none" data-i18n="clear.btnMarket">🛒 마켓 (3,000pt~)</button>
+      <button id="btn-back-menu"   class="btn-secondary" data-i18n="common.mainMenu">메인 메뉴</button>
     </div>
   </div>
 </div>
@@ -132,13 +135,13 @@
 <div id="screen-game-over" class="screen">
   <div class="result-content">
     <h2 class="result-title fail">💀 GAME OVER</h2>
-    <p class="result-sub">스테이지 <span id="over-stage">1</span></p>
+    <p class="result-sub"><span data-i18n="common.stage">스테이지</span> <span id="over-stage">1</span></p>
     <div id="over-points-warning" class="over-points-warning">
       <span id="over-weapon-warning"></span>
     </div>
     <div class="result-btns">
-      <button id="btn-retry"       class="btn-primary">다시 시도</button>
-      <button id="btn-back-menu2"  class="btn-secondary">메인 메뉴</button>
+      <button id="btn-retry"       class="btn-primary" data-i18n="over.btnRetry">다시 시도</button>
+      <button id="btn-back-menu2"  class="btn-secondary" data-i18n="common.mainMenu">메인 메뉴</button>
     </div>
   </div>
 </div>
@@ -147,29 +150,29 @@
 <div id="screen-reward" class="screen">
   <div class="reward-content">
     <div class="reward-badge" id="reward-badge">🎉 100스테이지 달성!</div>
-    <h2 class="reward-title">특전 이미지</h2>
-    <p class="reward-desc">원하는 캐릭터를 자유롭게 묘사해 주세요<br><span class="reward-desc-sub">예) 파란 눈, 흰 드레스, 해변</span></p>
+    <h2 class="reward-title" data-i18n="reward.title">특전 이미지</h2>
+    <p class="reward-desc" data-i18n-html="reward.desc">원하는 캐릭터를 자유롭게 묘사해 주세요<br><span class="reward-desc-sub">예) 파란 눈, 흰 드레스, 해변</span></p>
 
     <div id="reward-input-area">
       <textarea id="reward-keywords" class="reward-textarea" maxlength="200"
-        placeholder="캐릭터 특징을 입력하세요 (최대 200자)"></textarea>
+        placeholder="캐릭터 특징을 입력하세요 (최대 200자)" data-i18n-placeholder="reward.placeholder"></textarea>
       <div class="reward-char-count"><span id="reward-char-now">0</span> / 200</div>
-      <button id="btn-reward-generate" class="btn-primary reward-gen-btn">✨ 이미지 생성</button>
+      <button id="btn-reward-generate" class="btn-primary reward-gen-btn" data-i18n="reward.btnGenerate">✨ 이미지 생성</button>
     </div>
 
     <div id="reward-loading" class="reward-loading hidden">
       <div class="reward-spinner"></div>
-      <p>이미지를 생성하는 중입니다…<br><span style="font-size:0.8rem;opacity:0.6">최대 30초 소요</span></p>
+      <p data-i18n-html="reward.loading">이미지를 생성하는 중입니다…<br><span style="font-size:0.8rem;opacity:0.6">최대 30초 소요</span></p>
     </div>
 
     <div id="reward-result" class="reward-result hidden">
-      <img id="reward-result-img" src="" alt="특전 이미지">
-      <button id="btn-reward-save" class="btn-reward-save hidden">📥 갤러리에 저장</button>
+      <img id="reward-result-img" src="" alt="특전 이미지" data-i18n-alt="reward.title">
+      <button id="btn-reward-save" class="btn-reward-save hidden" data-i18n="reward.btnSave">📥 갤러리에 저장</button>
     </div>
 
     <div class="reward-btns">
-      <button id="btn-reward-continue" class="btn-primary hidden">다음 스테이지 →</button>
-      <button id="btn-reward-skip"     class="btn-secondary">건너뛰기</button>
+      <button id="btn-reward-continue" class="btn-primary hidden" data-i18n="common.nextStage">다음 스테이지 →</button>
+      <button id="btn-reward-skip"     class="btn-secondary" data-i18n="common.skip">건너뛰기</button>
     </div>
   </div>
 </div>
@@ -177,16 +180,16 @@
 <!-- ── Help ───────────────────────────────────────────── -->
 <div id="screen-help" class="screen">
   <div class="help-header">
-    <h2>도움말</h2>
-    <button id="btn-back-help" class="btn-back">← 뒤로</button>
+    <h2 data-i18n="help.title">도움말</h2>
+    <button id="btn-back-help" class="btn-back" data-i18n="common.back">← 뒤로</button>
   </div>
 
   <div class="help-tabs">
-    <button class="help-tab active" data-tab="how">게임 방법</button>
-    <button class="help-tab" data-tab="tips">공략</button>
-    <button class="help-tab" data-tab="items">아이템</button>
-    <button class="help-tab" data-tab="enemies">적</button>
-    <button class="help-tab" data-tab="market">마켓</button>
+    <button class="help-tab active" data-tab="how" data-i18n="help.tabs.how">게임 방법</button>
+    <button class="help-tab" data-tab="tips" data-i18n="help.tabs.tips">공략</button>
+    <button class="help-tab" data-tab="items" data-i18n="help.tabs.items">아이템</button>
+    <button class="help-tab" data-tab="enemies" data-i18n="help.tabs.enemies">적</button>
+    <button class="help-tab" data-tab="market" data-i18n="help.tabs.market">마켓</button>
   </div>
 
   <div class="help-body">
@@ -194,12 +197,12 @@
     <!-- 게임 방법 -->
     <div id="help-tab-how" class="help-section active">
       <div class="help-card">
-        <div class="help-card-title">🎯 목표</div>
-        <p>제한 시간 안에 보드의 <b>75% 이상</b>을 점령하면 스테이지 클리어!</p>
+        <div class="help-card-title" data-i18n="help.how.goal.title">🎯 목표</div>
+        <p data-i18n-html="help.how.goal.body">제한 시간 안에 보드의 <b>75% 이상</b>을 점령하면 스테이지 클리어!</p>
       </div>
       <div class="help-card">
-        <div class="help-card-title">🕹 조작</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.how.controls.title">🕹 조작</div>
+        <ul class="help-list" data-i18n-html="help.how.controls.body">
           <li><b>이동</b> — 방향 버튼 또는 화면 스와이프</li>
           <li><b>칼 사용</b> — Z키 또는 아이템 버튼 탭</li>
           <li><b>총 사용</b> — X키 또는 아이템 버튼 탭</li>
@@ -207,16 +210,16 @@
         </ul>
       </div>
       <div class="help-card">
-        <div class="help-card-title">📐 영역 점령</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.how.area.title">📐 영역 점령</div>
+        <ul class="help-list" data-i18n-html="help.how.area.body">
           <li>경계선(흰 테두리)에서 출발해 이동하면 선이 그려집니다</li>
           <li>다시 경계선에 닿으면 둘러싼 영역이 <b>한 번에 점령</b>됩니다</li>
           <li>적이 없는 쪽이 점령 대상, 더 작은 쪽을 채우는 게 유리합니다</li>
         </ul>
       </div>
       <div class="help-card">
-        <div class="help-card-title">💀 위험 상황</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.how.danger.title">💀 위험 상황</div>
+        <ul class="help-list" data-i18n-html="help.how.danger.body">
           <li>선 위에 있을 때 <b>적 또는 탄환에 닿으면</b> 목숨 1 감소</li>
           <li>경계·점령 영역 위에서는 적이 닿아도 안전합니다</li>
           <li>목숨이 0이 되면 게임 오버</li>
@@ -224,8 +227,8 @@
         </ul>
       </div>
       <div class="help-card">
-        <div class="help-card-title">⭐ 기타 팁</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.how.tips.title">⭐ 기타 팁</div>
+        <ul class="help-list" data-i18n-html="help.how.tips.body">
           <li>스테이지가 높아질수록 적이 많아지고 제한 시간이 줄어듭니다</li>
           <li>10스테이지마다 <b>보스</b>가 등장합니다</li>
           <li>10스테이지 클리어 시 <b>소장품</b> 이미지를 1장 선택할 수 있습니다</li>
@@ -237,13 +240,13 @@
     <div id="help-tab-tips" class="help-section">
 
       <div class="help-card tips-highlight">
-        <div class="help-card-title">🏆 핵심 공략 요약</div>
-        <p>스테이지를 클리어해 포인트를 모아 <b>총을 먼저 구입</b>하고, 장비를 업그레이드하면 훨씬 수월하게 진행할 수 있습니다!</p>
+        <div class="help-card-title" data-i18n="help.tips.summary.title">🏆 핵심 공략 요약</div>
+        <p data-i18n-html="help.tips.summary.body">스테이지를 클리어해 포인트를 모아 <b>총을 먼저 구입</b>하고, 장비를 업그레이드하면 훨씬 수월하게 진행할 수 있습니다!</p>
       </div>
 
       <div class="help-card">
-        <div class="help-card-title">💰 Step 1 — 포인트 모으기</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.tips.step1.title">💰 Step 1 — 포인트 모으기</div>
+        <ul class="help-list" data-i18n-html="help.tips.step1.body">
           <li>스테이지 클리어마다 <b>스테이지·시간·점령률 보너스</b>로 포인트 획득</li>
           <li>스테이지가 높아질수록 <b>보너스 배율이 증가</b>해 포인트도 함께 늘어납니다</li>
           <li>살아있는 적을 모두 없애고 클리어하면 <b>전멸 보너스</b>가 추가 지급됩니다</li>
@@ -251,8 +254,8 @@
       </div>
 
       <div class="help-card">
-        <div class="help-card-title">🔫 Step 2 — 총 구입 (최우선)</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.tips.step2.title">🔫 Step 2 — 총 구입 (최우선)</div>
+        <ul class="help-list" data-i18n-html="help.tips.step2.body">
           <li>마켓에서 <b>총 (30,000pt)</b>을 가장 먼저 구입하는 것을 추천</li>
           <li>총이 있으면 선을 긋지 않아도 적을 처치할 수 있어 <b>생존력이 크게 상승</b></li>
           <li>총알 5발로 적 5마리를 처치하면 <b>탄약 5발 자동 충전</b> (빛나는 효과로 표시)</li>
@@ -261,8 +264,8 @@
       </div>
 
       <div class="help-card">
-        <div class="help-card-title">⬆️ Step 3 — 장비 업그레이드 순서</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.tips.step3.title">⬆️ Step 3 — 장비 업그레이드 순서</div>
+        <ul class="help-list" data-i18n-html="help.tips.step3.body">
           <li><b>① 총 강화</b> — 데미지와 탄환 패턴이 강화됩니다. 단계가 높을수록 한 번에 여러 발</li>
           <li><b>② 총탄 강화</b> — 총알 크기가 커져 적을 더 쉽게 맞출 수 있습니다</li>
           <li><b>③ 칼 구입 / 칼 강화</b> — 칼로 5마리 처치 시 <b>"검사의 영혼"</b> 원형 범위 공격 발동</li>
@@ -271,8 +274,8 @@
       </div>
 
       <div class="help-card">
-        <div class="help-card-title">🗺️ 구간별 전략</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.tips.region.title">🗺️ 구간별 전략</div>
+        <ul class="help-list" data-i18n-html="help.tips.region.body">
           <li><b>1~9스테이지</b> — 기본기 연습. 작은 영역을 빠르게 여러 번 점령하는 것이 안전</li>
           <li><b>10~29스테이지</b> — 슈터 등장. 선을 짧게 그어 탄환에 노출되는 시간을 줄이세요</li>
           <li><b>30~49스테이지</b> — 미드보스 등장. 미드보스가 일반 몬스터를 흡수하기 전에 먼저 처리</li>
@@ -282,8 +285,8 @@
       </div>
 
       <div class="help-card">
-        <div class="help-card-title">💡 생존 팁</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.tips.survival.title">💡 생존 팁</div>
+        <ul class="help-list" data-i18n-html="help.tips.survival.body">
           <li>경계선(하얀 테두리)에 있으면 적에게 닿아도 안전 — 무리하지 말고 기다리세요</li>
           <li>선을 짧게 여러 번 그으면 리스크가 줄어듭니다</li>
           <li>💥 <b>분열 아이템</b>은 적이 적을 때 사용해야 유리합니다 (많아지면 역효과)</li>
@@ -293,8 +296,8 @@
       </div>
 
       <div class="help-card tips-highlight">
-        <div class="help-card-title">💥 전멸 보너스 — 적을 모두 없애면 대박!</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.tips.allclear.title">💥 전멸 보너스 — 적을 모두 없애면 대박!</div>
+        <ul class="help-list" data-i18n-html="help.tips.allclear.body">
           <li>스테이지 클리어 시 <b>살아있는 적이 0마리</b>이면 <b>전멸 보너스</b>가 추가 지급됩니다</li>
           <li>보너스는 스테이지가 높아질수록 크게 증가 — 고스테이지에서 수만 pt 이상!</li>
           <li>적이 없으면 어디든 자유롭게 점령 가능 → <b>점령률도 자연스럽게 올라갑니다</b></li>
@@ -303,8 +306,8 @@
       </div>
 
       <div class="help-card">
-        <div class="help-card-title">📈 스테이지별 보너스 배율</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.tips.multiplier.title">📈 스테이지별 보너스 배율</div>
+        <ul class="help-list" data-i18n-html="help.tips.multiplier.body">
           <li>스테이지 보너스 · 시간 보너스 · 점령률 보너스 모두 <b>10스테이지마다 +30%씩 증가</b> (기본 2배 지급 적용)</li>
           <li>스테이지 10: 2.6배 / 스테이지 20: 3.2배 / 스테이지 50: 5.0배 / 스테이지 100: 8.0배</li>
           <li>고스테이지에서 남은 시간이 많을수록 시간 보너스가 폭발적으로 커집니다</li>
@@ -312,133 +315,133 @@
         </ul>
       </div>
 
-      <div class="help-note">💰 스테이지 클리어 → 포인트 → 총 구입 → 업그레이드 → 전멸 후 점령 → 고스테이지 도전!</div>
+      <div class="help-note" data-i18n="help.tips.note">💰 스테이지 클리어 → 포인트 → 총 구입 → 업그레이드 → 전멸 후 점령 → 고스테이지 도전!</div>
     </div>
 
     <!-- 아이템 -->
     <div id="help-tab-items" class="help-section">
-      <p class="help-intro">필드에 아이템이 등장합니다. 선 위에서 닿으면 획득!</p>
+      <p class="help-intro" data-i18n="help.items.intro">필드에 아이템이 등장합니다. 선 위에서 닿으면 획득!</p>
 
       <div class="help-item-row">
         <span class="help-item-icon">⏰</span>
         <div>
-          <b>시계</b>
-          <span class="help-tag instant">즉시</span>
-          <p>남은 시간 +20초 / 대형 +40초</p>
+          <b data-i18n="help.items.clock.name">시계</b>
+          <span class="help-tag instant" data-i18n="help.tag.instant">즉시</span>
+          <p data-i18n="help.items.clock.desc">남은 시간 +20초 / 대형 +40초</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">💊</span>
         <div>
-          <b>회복약</b>
-          <span class="help-tag instant">즉시</span>
-          <p>목숨 +1 / 대형 +2</p>
+          <b data-i18n="help.items.potion.name">회복약</b>
+          <span class="help-tag instant" data-i18n="help.tag.instant">즉시</span>
+          <p data-i18n="help.items.potion.desc">목숨 +1 / 대형 +2</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">⏳</span>
         <div>
-          <b>모래시계</b>
-          <span class="help-tag timed">15초</span>
-          <p>모든 적의 이동 속도 대폭 감소</p>
+          <b data-i18n="help.items.hourglass.name">모래시계</b>
+          <span class="help-tag timed" data-i18n="help.tag.timed15">15초</span>
+          <p data-i18n="help.items.hourglass.desc">모든 적의 이동 속도 대폭 감소</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">🫧</span>
         <div>
-          <b>버블</b>
-          <span class="help-tag special">특수</span>
-          <p>선 위에 있어도 적에게 닿지 않음. 경계에 닿을 때까지 지속</p>
+          <b data-i18n="help.items.bubble.name">버블</b>
+          <span class="help-tag special" data-i18n="help.tag.special">특수</span>
+          <p data-i18n="help.items.bubble.desc">선 위에 있어도 적에게 닿지 않음. 경계에 닿을 때까지 지속</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">🛡️</span>
         <div>
-          <b>방패</b>
-          <span class="help-tag timed">15초</span>
-          <p>무적 상태. 선 위에서 적에게 닿아도 목숨이 줄지 않음</p>
+          <b data-i18n="help.items.shield.name">방패</b>
+          <span class="help-tag timed" data-i18n="help.tag.timed15">15초</span>
+          <p data-i18n="help.items.shield.desc">무적 상태. 선 위에서 적에게 닿아도 목숨이 줄지 않음</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">💣</span>
         <div>
-          <b>폭탄</b>
-          <span class="help-tag instant">즉시</span>
-          <p>화면 내 모든 적을 즉시 제거</p>
+          <b data-i18n="help.items.bomb.name">폭탄</b>
+          <span class="help-tag instant" data-i18n="help.tag.instant">즉시</span>
+          <p data-i18n="help.items.bomb.desc">화면 내 모든 적을 즉시 제거</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">⚡</span>
         <div>
-          <b>번개</b>
-          <span class="help-tag held">보유</span>
-          <p>번개 버튼 탭 후 화면을 터치한 위치에 번개 공격 (1회)</p>
+          <b data-i18n="help.items.lightning.name">번개</b>
+          <span class="help-tag held" data-i18n="help.tag.held">보유</span>
+          <p data-i18n="help.items.lightning.desc">번개 버튼 탭 후 화면을 터치한 위치에 번개 공격 (1회)</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">💨</span>
         <div>
-          <b>스피드</b>
-          <span class="help-tag held">보유</span>
-          <p>이동 속도 3배. 아이템 버튼 탭으로 발동</p>
+          <b data-i18n="help.items.speed.name">스피드</b>
+          <span class="help-tag held" data-i18n="help.tag.held">보유</span>
+          <p data-i18n="help.items.speed.desc">이동 속도 3배. 아이템 버튼 탭으로 발동</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">⚔️</span>
         <div>
-          <b>칼</b>
-          <span class="help-tag held">보유</span>
-          <p>Z키 또는 탭으로 발동. <b>목숨 1 소모</b>하고 선 위 적 전부 제거</p>
+          <b data-i18n="help.items.sword.name">칼</b>
+          <span class="help-tag held" data-i18n="help.tag.held">보유</span>
+          <p data-i18n-html="help.items.sword.desc">Z키 또는 탭으로 발동. <b>목숨 1 소모</b>하고 선 위 적 전부 제거</p>
         </div>
       </div>
       <div class="help-item-row">
         <span class="help-item-icon">🔫</span>
         <div>
-          <b>총</b>
-          <span class="help-tag held">보유</span>
-          <p>X키 또는 탭으로 발동. 탄환 10발 (중첩 시 최대 30발). 진행 방향으로 발사</p>
+          <b data-i18n="help.items.gun.name">총</b>
+          <span class="help-tag held" data-i18n="help.tag.held">보유</span>
+          <p data-i18n="help.items.gun.desc">X키 또는 탭으로 발동. 탄환 10발 (중첩 시 최대 30발). 진행 방향으로 발사</p>
         </div>
       </div>
 
-      <div class="help-note">💡 번개·스피드·칼·총은 획득 후 하단 슬롯에 보관 (최대 3개)</div>
+      <div class="help-note" data-i18n="help.items.note">💡 번개·스피드·칼·총은 획득 후 하단 슬롯에 보관 (최대 3개)</div>
     </div>
 
     <!-- 적 -->
     <div id="help-tab-enemies" class="help-section">
-      <p class="help-intro">적은 영역 안을 자유롭게 이동합니다. 선 위의 플레이어에게 닿으면 위험!</p>
+      <p class="help-intro" data-i18n="help.enemies.intro">적은 영역 안을 자유롭게 이동합니다. 선 위의 플레이어에게 닿으면 위험!</p>
 
       <div class="help-enemy-row">
         <span class="help-enemy-dot" style="background:#ffcc00;box-shadow:0 0 8px #ffcc00"></span>
         <div>
-          <b>일반 몬스터</b>
-          <p>기본 이동. 스테이지가 높아질수록 개수와 속도가 증가합니다</p>
+          <b data-i18n="help.enemies.normal.name">일반 몬스터</b>
+          <p data-i18n="help.enemies.normal.desc">기본 이동. 스테이지가 높아질수록 개수와 속도가 증가합니다</p>
         </div>
       </div>
       <div class="help-enemy-row">
         <span class="help-enemy-dot" style="background:#ff7700;box-shadow:0 0 8px #ff7700"></span>
         <div>
-          <b>슈터 몬스터</b>
-          <p>이동하면서 <b>탄환을 발사</b>합니다. 탄환에 선 위에서 맞아도 목숨이 감소합니다</p>
+          <b data-i18n="help.enemies.shooter.name">슈터 몬스터</b>
+          <p data-i18n-html="help.enemies.shooter.desc">이동하면서 <b>탄환을 발사</b>합니다. 탄환에 선 위에서 맞아도 목숨이 감소합니다</p>
         </div>
       </div>
       <div class="help-enemy-row">
         <span class="help-enemy-dot" style="background:#e74c3c;box-shadow:0 0 8px #e74c3c"></span>
         <div>
-          <b>미드보스</b>
-          <p>일반 몬스터에 닿으면 <b>흡수해 덩치가 커집니다</b>. 합체할수록 강해지니 빨리 처리해야 합니다</p>
+          <b data-i18n="help.enemies.midboss.name">미드보스</b>
+          <p data-i18n-html="help.enemies.midboss.desc">일반 몬스터에 닿으면 <b>흡수해 덩치가 커집니다</b>. 합체할수록 강해지니 빨리 처리해야 합니다</p>
         </div>
       </div>
       <div class="help-enemy-row">
         <span class="help-enemy-dot" style="background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);box-shadow:0 0 10px #fff"></span>
         <div>
-          <b>보스</b>
-          <p><b>10스테이지마다</b> 등장. 거대한 무지개 블랙홀 형태로 빠르게 회전합니다. 100·200·300 스테이지의 보스는 더욱 거대합니다</p>
+          <b data-i18n="help.enemies.boss.name">보스</b>
+          <p data-i18n-html="help.enemies.boss.desc"><b>10스테이지마다</b> 등장. 거대한 무지개 블랙홀 형태로 빠르게 회전합니다. 100·200·300 스테이지의 보스는 더욱 거대합니다</p>
         </div>
       </div>
 
       <div class="help-card" style="margin-top:16px">
-        <div class="help-card-title">🗡 적 처치 방법</div>
-        <ul class="help-list">
+        <div class="help-card-title" data-i18n="help.enemies.kill.title">🗡 적 처치 방법</div>
+        <ul class="help-list" data-i18n-html="help.enemies.kill.body">
           <li><b>영역으로 가두기</b> — 적을 안에 넣고 점령하면 제거됩니다</li>
           <li><b>폭탄 💣</b> — 화면 전체 적 즉시 제거</li>
           <li><b>번개 ⚡</b> — 터치한 위치에 번개로 공격</li>
@@ -450,11 +453,11 @@
 
     <!-- 마켓 -->
     <div id="help-tab-market" class="help-section">
-      <p class="help-intro">스테이지 점수를 누적해 마켓에서 아이템을 구입할 수 있습니다. 스테이지 클리어 화면 또는 메인 화면 → 🛒 마켓</p>
+      <p class="help-intro" data-i18n="help.market.intro">스테이지 점수를 누적해 마켓에서 아이템을 구입할 수 있습니다. 스테이지 클리어 화면 또는 메인 화면 → 🛒 마켓</p>
 
       <div class="help-card">
-        <div class="help-card-title"><span class="market-tier-label normal">일반</span> 3,000pt</div>
-        <ul class="help-list">
+        <div class="help-card-title"><span class="market-tier-label normal" data-i18n="market.tierNormal">일반</span> 3,000pt</div>
+        <ul class="help-list" data-i18n-html="help.market.normal.body">
           <li>⏱️ <b>시간 연장</b> — 다음 스테이지 시작 시 +20초 (중첩 가능)</li>
           <li>💊 <b>회복약</b> — 다음 스테이지 시작 시 목숨 +1</li>
           <li>💨 <b>스피드</b> — 다음 스테이지 1회 한정 2배 속도</li>
@@ -462,8 +465,8 @@
       </div>
 
       <div class="help-card" style="border-color:rgba(160,100,255,0.3)">
-        <div class="help-card-title"><span class="market-tier-label rare">레어</span> 10,000~20,000pt</div>
-        <ul class="help-list">
+        <div class="help-card-title"><span class="market-tier-label rare" data-i18n="market.tierRare">레어</span> 10,000~20,000pt</div>
+        <ul class="help-list" data-i18n-html="help.market.rare.body">
           <li>❤️‍🔥 <b>생명의 정수</b> (12,000pt) — 매 스테이지 목숨 +1 <b>영구</b>. 단, 목숨이 3 이상일 때만 발동. 목숨이 2가 되면 효과가 다음 스테이지까지 일시 중단. 중첩 구매 시 추가 목숨 증가 (2개 구매 → 매 스테이지 5목숨 시작)</li>
           <li>🕰️ <b>시간의 정수</b> (10,000pt) — 매 스테이지 +20초 <b>영구</b>. 중첩 가능</li>
           <li>💫 <b>인내의 속도</b> (15,000pt) — 매 스테이지 시작 시 2배 속도 <b>영구</b>. 목숨을 잃으면 해당 스테이지 해제, 다음 스테이지 재발동</li>
@@ -472,8 +475,8 @@
       </div>
 
       <div class="help-card" style="border-color:rgba(255,179,71,0.35)">
-        <div class="help-card-title"><span class="market-tier-label legend">전설</span> 10,000~30,000pt</div>
-        <ul class="help-list">
+        <div class="help-card-title"><span class="market-tier-label legend" data-i18n="market.tierLegend">전설</span> 10,000~30,000pt</div>
+        <ul class="help-list" data-i18n-html="help.market.legend.body">
           <li>⚔️ <b>칼</b> (30,000pt) — Z키/탭으로 선 위 적 처치 (목숨 2 이상 필요)</li>
           <li>🗡️ <b>신검</b> (30,000pt) — 칼 강화: 사정거리·공격력 증가 (칼 보유 시 표시)</li>
           <li>🔫 <b>총</b> (30,000pt) — X키/탭으로 탄환 5발 발사</li>
@@ -483,7 +486,7 @@
         </ul>
       </div>
 
-      <div class="help-note">💡 레어·전설 아이템은 누적 점수로 구입하므로 고득점 플레이가 중요합니다!</div>
+      <div class="help-note" data-i18n="help.market.note">💡 레어·전설 아이템은 누적 점수로 구입하므로 고득점 플레이가 중요합니다!</div>
     </div>
 
   </div><!-- .help-body -->
@@ -493,13 +496,13 @@
 <div id="screen-collection-pick" class="screen">
   <div class="collection-pick-wrap">
     <div class="collection-pick-header">
-      <h2>⭐ 소장품 선택</h2>
-      <p id="collection-pick-desc">하나를 골라 소장하세요</p>
+      <h2 data-i18n="collection.title">⭐ 소장품 선택</h2>
+      <p id="collection-pick-desc" data-i18n="collection.desc">하나를 골라 소장하세요</p>
     </div>
     <div id="collection-pick-grid" class="collection-pick-grid"></div>
     <div class="collection-pick-footer">
-      <button id="btn-collection-confirm" class="btn-primary" disabled>소장하기</button>
-      <button id="btn-collection-skip" class="btn-secondary">건너뛰기</button>
+      <button id="btn-collection-confirm" class="btn-primary" disabled data-i18n="collection.btnConfirm">소장하기</button>
+      <button id="btn-collection-skip" class="btn-secondary" data-i18n="common.skip">건너뛰기</button>
     </div>
   </div>
 </div>
@@ -507,15 +510,15 @@
 <!-- ── Gallery ───────────────────────────────────────── -->
 <div id="screen-gallery" class="screen">
   <div class="gallery-header">
-    <h2>갤러리</h2>
-    <button id="btn-back-gallery" class="btn-back">← 뒤로</button>
+    <h2 data-i18n="gallery.title">갤러리</h2>
+    <button id="btn-back-gallery" class="btn-back" data-i18n="common.back">← 뒤로</button>
   </div>
 
   <!-- 특전 이미지 -->
   <div class="pack-banner collection-banner" id="reward-images-banner" style="display:none">
     <div class="pack-banner-info">
-      <span class="pack-banner-title">🎁 특전 이미지</span>
-      <span class="pack-banner-desc">100/200/300스테이지 달성 특전</span>
+      <span class="pack-banner-title" data-i18n="gallery.rewardBannerTitle">🎁 특전 이미지</span>
+      <span class="pack-banner-desc" data-i18n="gallery.rewardBannerDesc">100/200/300스테이지 달성 특전</span>
     </div>
   </div>
   <div id="gallery-reward-images" class="gallery-grid-section"></div>
@@ -523,8 +526,8 @@
   <!-- 내 소장품 -->
   <div class="pack-banner collection-banner">
     <div class="pack-banner-info">
-      <span class="pack-banner-title">⭐ 내 소장품</span>
-      <span class="pack-banner-desc">10스테이지마다 직접 고른 이미지</span>
+      <span class="pack-banner-title" data-i18n="gallery.myCollectionTitle">⭐ 내 소장품</span>
+      <span class="pack-banner-desc" data-i18n="gallery.myCollectionDesc">10스테이지마다 직접 고른 이미지</span>
     </div>
   </div>
   <div id="gallery-collection" class="gallery-grid-section"></div>
@@ -532,11 +535,11 @@
   <!-- 팩 A (1~100) -->
   <div class="pack-banner" id="pack-banner-a">
     <div class="pack-banner-info">
-      <span class="pack-banner-title">팩 A — 스테이지 1~100</span>
+      <span class="pack-banner-title" data-i18n="gallery.packATitle">팩 A — 스테이지 1~100</span>
       <span id="pack-a-status" class="pack-banner-status"></span>
     </div>
     <button id="btn-pack-a" class="btn-pack">
-      전체 즉시 해금
+      <span data-i18n="common.unlockAll">전체 즉시 해금</span>
       <span class="btn-pack-price"><s class="price-original">3,900원</s><b class="price-discount">700원</b><span class="discount-badge">80%</span></span>
     </button>
   </div>
@@ -547,11 +550,11 @@
   <!-- 팩 B (101~200) -->
   <div class="pack-banner" id="pack-banner-b">
     <div class="pack-banner-info">
-      <span class="pack-banner-title">팩 B — 스테이지 101~200</span>
+      <span class="pack-banner-title" data-i18n="gallery.packBTitle">팩 B — 스테이지 101~200</span>
       <span id="pack-b-status" class="pack-banner-status"></span>
     </div>
     <button id="btn-pack-b" class="btn-pack">
-      전체 즉시 해금
+      <span data-i18n="common.unlockAll">전체 즉시 해금</span>
       <span class="btn-pack-price"><s class="price-original">3,900원</s><b class="price-discount">700원</b><span class="discount-badge">80%</span></span>
     </button>
   </div>
@@ -562,11 +565,11 @@
   <!-- 팩 C (201~300) -->
   <div class="pack-banner" id="pack-banner-c">
     <div class="pack-banner-info">
-      <span class="pack-banner-title">팩 C — 스테이지 201~300</span>
+      <span class="pack-banner-title" data-i18n="gallery.packCTitle">팩 C — 스테이지 201~300</span>
       <span id="pack-c-status" class="pack-banner-status"></span>
     </div>
     <button id="btn-pack-c" class="btn-pack">
-      전체 즉시 해금
+      <span data-i18n="common.unlockAll">전체 즉시 해금</span>
       <span class="btn-pack-price"><s class="price-original">3,900원</s><b class="price-discount">700원</b><span class="discount-badge">80%</span></span>
     </button>
   </div>
@@ -577,16 +580,16 @@
   <!-- 완전판 팩 배너 -->
   <div class="pack-banner pack-banner-all" id="pack-banner-all">
     <div class="pack-banner-info">
-      <span class="pack-banner-title">완전판 팩 — 전 스테이지</span>
-      <span class="pack-banner-desc">팩 A+B+C 통합 할인</span>
+      <span class="pack-banner-title" data-i18n="gallery.packAllTitle">완전판 팩 — 전 스테이지</span>
+      <span class="pack-banner-desc" data-i18n="gallery.packAllDesc">팩 A+B+C 통합 할인</span>
     </div>
     <button id="btn-pack-all" class="btn-pack btn-pack-all">
-      전 스테이지 즉시 해금
+      <span data-i18n="gallery.unlockAllStagesBtn">전 스테이지 즉시 해금</span>
       <span class="btn-pack-price"><s class="price-original">6,900원</s><b class="price-discount">1,300원</b><span class="discount-badge">80%</span></span>
     </button>
   </div>
 
-  <button id="btn-back-main2" class="btn-back" style="margin:12px auto;display:block;width:fit-content">← 메인</button>
+  <button id="btn-back-main2" class="btn-back" style="margin:12px auto;display:block;width:fit-content" data-i18n="gallery.btnBackMain">← 메인</button>
 </div>
 
 <!-- ── Image Lightbox ────────────────────────────────── -->
@@ -602,7 +605,7 @@
     <div class="confirm-modal-icon">ℹ️</div>
     <p class="confirm-modal-desc" id="modal-alert-msg"></p>
     <div class="confirm-modal-btns">
-      <button id="btn-alert-ok" class="btn-primary">확인</button>
+      <button id="btn-alert-ok" class="btn-primary" data-i18n="common.confirm">확인</button>
     </div>
   </div>
 </div>
@@ -612,15 +615,15 @@
 <div id="modal-reset" class="confirm-modal">
   <div class="confirm-modal-box">
     <div class="confirm-modal-icon">⚠️</div>
-    <h3 class="confirm-modal-title">진행 상황 초기화</h3>
-    <p class="confirm-modal-desc">
+    <h3 class="confirm-modal-title" data-i18n="modalReset.title">진행 상황 초기화</h3>
+    <p class="confirm-modal-desc" data-i18n-html="modalReset.desc">
       모든 스테이지 진행, 포인트, 장비 업그레이드가<br>
       <strong>완전히 삭제</strong>됩니다.<br>
       정말 초기화하시겠습니까?
     </p>
     <div class="confirm-modal-btns">
-      <button id="btn-reset-cancel" class="btn-secondary">취소</button>
-      <button id="btn-reset-confirm" class="btn-danger">초기화</button>
+      <button id="btn-reset-cancel" class="btn-secondary" data-i18n="common.cancel">취소</button>
+      <button id="btn-reset-confirm" class="btn-danger" data-i18n="common.reset">초기화</button>
     </div>
   </div>
 </div>
@@ -628,20 +631,21 @@
 <!-- ── Market ──────────────────────────────────────────── -->
 <div id="screen-market" class="screen">
   <div class="market-header">
-    <h2>🛒 마켓</h2>
-    <button id="btn-back-market" class="btn-back">← 뒤로</button>
+    <h2 data-i18n="market.title">🛒 마켓</h2>
+    <button id="btn-back-market" class="btn-back" data-i18n="common.back">← 뒤로</button>
   </div>
   <div class="market-score-row">
-    보유 점수 <b id="market-total-score">0</b> pt
+    <span data-i18n="market.scoreLabel">보유 점수</span> <b id="market-total-score">0</b> pt
   </div>
   <div class="market-desc-row">
-    <span class="market-tier-label normal">일반</span> 3,000pt &nbsp;·&nbsp;
-    <span class="market-tier-label rare">레어</span> 10,000~20,000pt &nbsp;·&nbsp;
-    <span class="market-tier-label legend">전설</span> 10,000~30,000pt
+    <span class="market-tier-label normal" data-i18n="market.tierNormal">일반</span> 3,000pt &nbsp;·&nbsp;
+    <span class="market-tier-label rare" data-i18n="market.tierRare">레어</span> 10,000~20,000pt &nbsp;·&nbsp;
+    <span class="market-tier-label legend" data-i18n="market.tierLegend">전설</span> 10,000~30,000pt
   </div>
   <div id="market-item-list" class="market-item-list"></div>
 </div>
 
+<script type="module" src="js/i18n.js"></script>
 <script type="module" src="js/app.js"></script>
 <script>
   // Service Worker 등록

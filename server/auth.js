@@ -12,6 +12,7 @@ const express   = require('express');
 const axios     = require('axios');
 const jwt       = require('jsonwebtoken');
 const userStore = require('./userStore');
+const i18n      = require('./i18n');
 
 const router = express.Router();
 
@@ -37,13 +38,13 @@ const COOKIE_OPTS = {
 function requireAuth(req, res, next) {
     const token = req.cookies && req.cookies[COOKIE_NAME];
     if (!token) {
-        return res.status(401).json({ error: '로그인이 필요합니다.' });
+        return res.status(401).json({ error: i18n.t(req, 'loginRequired') });
     }
     try {
         req.user = jwt.verify(token, JWT_SECRET);
         next();
     } catch (err) {
-        return res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' });
+        return res.status(401).json({ error: i18n.t(req, 'invalidAuthToken') });
     }
 }
 
@@ -124,7 +125,7 @@ router.get('/me', requireAuth, (req, res) => {
 
     if (!user) {
         // JWT는 유효하지만 store에 유저가 없는 엣지 케이스
-        return res.status(404).json({ error: '유저 정보를 찾을 수 없습니다.' });
+        return res.status(404).json({ error: i18n.t(req, 'userInfoNotFound') });
     }
 
     const subscribed = userStore.isSubscribed(userId);

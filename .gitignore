@@ -14,7 +14,11 @@ server/data/purchases.json
 npm-debug.log*
 
 # TWA Android 빌드 (키스토어 포함 — 별도 백업 필수)
+app/
 twa/
+
+# 릴리즈 서명 비밀번호 포함 — 절대 커밋 금지, 별도 백업 필수
+gradle.properties
 
 # OS
 .DS_Store

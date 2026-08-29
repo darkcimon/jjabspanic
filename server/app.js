@@ -13,6 +13,7 @@ const store        = require('./imageStore');
 const generator    = require('./batchGenerator');
 const { router: authRouter }    = require('./auth');
 const { router: paymentRouter } = require('./payment');
+const i18n = require('./i18n');
 
 // ── 특전 일회용 토큰 저장소 ───────────────────────────────
 // Map<token, { userId, stage, expiresAt }>
@@ -30,6 +31,38 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.sendFile(path.join(__dirname, 'public', '.well-known', 'assetlinks.json'));
 });
+
+// ── manifest.json — 언어별 name/description ────────────────
+// 정적 파일 하나로는 방문자 브라우저 언어에 맞춰 값을 바꿀 수 없어서,
+// web/manifest.json을 서빙하는 express.static보다 먼저 이 라우트를 등록해
+// Accept-Language 헤더(웹 프론트의 navigator.language 감지와 동일한 규칙:
+// 한국어면 한국어, 그 외에는 영어)로 매니페스트를 동적으로 생성한다.
+const MANIFEST_BASE = {
+    start_url: '/',
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#1a0a2e',
+    theme_color: '#1a0a2e',
+    icons: [
+        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+        { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+};
+const MANIFEST_I18N = {
+    ko: { lang: 'ko', name: '짭스패닉', short_name: '짭스패닉', description: 'AI 캐릭터를 수집하는 땅따먹기 캐주얼 게임' },
+    en: { lang: 'en', name: 'GalsPanic', short_name: 'GalsPanic', description: 'A territory-capture casual game with collectible AI characters' },
+};
+function detectServerLang(req) {
+    const primary = (req.headers['accept-language'] || '').split(',')[0].trim().toLowerCase();
+    return primary.startsWith('ko') ? 'ko' : 'en';
+}
+app.get('/manifest.json', (req, res) => {
+    const lang = detectServerLang(req);
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.json({ ...MANIFEST_I18N[lang], ...MANIFEST_BASE });
+});
+
 // Serve web frontend
 app.use(express.static(path.join(__dirname, '..', 'web')));
 
@@ -40,7 +73,7 @@ app.use('/payment', paymentRouter);
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 60,
-    message: { error: 'Too many requests' }
+    message: (req) => ({ error: i18n.t(req, 'tooManyRequests') })
 });
 app.use('/api/', apiLimiter);
 
@@ -49,7 +82,7 @@ const rewardLimiter = rateLimit({
     windowMs: 24 * 60 * 60 * 1000,
     max: 3,
     keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
-    message: { error: '오늘 특전 이미지 생성 횟수를 초과했습니다. 내일 다시 시도해주세요.' },
+    message: (req) => ({ error: i18n.t(req, 'rewardDailyLimit') }),
     skipSuccessfulRequests: false,
 });
 
@@ -90,7 +123,7 @@ app.get('/api/config', (req, res) => {
 app.get('/api/image', (req, res) => {
     const stage  = parseInt(req.query.stage, 10);
     if (!stage || stage < 1 || stage > store.MAX_STAGE)
-        return res.status(400).json({ error: '잘못된 스테이지 번호' });
+        return res.status(400).json({ error: i18n.t(req, 'invalidStage') });
 
     const batchIndex = store.getBatchIndex(stage);
     const batch      = store.getBatchStatus(batchIndex);
@@ -111,7 +144,7 @@ app.get('/api/image', (req, res) => {
 app.get('/api/batch/status', (req, res) => {
     const batchIndex = parseInt(req.query.batchIndex, 10);
     if (isNaN(batchIndex) || batchIndex < 0 || batchIndex >= store.TOTAL_BATCH)
-        return res.status(400).json({ error: '잘못된 배치 인덱스' });
+        return res.status(400).json({ error: i18n.t(req, 'invalidBatchIndex') });
 
     res.json(store.getBatchStatus(batchIndex));
 });
@@ -121,7 +154,7 @@ app.post('/api/batch/trigger', async (req, res) => {
     const { batchIndex } = req.body;
 
     if (typeof batchIndex !== 'number' || batchIndex < 1 || batchIndex >= store.TOTAL_BATCH)
-        return res.status(400).json({ error: '잘못된 배치 인덱스 (0은 사전 생성됨, 1~9만 트리거 가능)' });
+        return res.status(400).json({ error: i18n.t(req, 'invalidBatchTrigger') });
 
     const current = store.getBatchStatus(batchIndex);
 
@@ -149,7 +182,7 @@ app.post('/api/reward/token', (req, res) => {
     const stageNum = parseInt(stage, 10);
 
     if (!userId || !REWARD_VALID_STAGES.has(stageNum))
-        return res.status(400).json({ error: '유효하지 않은 요청입니다.' });
+        return res.status(400).json({ error: i18n.t(req, 'invalidRequest') });
 
     // 만료된 토큰 정리
     const now = Date.now();
@@ -174,17 +207,17 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
     const { userId, keywords, token } = req.body;
 
     if (!userId || !keywords || keywords.trim().length === 0)
-        return res.status(400).json({ error: 'userId와 keywords는 필수입니다.' });
+        return res.status(400).json({ error: i18n.t(req, 'userIdKeywordsRequired') });
 
     if (keywords.length > 200)
-        return res.status(400).json({ error: '키워드는 200자 이하로 입력해주세요.' });
+        return res.status(400).json({ error: i18n.t(req, 'keywordsTooLong') });
 
     // 토큰 검증
     const tokenData = rewardTokens.get(token);
     if (!tokenData)
-        return res.status(403).json({ error: '유효하지 않거나 만료된 요청입니다. 스테이지를 클리어한 후 다시 시도해주세요.' });
+        return res.status(403).json({ error: i18n.t(req, 'tokenExpiredRetry') });
     if (tokenData.userId !== userId || Date.now() > tokenData.expiresAt)
-        return res.status(403).json({ error: '유효하지 않거나 만료된 요청입니다.' });
+        return res.status(403).json({ error: i18n.t(req, 'tokenExpired') });
 
     const existing = store.getRewardImageUrl(userId);
     if (existing) {
@@ -196,13 +229,13 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
     const lastGen = rewardCooldown.get(userId);
     if (lastGen && Date.now() - lastGen < REWARD_COOLDOWN_MS) {
         const remaining = Math.ceil((REWARD_COOLDOWN_MS - (Date.now() - lastGen)) / 60000);
-        return res.status(429).json({ error: `특전 이미지는 1시간에 1회만 생성할 수 있습니다. ${remaining}분 후 다시 시도해주세요.` });
+        return res.status(429).json({ error: i18n.t(req, 'rewardCooldown', remaining) });
     }
 
     // 서버 전체 일일 상한 체크 — 유료 API 호출(generateRewardImage) 전에 막는다.
     // 한도 초과 시 토큰/쿨다운을 소모하지 않아 유저는 내일 같은 토큰으로 재시도 가능.
     if (!consumeGlobalRewardQuota()) {
-        return res.status(429).json({ error: '오늘 전체 특전 이미지 생성 한도를 초과했습니다. 내일 다시 시도해주세요.' });
+        return res.status(429).json({ error: i18n.t(req, 'rewardGlobalCap') });
     }
 
     rewardTokens.delete(token); // 일회용: 생성 시도 시 소모

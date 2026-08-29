@@ -14,6 +14,13 @@
       padding: 24px 16px 60px;
     }
     .container { max-width: 720px; margin: 0 auto; }
+    .lang-switch { text-align: right; margin-bottom: 12px; }
+    .lang-switch button {
+      background: transparent; color: #9c86c8; font-size: 0.8rem; font-weight: 600;
+      padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(200,80,192,0.3);
+      cursor: pointer;
+    }
+    .lang-switch button:hover { color: #e0d6f5; border-color: #a78bfa; }
     h1 { font-size: 1.5rem; color: #c084fc; margin-bottom: 8px; }
     .updated { font-size: 0.85rem; color: #9c86c8; margin-bottom: 32px; }
     h2 { font-size: 1.1rem; color: #a78bfa; margin: 28px 0 10px; border-left: 3px solid #7c3aed; padding-left: 10px; }
@@ -24,68 +31,159 @@
     th, td { border: 1px solid #3b2d6e; padding: 8px 10px; text-align: left; }
     th { background: #1e1040; color: #c084fc; }
     a  { color: #818cf8; }
+    [data-lang-block] { display: none; }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>개인정보처리방침</h1>
-  <p class="updated">시행일: 2026년 04월 02일</p>
+  <div class="lang-switch">
+    <button id="btn-privacy-lang" type="button">🌐 <span id="privacy-lang-label">EN</span></button>
+  </div>
 
-  <p>
-    짭스패닉(이하 "서비스")은 이용자의 개인정보를 중요시하며,
-    「개인정보 보호법」 및 관련 법령을 준수합니다.
-    본 방침은 서비스가 수집하는 정보와 이용 목적, 보유 기간 등을 안내합니다.
-  </p>
+  <div data-lang-block="ko">
+    <h1>개인정보처리방침</h1>
+    <p class="updated">시행일: 2026년 04월 02일</p>
 
-  <h2>1. 수집하는 정보</h2>
-  <table>
-    <tr><th>항목</th><th>수집 방법</th><th>목적</th></tr>
-    <tr><td>게임 진행 데이터 (스테이지, 목숨, 갤러리)</td><td>브라우저 localStorage</td><td>게임 상태 저장</td></tr>
-    <tr><td>랜덤 사용자 ID (UUID)</td><td>자동 생성</td><td>보상 이미지 식별</td></tr>
-    <tr><td>접속 IP, 브라우저 정보</td><td>서버 로그</td><td>서비스 안정성 모니터링</td></tr>
-  </table>
-  <p>서비스는 회원가입 없이 이용 가능하며, 이름·이메일·주민등록번호 등 민감한 개인정보를 수집하지 않습니다.</p>
+    <p>
+      짭스패닉(이하 "서비스")은 이용자의 개인정보를 중요시하며,
+      「개인정보 보호법」 및 관련 법령을 준수합니다.
+      본 방침은 서비스가 수집하는 정보와 이용 목적, 보유 기간 등을 안내합니다.
+    </p>
 
-  <h2>2. 정보 이용 목적</h2>
-  <ul>
-    <li>게임 진행 상태 저장 및 복원</li>
-    <li>AI 보상 이미지 생성 (Stability AI API 전송)</li>
-    <li>서비스 이상 탐지 및 운영</li>
-  </ul>
+    <h2>1. 수집하는 정보</h2>
+    <table>
+      <tr><th>항목</th><th>수집 방법</th><th>목적</th></tr>
+      <tr><td>게임 진행 데이터 (스테이지, 목숨, 갤러리)</td><td>브라우저 localStorage</td><td>게임 상태 저장</td></tr>
+      <tr><td>랜덤 사용자 ID (UUID)</td><td>자동 생성</td><td>보상 이미지 식별</td></tr>
+      <tr><td>접속 IP, 브라우저 정보</td><td>서버 로그</td><td>서비스 안정성 모니터링</td></tr>
+    </table>
+    <p>서비스는 회원가입 없이 이용 가능하며, 이름·이메일·주민등록번호 등 민감한 개인정보를 수집하지 않습니다.</p>
 
-  <h2>3. 제3자 제공</h2>
-  <p>
-    서비스는 이용자 정보를 원칙적으로 외부에 제공하지 않습니다.
-    단, AI 이미지 생성 시 사용자 입력 키워드가 Stability AI(미국) 서버로 전송됩니다.
-    법령에 의한 요청이 있는 경우 예외적으로 제공할 수 있습니다.
-  </p>
+    <h2>2. 정보 이용 목적</h2>
+    <ul>
+      <li>게임 진행 상태 저장 및 복원</li>
+      <li>AI 보상 이미지 생성 (Stability AI API 전송)</li>
+      <li>서비스 이상 탐지 및 운영</li>
+    </ul>
 
-  <h2>4. 보유 및 이용 기간</h2>
-  <ul>
-    <li>게임 데이터 (localStorage): 이용자가 직접 삭제하거나 브라우저 데이터 삭제 시까지</li>
-    <li>서버 접속 로그: 최대 3개월</li>
-    <li>보상 이미지: 서버 재배포 전까지</li>
-  </ul>
+    <h2>3. 제3자 제공</h2>
+    <p>
+      서비스는 이용자 정보를 원칙적으로 외부에 제공하지 않습니다.
+      단, AI 이미지 생성 시 사용자 입력 키워드가 Stability AI(미국) 서버로 전송됩니다.
+      법령에 의한 요청이 있는 경우 예외적으로 제공할 수 있습니다.
+    </p>
 
-  <h2>5. 이용자의 권리</h2>
-  <p>
-    이용자는 언제든지 브라우저의 "사이트 데이터 삭제" 기능으로 저장된 게임 데이터를 삭제할 수 있습니다.
-    그 밖의 개인정보 관련 문의는 아래 연락처로 요청하십시오.
-  </p>
+    <h2>4. 보유 및 이용 기간</h2>
+    <ul>
+      <li>게임 데이터 (localStorage): 이용자가 직접 삭제하거나 브라우저 데이터 삭제 시까지</li>
+      <li>서버 접속 로그: 최대 3개월</li>
+      <li>보상 이미지: 서버 재배포 전까지</li>
+    </ul>
 
-  <h2>6. 개인정보 보호책임자</h2>
-  <table>
-    <tr><th>항목</th><th>내용</th></tr>
-    <tr><td>서비스명</td><td>짭스패닉</td></tr>
-    <tr><td>이메일</td><td><a href="mailto:contact@jjabspanic.app">contact@jjabspanic.app</a></td></tr>
-    <tr><td>처리 기간</td><td>접수 후 7일 이내</td></tr>
-  </table>
+    <h2>5. 이용자의 권리</h2>
+    <p>
+      이용자는 언제든지 브라우저의 "사이트 데이터 삭제" 기능으로 저장된 게임 데이터를 삭제할 수 있습니다.
+      그 밖의 개인정보 관련 문의는 아래 연락처로 요청하십시오.
+    </p>
 
-  <h2>7. 방침 변경</h2>
-  <p>
-    본 방침은 법령·서비스 변경에 따라 개정될 수 있으며,
-    변경 시 서비스 내 공지 또는 본 페이지를 통해 안내합니다.
-  </p>
+    <h2>6. 개인정보 보호책임자</h2>
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>서비스명</td><td>짭스패닉</td></tr>
+      <tr><td>이메일</td><td><a href="mailto:contact@jjabspanic.app">contact@jjabspanic.app</a></td></tr>
+      <tr><td>처리 기간</td><td>접수 후 7일 이내</td></tr>
+    </table>
+
+    <h2>7. 방침 변경</h2>
+    <p>
+      본 방침은 법령·서비스 변경에 따라 개정될 수 있으며,
+      변경 시 서비스 내 공지 또는 본 페이지를 통해 안내합니다.
+    </p>
+  </div>
+
+  <div data-lang-block="en">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Effective date: April 2, 2026</p>
+
+    <p>
+      GalsPanic ("the Service") values user privacy and complies with South
+      Korea's Personal Information Protection Act and related regulations.
+      This policy explains what information the Service collects, why, and
+      for how long it is retained.
+    </p>
+
+    <h2>1. Information Collected</h2>
+    <table>
+      <tr><th>Item</th><th>Collection Method</th><th>Purpose</th></tr>
+      <tr><td>Game progress data (stage, lives, gallery)</td><td>Browser localStorage</td><td>Saving game state</td></tr>
+      <tr><td>Random user ID (UUID)</td><td>Generated automatically</td><td>Identifying reward images</td></tr>
+      <tr><td>Access IP, browser information</td><td>Server logs</td><td>Monitoring service stability</td></tr>
+    </table>
+    <p>The Service can be used without registration and does not collect sensitive personal information such as your name, email, or national ID number.</p>
+
+    <h2>2. Purpose of Use</h2>
+    <ul>
+      <li>Saving and restoring game progress</li>
+      <li>Generating AI reward images (sent to the Stability AI API)</li>
+      <li>Detecting and operating against service abnormalities</li>
+    </ul>
+
+    <h2>3. Sharing with Third Parties</h2>
+    <p>
+      The Service does not share user information externally as a rule.
+      However, when generating an AI image, the keywords you enter are sent
+      to Stability AI's servers (United States). Information may exceptionally
+      be disclosed if required by law.
+    </p>
+
+    <h2>4. Retention Period</h2>
+    <ul>
+      <li>Game data (localStorage): until you delete it yourself or clear your browser data</li>
+      <li>Server access logs: up to 3 months</li>
+      <li>Reward images: until the next server redeployment</li>
+    </ul>
+
+    <h2>5. User Rights</h2>
+    <p>
+      You can delete your saved game data at any time using your browser's
+      "clear site data" feature. For any other privacy-related inquiries,
+      please contact us at the address below.
+    </p>
+
+    <h2>6. Privacy Officer</h2>
+    <table>
+      <tr><th>Item</th><th>Details</th></tr>
+      <tr><td>Service name</td><td>GalsPanic</td></tr>
+      <tr><td>Email</td><td><a href="mailto:contact@jjabspanic.app">contact@jjabspanic.app</a></td></tr>
+      <tr><td>Response time</td><td>Within 7 days of receipt</td></tr>
+    </table>
+
+    <h2>7. Changes to This Policy</h2>
+    <p>
+      This policy may be revised due to changes in law or the Service.
+      Any changes will be announced within the Service or on this page.
+    </p>
+  </div>
 </div>
+<script type="module">
+  import { getLang, setLang, onLangChange } from './js/i18n.js';
+
+  function render() {
+    const lang = getLang();
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-lang-block]').forEach(el => {
+      el.style.display = el.getAttribute('data-lang-block') === lang ? '' : 'none';
+    });
+    const label = document.getElementById('privacy-lang-label');
+    if (label) label.textContent = lang === 'ko' ? 'EN' : '한국어';
+  }
+
+  render();
+  onLangChange(render);
+
+  document.getElementById('btn-privacy-lang').addEventListener('click', () => {
+    setLang(getLang() === 'ko' ? 'en' : 'ko');
+  });
+</script>
 </body>
 </html>

@@ -24,6 +24,7 @@ const crypto         = require('crypto');
 const userStore      = require('./userStore');
 const purchaseStore  = require('./purchaseStore');
 const { requireAuth } = require('./auth');
+const i18n           = require('./i18n');
 
 const router = express.Router();
 
@@ -138,11 +139,11 @@ router.post('/subscribe', requireAuth, async (req, res) => {
     const user = userStore.getUser(userId);
 
     if (!user) {
-        return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
+        return res.status(404).json({ error: i18n.t(req, 'userNotFound') });
     }
 
     if (!user.billingKey) {
-        return res.status(400).json({ error: '등록된 결제 수단이 없습니다. 구독 등록을 먼저 진행해주세요.' });
+        return res.status(400).json({ error: i18n.t(req, 'noPaymentMethod') });
     }
 
     try {
@@ -176,7 +177,7 @@ router.post('/subscribe', requireAuth, async (req, res) => {
     } catch (err) {
         const errData = err.response?.data;
         console.error('[Payment] 정기 결제 실패 — userId:', userId, errData || err.message);
-        res.status(500).json({ error: errData?.message || '결제 처리 중 오류가 발생했습니다.' });
+        res.status(500).json({ error: errData?.message || i18n.t(req, 'paymentProcessError') });
     }
 });
 
@@ -188,22 +189,26 @@ router.post('/cancel', requireAuth, (req, res) => {
     const user = userStore.getUser(userId);
 
     if (!user) {
-        return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
+        return res.status(404).json({ error: i18n.t(req, 'userNotFound') });
     }
 
     if (user.subscriptionStatus === 'none' || user.subscriptionStatus === 'cancelled') {
-        return res.status(400).json({ error: '활성 구독이 없습니다.' });
+        return res.status(400).json({ error: i18n.t(req, 'noActiveSubscription') });
     }
 
     const updated = userStore.cancelSubscription(userId);
 
     console.log(`[Payment] 구독 해지 — userId: ${userId}, expiry: ${updated.subscriptionExpiry}`);
 
+    const lang = i18n.detectLang(req);
+    const untilText = updated.subscriptionExpiry
+        ? i18n.t(req, 'subscriptionUntil', new Date(updated.subscriptionExpiry).toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-US'))
+        : '';
     res.json({
         ok:                 true,
         subscriptionStatus: updated.subscriptionStatus,
         subscriptionExpiry: updated.subscriptionExpiry,
-        message:            `구독이 해지되었습니다. ${updated.subscriptionExpiry ? new Date(updated.subscriptionExpiry).toLocaleDateString('ko-KR') + '까지 이용 가능합니다.' : ''}`,
+        message:            i18n.t(req, 'subscriptionCanceled', untilText),
     });
 });
 
@@ -240,7 +245,7 @@ router.post('/pack/init', (req, res) => {
     const { packId } = req.body || {};
 
     if (!packId || !VALID_PACKS.has(packId)) {
-        return res.status(400).json({ error: '잘못된 팩 ID입니다.' });
+        return res.status(400).json({ error: i18n.t(req, 'invalidPackId') });
     }
 
     _cleanupPendingOrders();
@@ -264,7 +269,7 @@ router.get('/pack/success', async (req, res) => {
     const { orderId, paymentKey } = req.query;
 
     if (!orderId || !paymentKey) {
-        return res.status(400).send('잘못된 결제 콜백입니다.');
+        return res.status(400).send(i18n.t(req, 'invalidPaymentCallback'));
     }
 
     const pending = pendingOrders.get(orderId);
@@ -275,7 +280,7 @@ router.get('/pack/success', async (req, res) => {
         if (existing) {
             return res.redirect(`/?purchase=success&packId=${encodeURIComponent(existing.packId)}&redeemCode=${encodeURIComponent(existing.redeemCode)}`);
         }
-        return res.status(400).send('유효하지 않거나 만료된 주문입니다.');
+        return res.status(400).send(i18n.t(req, 'invalidOrExpiredOrder'));
     }
 
     const { packId, amount } = pending;
@@ -379,13 +384,13 @@ router.post('/redeem', (req, res) => {
     const { redeemCode } = req.body;
 
     if (!redeemCode || typeof redeemCode !== 'string') {
-        return res.status(400).json({ ok: false, error: '구매 코드를 입력해주세요.' });
+        return res.status(400).json({ ok: false, error: i18n.t(req, 'redeemCodeRequired') });
     }
 
     const purchase = purchaseStore.getPurchaseByCode(redeemCode.trim());
 
     if (!purchase) {
-        return res.status(404).json({ ok: false, error: '유효하지 않은 구매 코드입니다.' });
+        return res.status(404).json({ ok: false, error: i18n.t(req, 'invalidRedeemCode') });
     }
 
     console.log(`[Payment/Redeem] 코드 복구: ${redeemCode.trim()} → ${purchase.packId}`);

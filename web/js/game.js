@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 // ── Cell states ──────────────────────────────────────────────
 const EMPTY    = 0;
 const CAPTURED = 1;
@@ -1452,7 +1454,7 @@ export class Game extends EventTarget {
         ctx.fillStyle='#ffffff';
         ctx.font=`bold ${Math.max(10,Math.floor(cs*0.85))}px sans-serif`;
         ctx.textAlign='center';
-        ctx.fillText('검사의 영혼',this.player.px,this.player.py-reach*cs-cs*0.5);
+        ctx.fillText(t('game.soulSword'),this.player.px,this.player.py-reach*cs-cs*0.5);
         ctx.textAlign='left';
       }
       ctx.restore();
@@ -1474,7 +1476,7 @@ export class Game extends EventTarget {
         ctx.fillStyle='#ffffff';
         ctx.font=`bold ${Math.max(9,Math.floor(cs*0.75))}px sans-serif`;
         ctx.textAlign='center';
-        ctx.fillText('+5 탄약',this.player.px,this.player.py-glowR*0.7);
+        ctx.fillText(t('game.ammoRecharge'),this.player.px,this.player.py-glowR*0.7);
         ctx.textAlign='left';
       }
       ctx.restore();
@@ -1533,7 +1535,7 @@ export class Game extends EventTarget {
     ctx.fillStyle=sg; ctx.fillRect(0,0,w,h);
     ctx.fillStyle=`rgba(255,200,255,${0.3+Math.sin(t*2)*0.15})`;
     ctx.font=`${Math.max(10,Math.floor(w*0.04))}px sans-serif`;
-    ctx.textAlign='center'; ctx.fillText('이미지 로딩 중…',w/2,h*0.91); ctx.textAlign='left';
+    ctx.textAlign='center'; ctx.fillText(t('game.imageLoading'),w/2,h*0.91); ctx.textAlign='left';
   }
 
   _drawCutePlayer(ctx, cs) {

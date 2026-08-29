@@ -9,6 +9,7 @@ import {
   COLS, ROWS, PLAYER_SPEED, CLEAR_THRESHOLD,
   getMonsterCount, getMonsterSpeed, getTimeLimit, getBatchIndex,
 } from './config.js';
+import { t, onLangChange } from './i18n.js';
 
 // ── Screen management ────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -125,13 +126,13 @@ function updateHUD({ fill, lives, time, stage, score = 0,
   if (bubbleActive) {
     const p = document.createElement('span');
     p.className = 'timer-pill bubble';
-    p.textContent = '🫧 버블';
+    p.textContent = t('game.bubbleTag');
     timersEl.appendChild(p);
   }
   if (rareBubbleActive) {
     const p = document.createElement('span');
     p.className = 'timer-pill bubble';
-    p.textContent = '🫧✨ 황금버블';
+    p.textContent = t('game.rareBubbleTag');
     timersEl.appendChild(p);
   }
 
@@ -223,7 +224,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
 
   $('clear-score').textContent      = score.toLocaleString();
   $('clear-fill').textContent       = Math.floor(fill * 100) + '%';
-  $('clear-time').textContent       = timeLeft + '초';
+  $('clear-time').textContent       = timeLeft + t('clear.timeUnit');
   $('clear-time-bonus').textContent  = '+' + timeBonus.toLocaleString();
   $('clear-stage-bonus').textContent = '+' + stageBonus.toLocaleString();
   const fillBonusEl = $('clear-fill-bonus');
@@ -268,13 +269,13 @@ function onGameOver({ stage }) {
     // 보유 장비 현황 문구 생성
     const pb = save.persistentBonus || {};
     const weaponParts = [];
-    if ((pb.gunLevel || 0) > 0)    weaponParts.push(`🔫 총 ${pb.gunLevel}단`);
-    if ((pb.bulletLevel || 0) > 0) weaponParts.push(`🔵 총탄 ${pb.bulletLevel}단`);
-    if ((pb.swordLevel || 0) > 0)  weaponParts.push(`⚔️ 칼 ${pb.swordLevel}단`);
+    if ((pb.gunLevel || 0) > 0)    weaponParts.push(t('over.gunLevelPart', { n: pb.gunLevel }));
+    if ((pb.bulletLevel || 0) > 0) weaponParts.push(t('over.bulletLevelPart', { n: pb.bulletLevel }));
+    if ((pb.swordLevel || 0) > 0)  weaponParts.push(t('over.swordLevelPart', { n: pb.swordLevel }));
     const weaponEl = $('over-weapon-warning');
     if (weaponEl) {
       weaponEl.innerHTML = weaponParts.length > 0
-        ? `보유 중인 <strong>${weaponParts.join(' · ')}</strong> 장비 단계가 3단계 낮아졌습니다 ㅠ`
+        ? t('over.weaponWarningText', { parts: weaponParts.join(' · ') })
         : '';
     }
     warningEl.style.display = weaponParts.length > 0 ? '' : 'none';
@@ -460,7 +461,7 @@ function updatePackBanner(packId, owned) {
 
   if (owned) {
     btn.style.display    = 'none';
-    status.textContent   = '✔ 해금 완료';
+    status.textContent   = t('gallery.packUnlocked');
     status.classList.add('pack-owned');
   } else {
     // -- 구매 재개 시 아래로 원복 --
@@ -468,7 +469,7 @@ function updatePackBanner(packId, owned) {
     // status.textContent   = '';
     // status.classList.remove('pack-owned');
     btn.style.display    = 'none';
-    status.textContent   = '준비중 (추후 광고로 해금 예정)';
+    status.textContent   = t('gallery.packComingSoon');
     status.classList.remove('pack-owned');
   }
 }
@@ -491,7 +492,7 @@ async function showCollectionPick(completedStage) {
   const isFull = !unlimited && collCount >= COLLECTION_LIMIT;
 
   $('collection-pick-desc').textContent =
-    `스테이지 ${fromStage}~${completedStage} 완료! 하나를 골라 소장하세요`;
+    t('collection.pickDesc', { from: fromStage, to: completedStage });
 
   // 슬롯 안내 제거 후 재삽입
   let slotEl = $('collection-slot-info');
@@ -502,10 +503,10 @@ async function showCollectionPick(completedStage) {
   }
   if (unlimited) {
     slotEl.className = 'collection-slot-info';
-    slotEl.textContent = '팩 구매자 — 무제한 소장';
+    slotEl.textContent = t('collection.unlimitedNote');
   } else {
     slotEl.className = 'collection-slot-info' + (isFull ? ' full' : '');
-    slotEl.textContent = `소장 ${collCount} / ${COLLECTION_LIMIT}`;
+    slotEl.textContent = t('collection.slotCount', { count: collCount, limit: COLLECTION_LIMIT });
   }
 
   // 가득 찬 경우 안내 문구 — 더 이상 선택을 막지 않고, 확정 시 가장 오래된
@@ -518,7 +519,7 @@ async function showCollectionPick(completedStage) {
       fullNoteEl.className = 'collection-full-note';
       slotEl.insertAdjacentElement('afterend', fullNoteEl);
     }
-    fullNoteEl.textContent = `소장 공간이 가득 찼습니다 (최대 ${COLLECTION_LIMIT}개). 새로 선택하면 가장 오래된 소장품을 덮어씁니다.`;
+    fullNoteEl.textContent = t('collection.fullNote', { limit: COLLECTION_LIMIT });
   } else if (fullNoteEl) {
     fullNoteEl.remove();
   }
@@ -589,7 +590,7 @@ function makeCollectionPickCard(stageNum, purchases, onSelect) {
   if (alreadyCollected) {
     const badge = document.createElement('div');
     badge.className = 'collection-pick-badge';
-    badge.textContent = '✔ 소장 중';
+    badge.textContent = t('collection.alreadyCollected');
     card.appendChild(badge);
   }
 
@@ -612,7 +613,7 @@ async function showGallery() {
       card.className = 'gallery-card';
       const img = document.createElement('img');
       img.src = url;
-      img.alt = `특전 ${stage}스테이지`;
+      img.alt = t('gallery.rewardAlt', { n: stage });
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;cursor:pointer;';
       img.addEventListener('click', () => {
         const lbImg = $('img-lightbox');
@@ -621,7 +622,7 @@ async function showGallery() {
       });
       const label = document.createElement('div');
       label.className = 'card-label';
-      label.textContent = `${stage}스테이지 특전`;
+      label.textContent = t('gallery.rewardLabel', { n: stage });
       card.appendChild(img);
       card.appendChild(label);
       rewardGrid.appendChild(card);
@@ -636,7 +637,7 @@ async function showGallery() {
   if (!save.collection || save.collection.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'gallery-empty';
-    empty.textContent = '10스테이지를 클리어하면 소장품을 선택할 수 있습니다';
+    empty.textContent = t('gallery.collectionEmpty');
     collectionGrid.appendChild(empty);
   } else {
     for (const stageNum of save.collection) {
@@ -676,7 +677,7 @@ async function showGallery() {
     if (staged.length === 0 && !packOwned) {
       const empty = document.createElement('p');
       empty.className = 'gallery-empty';
-      empty.textContent = `스테이지 ${range.from}~${range.to} 중 클리어한 스테이지가 없습니다`;
+      empty.textContent = t('gallery.packEmpty', { from: range.from, to: range.to });
       gridEl.appendChild(empty);
       continue;
     }
@@ -706,7 +707,7 @@ async function onPackBuy(packId) {
     // requestPackPurchase는 토스 리다이렉트로 끝남 — 이후 코드는 실행되지 않음
   } catch (err) {
     console.error('[Pack] 결제 오류:', err);
-    showAlert(err.message || '결제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    showAlert(err.message || t('payment.genericError'));
   }
 }
 
@@ -727,7 +728,7 @@ async function onPackBuy(packId) {
     // 갤러리 화면을 열어 구매 결과 바로 확인
     setTimeout(() => showGallery(), 100);
   } else if (result === 'fail') {
-    showAlert('결제가 취소되었거나 실패했습니다.');
+    showAlert(t('payment.failedOrCanceled'));
   }
 })();
 
@@ -745,7 +746,7 @@ function proceedAfterReward() {
 }
 
 async function showRewardScreen(completedStage) {
-  $('reward-badge').textContent = `🎉 ${completedStage}스테이지 달성!`;
+  $('reward-badge').textContent = t('reward.badge', { n: completedStage });
 
   // 입력 영역 초기화
   const textarea = $('reward-keywords');
@@ -758,7 +759,7 @@ async function showRewardScreen(completedStage) {
   $('btn-reward-continue').classList.add('hidden');
   $('btn-reward-skip').classList.remove('hidden');
   $('btn-reward-generate').disabled = false;
-  $('btn-reward-generate').textContent = '✨ 이미지 생성';
+  $('btn-reward-generate').textContent = t('reward.btnGenerate');
 
   show('reward');
 
@@ -771,7 +772,7 @@ async function showRewardScreen(completedStage) {
   } catch (e) {
     console.warn('[Reward] 토큰 발급 실패:', e.message);
     $('btn-reward-generate').disabled = true;
-    $('btn-reward-generate').textContent = '⚠️ 이미지 생성 불가';
+    $('btn-reward-generate').textContent = t('reward.genUnavailable');
   }
 
   textarea.addEventListener('input', () => {
@@ -799,7 +800,7 @@ async function showRewardScreen(completedStage) {
         const saveBtn = $('btn-reward-save');
         saveBtn.classList.remove('hidden');
         saveBtn.disabled = alreadySaved;
-        saveBtn.textContent = alreadySaved ? '✔ 저장됨' : '📥 갤러리에 저장';
+        saveBtn.textContent = alreadySaved ? t('reward.savedBtn') : t('reward.btnSave');
         saveBtn.onclick = () => {
           if (!save.rewardImages) save.rewardImages = [];
           const idx = save.rewardImages.findIndex(r => r.stage === completedStage);
@@ -807,7 +808,7 @@ async function showRewardScreen(completedStage) {
           else save.rewardImages.push({ stage: completedStage, url: data.imageUrl });
           Storage.save(save);
           saveBtn.disabled = true;
-          saveBtn.textContent = '✔ 저장됨';
+          saveBtn.textContent = t('reward.savedBtn');
         };
       }
       $('btn-reward-continue').classList.remove('hidden');
@@ -817,7 +818,7 @@ async function showRewardScreen(completedStage) {
       $('reward-input-area').classList.remove('hidden');
       $('btn-reward-skip').classList.remove('hidden');
       $('btn-reward-generate').disabled = false;
-      showAlert('이미지 생성에 실패했습니다. 다시 시도해 주세요.');
+      showAlert(t('reward.genError'));
     }
   };
 
@@ -916,27 +917,28 @@ function getMarketItems() {
 
   const items = [
     // Normal
-    { id:'timeboost',      tier:'normal', cost:3000,  icon:'⏱️', name:'시간 연장',   desc:'+20초 (다음 스테이지 시작 시)' },
-    { id:'extraLife',      tier:'normal', cost:3000,  icon:'💊', name:'회복약',      desc:'목숨 +1 (다음 스테이지 시작 시)' },
-    { id:'speed',          tier:'normal', cost:3000,  icon:'💨', name:'스피드',      desc:'이동 속도 2배 (1스테이지)' },
-    { id:'splitCharge',    tier:'normal', cost:4000,  icon:'💥', name:'분열 아이템', desc:'게임 중 사용 시 현재 모든 적을 복제 (중첩 구매 가능)' },
+    { id:'timeboost',      tier:'normal', cost:3000,  icon:'⏱️', name:t('market.item.timeboost.name'),   desc:t('market.item.timeboost.desc') },
+    { id:'extraLife',      tier:'normal', cost:3000,  icon:'💊', name:t('market.item.extraLife.name'),   desc:t('market.item.extraLife.desc') },
+    { id:'speed',          tier:'normal', cost:3000,  icon:'💨', name:t('market.item.speed.name'),       desc:t('market.item.speed.desc') },
+    { id:'splitCharge',    tier:'normal', cost:4000,  icon:'💥', name:t('market.item.splitCharge.name'), desc:t('market.item.splitCharge.desc') },
     // Rare
-    { id:'rareLife',       tier:'rare',   cost:12000, icon:'❤️‍🔥', name:'생명의 정수', desc:'매 스테이지 목숨 +1 (목숨 3 이상일 때만 발동, 누적 가능)' },
-    { id:'rareClock',      tier:'rare',   cost:10000, icon:'🕰️', name:'시간의 정수', desc:'매 스테이지 +20초 (영구 축적)' },
+    { id:'rareLife',       tier:'rare',   cost:12000, icon:'❤️‍🔥', name:t('market.item.rareLife.name'),  desc:t('market.item.rareLife.desc') },
+    { id:'rareClock',      tier:'rare',   cost:10000, icon:'🕰️', name:t('market.item.rareClock.name'),  desc:t('market.item.rareClock.desc') },
   ];
   if (speedLv < 1) items.push(
-    { id:'endureSpeed',    tier:'rare',   cost:15000, icon:'💫', name:'인내의 속도', desc:'매 스테이지 2배 속도 부여 (목숨 잃으면 해당 스테이지 해제)' }
+    { id:'endureSpeed',    tier:'rare',   cost:15000, icon:'💫', name:t('market.item.endureSpeed.name'), desc:t('market.item.endureSpeed.desc') }
   );
   if (speedLv < 2) items.push(
-    { id:'transcendSpeed', tier:'rare',   cost:20000, icon:'🌀', name:'초월의 속도', desc:`3배 속도 영구 부여${speedLv===1?' (인내의 속도 대체)':''}` }
+    { id:'transcendSpeed', tier:'rare',   cost:20000, icon:'🌀', name:t('market.item.transcendSpeed.name'),
+      desc:t('market.item.transcendSpeed.desc') + (speedLv===1 ? t('market.item.transcendSpeed.replaceNote') : '') }
   );
   // Legend — conditional
   if (!hasSword) items.push(
-    { id:'sword',          tier:'legend', cost:30000, icon:'⚔️', name:'칼',          desc:'Z키로 적 처치 (목숨 2 이상)' }
+    { id:'sword',          tier:'legend', cost:30000, icon:'⚔️', name:t('market.item.sword.name'), desc:t('market.item.sword.desc') }
   );
   const swordCount = save.heldItems.find(h => h.type === 'sword')?.count || 0;
   if (hasSword && swordCount < 2) items.push(
-    { id:'swordUpgrade',   tier:'legend', cost:30000, icon:'🗡️', name:'신검',        desc:'칼 강화: 사정거리·공격력 증가' }
+    { id:'swordUpgrade',   tier:'legend', cost:30000, icon:'🗡️', name:t('market.item.swordUpgrade.name'), desc:t('market.item.swordUpgrade.desc') }
   );
   // 칼 강화 — 칼 관련 항목끼리 묶이도록 칼/신검 바로 다음에 배치 (기존엔 목록
   // 맨 끝에 있어 모바일에서 스크롤을 끝까지 내려야만 보였음)
@@ -945,45 +947,51 @@ function getMarketItems() {
     const swCost = 5000 + Math.floor(swordLv / 5) * 1000;
     const swIcons=['⚪','🔴','🟠','🟡','🟢','🔵','🔷','🟣','⚫','🩵','🌈'];
     const swIcon = swIcons[Math.min(Math.floor(swordLv/10),10)];
-    items.push({id:'swordLevelUp', tier: swordLv<10?'normal':swordLv<30?'rare':'legend', cost:swCost, icon:swIcon+'⚔️', name:`칼 강화 (${swordLv}→${swordLv+1}단)`, desc:`칼 단계 업그레이드 (${swordLv+1}/100)`});
+    items.push({id:'swordLevelUp', tier: swordLv<10?'normal':swordLv<30?'rare':'legend', cost:swCost, icon:swIcon+'⚔️',
+      name: t('market.item.swordLevelUp.name', { from: t('market.unitLevel', { n: swordLv }), to: t('market.unitLevel', { n: swordLv + 1 }) }),
+      desc: t('market.item.swordLevelUp.desc', { to: swordLv + 1 }) });
   }
   if (!hasGun) items.push(
-    { id:'gun',            tier:'legend', cost:30000, icon:'🔫', name:'총',          desc:'X키로 총알 5발 발사' }
+    { id:'gun',            tier:'legend', cost:30000, icon:'🔫', name:t('market.item.gun.name'), desc:t('market.item.gun.desc') }
   );
   if (hasGun) items.push(
-    { id:'ammo',           tier:'legend', cost:5000,  icon:'🔫', name:'탄약 ×5',     desc:'총알 5발 추가' }
+    { id:'ammo',           tier:'legend', cost:5000,  icon:'🔫', name:t('market.item.ammo.name'), desc:t('market.item.ammo.desc') }
   );
   items.push(
-    { id:'lightning',      tier:'legend', cost:10000,  icon:'⚡',  name:'번개',          desc:'화면 탭으로 3×3 범위 번개 공격 (중첩 가능)' },
-    { id:'zeusLightning',  tier:'legend', cost:15000,  icon:'🌩️', name:'제우스의 번개',  desc:'5×5 초광역 번개 공격 (중첩 가능)' },
-    { id:'rareBubble',     tier:'legend', cost:20000,  icon:'🫧',  name:'황금 버블',      desc:'피격 1회 방어 (스테이지 클리어 시 유지됨)' }
+    { id:'lightning',      tier:'legend', cost:10000,  icon:'⚡',  name:t('market.item.lightning.name'),     desc:t('market.item.lightning.desc') },
+    { id:'zeusLightning',  tier:'legend', cost:15000,  icon:'🌩️', name:t('market.item.zeusLightning.name'), desc:t('market.item.zeusLightning.desc') },
+    { id:'rareBubble',     tier:'legend', cost:20000,  icon:'🫧',  name:t('market.item.rareBubble.name'),    desc:t('market.item.rareBubble.desc') }
   );
   // Gun upgrade — 총 보유 시에만 표시
   const gunLv = (save.persistentBonus?.gunLevel) || 0;
   if (hasGun && gunLv < 111) {
     const gunCost = 3000 + Math.floor(gunLv / 5) * 1000;
-    const gunLabel = gunLv===0 ? '기본' : `${gunLv}단`;
-    const _gunPatternName = lv => {
-      if (lv<=10)  return '2발 연속';
-      if (lv<=30)  return '3발 연속';
-      if (lv<=40)  return '3발(±45°)';
-      if (lv<=50)  return '4발(±20°,40°)';
-      if (lv<=60)  return '5발(±30°,60°)';
-      if (lv<=70)  return '3발(±45°)';
-      if (lv<=80)  return '7발 분산';
-      if (lv<=90)  return '8발 분산';
-      if (lv<=100) return '9발 분산';
-      if (lv<=110) return '10발 분산';
-      return '11발 분산';
+    const gunLabel = gunLv===0 ? t('market.item.gunUpgrade.labelBase') : t('market.unitLevel', { n: gunLv });
+    const _gunPatternKey = lv => {
+      if (lv<=10)  return 'market.gunPattern.p2';
+      if (lv<=30)  return 'market.gunPattern.p3';
+      if (lv<=40)  return 'market.gunPattern.p3_45';
+      if (lv<=50)  return 'market.gunPattern.p4';
+      if (lv<=60)  return 'market.gunPattern.p5';
+      if (lv<=70)  return 'market.gunPattern.p3_45';
+      if (lv<=80)  return 'market.gunPattern.p7';
+      if (lv<=90)  return 'market.gunPattern.p8';
+      if (lv<=100) return 'market.gunPattern.p9';
+      if (lv<=110) return 'market.gunPattern.p10';
+      return 'market.gunPattern.p11';
     };
-    items.push({id:'gunUpgrade', tier: gunLv<10?'normal':gunLv<50?'rare':'legend', cost:gunCost, icon:'🔫', name:`총 강화 (${gunLabel}→${gunLv+1}단)`, desc:`${_gunPatternName(gunLv+1)} | 데미지 ${gunLv+1}`});
+    items.push({id:'gunUpgrade', tier: gunLv<10?'normal':gunLv<50?'rare':'legend', cost:gunCost, icon:'🔫',
+      name: t('market.item.gunUpgrade.name', { from: gunLabel, to: t('market.unitLevel', { n: gunLv + 1 }) }),
+      desc: t('market.item.gunUpgrade.desc', { pattern: t(_gunPatternKey(gunLv + 1)), dmg: gunLv + 1 }) });
   }
   // Bullet upgrade — 총 보유 시에만 표시
   const bulletLv = (save.persistentBonus?.bulletLevel) || 0;
   if (hasGun && bulletLv < 100) {
     const bulletCost = 3000 + Math.floor(bulletLv / 5) * 1000;
     const bulletSz = Math.round((0.25 + (Math.min(bulletLv+1,100)-1)/99*1.75)*10)/10;
-    items.push({id:'bulletUpgrade', tier: bulletLv<10?'normal':bulletLv<50?'rare':'legend', cost:bulletCost, icon:'🔵', name:`총탄 강화 (${bulletLv}→${bulletLv+1}단)`, desc:`총알 크기 ${bulletSz}블록`});
+    items.push({id:'bulletUpgrade', tier: bulletLv<10?'normal':bulletLv<50?'rare':'legend', cost:bulletCost, icon:'🔵',
+      name: t('market.item.bulletUpgrade.name', { from: t('market.unitLevel', { n: bulletLv }), to: t('market.unitLevel', { n: bulletLv + 1 }) }),
+      desc: t('market.item.bulletUpgrade.desc', { size: bulletSz }) });
   }
   return items;
 }
@@ -1023,7 +1031,9 @@ function _mergeHeldItem(heldItems, item) {
   return arr;
 }
 
-const TIER_LABEL = { normal: '일반', rare: '레어', legend: '전설' };
+function tierLabel(tier) {
+  return { normal: t('market.tierNormal'), rare: t('market.tierRare'), legend: t('market.tierLegend') }[tier] || tier;
+}
 
 function showMarket() {
   if (!save.totalScore) save.totalScore = 0;
@@ -1040,16 +1050,16 @@ function showMarket() {
     $('market-item-list').before(pbSummary);
   }
   const pbParts = [];
-  if (pb.extraLives > 0)  pbParts.push(`❤️‍🔥 매 스테이지 +${pb.extraLives} 목숨${pb.rareLifeSuspended ? ' ⚠️ 일시 중단 (목숨 부족)' : ''}`);
-  if (pb.extraTime  > 0)  pbParts.push(`🕰️ 매 스테이지 +${pb.extraTime}초`);
-  if (pb.speedLevel === 1) pbParts.push('💫 인내의 속도 (2배) 보유');
-  if (pb.speedLevel === 2) pbParts.push('🌀 초월의 속도 (3배) 보유');
-  if (pb.gunLevel    > 0) pbParts.push(`🔫 총 ${pb.gunLevel}단`);
-  if (pb.bulletLevel > 0) pbParts.push(`🔵 총탄 ${pb.bulletLevel}단`);
-  if (pb.swordLevel  > 0) pbParts.push(`⚔️ 칼 ${pb.swordLevel}단`);
+  if (pb.extraLives > 0)  pbParts.push(t('market.pbExtraLives', { n: pb.extraLives }) + (pb.rareLifeSuspended ? t('market.pbSuspended') : ''));
+  if (pb.extraTime  > 0)  pbParts.push(t('market.pbExtraTime', { n: pb.extraTime }));
+  if (pb.speedLevel === 1) pbParts.push(t('market.pbEndureSpeed'));
+  if (pb.speedLevel === 2) pbParts.push(t('market.pbTranscendSpeed'));
+  if (pb.gunLevel    > 0) pbParts.push(t('market.pbGunLevel', { n: pb.gunLevel }));
+  if (pb.bulletLevel > 0) pbParts.push(t('market.pbBulletLevel', { n: pb.bulletLevel }));
+  if (pb.swordLevel  > 0) pbParts.push(t('market.pbSwordLevel', { n: pb.swordLevel }));
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
-    ? `<b>영구 효과</b><br>${pbParts.join(' · ')}` : '';
+    ? `<b>${t('market.pbTitle')}</b><br>${pbParts.join(' · ')}` : '';
 
   const list = $('market-item-list');
   list.innerHTML = '';
@@ -1063,7 +1073,7 @@ function showMarket() {
       <div class="market-info">
         <b class="market-name">${mi.name}</b>
         <span class="market-desc">${mi.desc}</span>
-        <span class="market-tier-badge">${TIER_LABEL[mi.tier] || mi.tier}</span>
+        <span class="market-tier-badge">${tierLabel(mi.tier)}</span>
       </div>
       <button class="market-buy-btn btn-primary" ${canAfford ? '' : 'disabled'}>
         ${mi.cost.toLocaleString()}pt
@@ -1108,7 +1118,7 @@ function showMarket() {
       Storage.save(save);
       updateMainStats();
       showMarket();
-      _showMarketToast(`${mi.icon} ${mi.name} 구입!`);
+      _showMarketToast(t('market.buyToast', { icon: mi.icon, name: mi.name }));
     });
     list.appendChild(card);
   }
@@ -1132,7 +1142,7 @@ $('btn-back-market').onclick  = () => show(marketReturnScreen);
 const chkContinuous = $('chk-continuous-move');
 const moveModeDesc  = $('move-mode-desc');
 function updateMoveDesc() {
-  moveModeDesc.textContent = chkContinuous.checked ? '유지' : '탭';
+  moveModeDesc.textContent = chkContinuous.checked ? t('game.moveModeHold') : t('game.moveModeTap');
 }
 chkContinuous.addEventListener('change', () => {
   save.continuousMove = chkContinuous.checked;
@@ -1176,6 +1186,17 @@ async function boot() {
 }
 
 window.addEventListener('resize', () => { if (game?.running) resizeCanvas(); });
+
+// 언어 전환 시 이미 렌더링된 동적 화면(마켓/갤러리/이동방식 표시 등)을 다시 그린다.
+// data-i18n 정적 텍스트는 i18n.js의 applyI18n()이 자체적으로 처리한다.
+onLangChange(() => {
+  updateMainStats();
+  updateMoveDesc();
+  const activeScreen = screens.find(s => $(`screen-${s}`).classList.contains('active'));
+  if (activeScreen === 'market') showMarket();
+  if (activeScreen === 'gallery') showGallery();
+});
+
 boot();
 
 // ── Debug panel (URL에 ?debug=1 포함 시 활성화) ──────────────

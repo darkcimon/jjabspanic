@@ -182,6 +182,7 @@ describe('POST /api/batch/trigger', () => {
     test('batchIndex=0 → 400 (사전 생성 배치)', async () => {
         const res = await request(app)
             .post('/api/batch/trigger')
+            .set('Accept-Language', 'ko')
             .send({ batchIndex: 0 });
         expect(res.status).toBe(400);
         expect(res.body.error).toContain('0은 사전 생성됨');
@@ -269,6 +270,7 @@ describe('POST /api/reward/generate', () => {
     test('userId 없으면 400', async () => {
         const res = await request(app)
             .post('/api/reward/generate')
+            .set('Accept-Language', 'ko')
             .send({ keywords: 'fantasy' });
         expect(res.status).toBe(400);
         expect(res.body.error).toContain('필수');

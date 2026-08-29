@@ -886,6 +886,19 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 }
 
 /* ── Main footer ─────────────────────────────────────── */
+.lang-switch-row {
+  margin-top: 10px;
+}
+.btn-lang-toggle {
+  background: transparent; color: var(--muted);
+  font-size: 0.8rem; font-weight: 600;
+  padding: 6px 14px; border-radius: 999px;
+  border: 1px solid rgba(200,80,192,0.3);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.btn-lang-toggle:active { color: var(--text); border-color: var(--accent); }
+
 .main-footer {
   margin-top: 4px;
 }

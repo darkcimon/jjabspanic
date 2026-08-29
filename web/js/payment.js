@@ -8,6 +8,8 @@
  * window.TOSS_CLIENT_KEY에 주입한다.
  */
 
+import { t } from './i18n.js';
+
 // ── 상품 정의 ────────────────────────────────────────────────
 // amount: 실제 결제 금액 (80% 할인 적용, 100원 단위 절삭)
 // originalAmount: 할인 전 정가 (UI에 취소선으로 표시)
@@ -120,9 +122,9 @@ export async function redeemPurchase(redeemCode) {
       saveLocalPurchase(data.packId);
       return { ok: true, packId: data.packId };
     }
-    return { ok: false, error: data.error || '복구에 실패했습니다.' };
+    return { ok: false, error: data.error || t('payment.redeemFailed') };
   } catch {
-    return { ok: false, error: '서버에 연결할 수 없습니다.' };
+    return { ok: false, error: t('payment.serverUnreachable') };
   }
 }
 
@@ -171,7 +173,7 @@ export async function requestPackPurchase(packId) {
   // 클라이언트 키: 서버 주입 우선, 없으면 /api/config에서 조회
   const clientKey = await resolveClientKey();
   if (!clientKey) {
-    throw new Error('결제 설정을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    throw new Error(t('payment.configLoadFailed'));
   }
 
   // 주문 생성: 서버가 orderId와 금액을 산정해 반환
@@ -182,7 +184,7 @@ export async function requestPackPurchase(packId) {
   });
   if (!initRes.ok) {
     const err = await initRes.json().catch(() => ({}));
-    throw new Error(err.error || '결제 준비 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    throw new Error(err.error || t('payment.prepFailed'));
   }
   const { orderId, amount } = await initRes.json();
 
