@@ -248,7 +248,8 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
         rewardCooldown.delete(userId); // 실패 시 쿨다운 취소
         rewardGlobalCount = Math.max(0, rewardGlobalCount - 1); // 실패 시 전역 한도도 환급
         console.error(`[Server] 보상 이미지 생성 실패: ${err.message}`);
-        res.status(500).json({ error: err.message });
+        const message = err.code === 'BLOCKED_KEYWORD' ? i18n.t(req, 'blockedKeyword') : err.message;
+        res.status(500).json({ error: message });
     }
 });
 

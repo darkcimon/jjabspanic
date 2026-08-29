@@ -818,7 +818,9 @@ async function showRewardScreen(completedStage) {
       $('reward-input-area').classList.remove('hidden');
       $('btn-reward-skip').classList.remove('hidden');
       $('btn-reward-generate').disabled = false;
-      showAlert(t('reward.genError'));
+      // 서버가 구체적인 사유(금지 키워드, 쿨다운, 일일 한도 등)를 내려주므로
+      // 그대로 보여줘 사용자가 원인을 알고 다시 시도할 수 있게 한다.
+      showAlert(err.message || t('reward.genError'));
     }
   };
 

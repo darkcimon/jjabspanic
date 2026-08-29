@@ -131,7 +131,11 @@ async function generateRewardImage(userId, keywords) {
     const BLOCKED = ['nsfw', 'loli', 'gore', 'violence', 'blood', 'death', 'sexy', 'nude', 'naked', 'lingerie', 'swimsuit', 'bikini', 'adult', 'mature', 'porn', 'hentai', 'erotic', 'lewd'];
     const lc = keywords.toLowerCase();
     for (const word of BLOCKED) {
-        if (lc.includes(word)) throw new Error('허용되지 않는 키워드가 포함되어 있습니다.');
+        if (lc.includes(word)) {
+            const err = new Error('허용되지 않는 키워드가 포함되어 있습니다.');
+            err.code = 'BLOCKED_KEYWORD';
+            throw err;
+        }
     }
 
     const prompt = `anime girl, ${keywords}${QUALITY_SUFFIX}`;
