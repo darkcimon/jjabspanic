@@ -17,6 +17,19 @@ npm-debug.log*
 app/
 twa/
 
+# Bubblewrap이 루트에 생성하는 Gradle 프로젝트 — 로컬 빌드 산출물/wrapper,
+# 필요하면 `bubblewrap build`로 언제든 재생성 가능
+.gradle/
+build/
+gradle/
+gradlew
+gradlew.bat
+build.gradle
+settings.gradle
+local.properties
+twa-manifest.json
+manifest-checksum.txt
+
 # 릴리즈 서명 비밀번호 포함 — 절대 커밋 금지, 별도 백업 필수
 gradle.properties
 
