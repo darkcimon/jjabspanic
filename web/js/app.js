@@ -53,7 +53,7 @@ function resizeCanvas() {
 
 // ── Item icon helpers (mini canvas) ──────────────────────────
 const ITEM_ICONS = {
-  lightning: '⚡', zeusLightning: '🌩️', speed: '💨', sword: '⚔️', gun: '🔫', timeboost: '⏱️', split: '💥',
+  lightning: '⚡', zeusLightning: '🌩️', speed: '💨', sword: '⚔️', gun: '🔫', timeboost: '⏱️', split: '💥', rareBubble: '🫧',
 };
 
 function makeHeldItemButton(item, game) {
@@ -81,6 +81,12 @@ function makeHeldItemButton(item, game) {
       game.useGun();
     } else if (item.type === 'split') {
       game.triggerSplit();
+    } else if (item.type === 'rareBubble') {
+      // 황금 버블은 피격 시 자동으로 발동되는 수동형 아이템이라 직접 선택/발사할
+      // 무기가 아님 — 예전엔 여기서 selectWeapon('rareBubble')이 호출돼 activeWeapon이
+      // 총/칼도 아닌 값으로 바뀌어버려서, 탭하면 "아무 반응도 없어 보이는" 데다
+      // 총/칼 발사(Z/X)까지 먹통이 되는 부작용이 있었다.
+      _showMarketToast(t('game.rareBubbleAutoToast'));
     } else {
       game.selectWeapon(item.type);
     }
@@ -1149,6 +1155,15 @@ function getMarketItems() {
   return items;
 }
 
+// 보유 아이템 바에 실제로 "칸"을 차지하는 아이템 수 — speed/timeboost는
+// updateHeldItemsBar()에서도 바에 표시하지 않는 즉시효과/보조효과라 칸 계산에서도
+// 제외한다. 이걸 raw heldItems.length로 잘못 세면(예전 버그), speed·timeboost처럼
+// 화면엔 안 보이는 아이템 때문에 칸이 이미 다 찬 것처럼 계산돼 — 새 무기(칼/총/번개
+// 등)를 구매해도 포인트만 빠져나가고 아무것도 지급되지 않는 문제가 있었다.
+function _heldSlotCount(heldItems) {
+  return (heldItems || []).filter(h => h.type !== 'speed' && h.type !== 'timeboost').length;
+}
+
 function _mergeHeldItem(heldItems, item) {
   const arr = JSON.parse(JSON.stringify(heldItems || []));
   if (item.type === 'split') {
@@ -1162,24 +1177,24 @@ function _mergeHeldItem(heldItems, item) {
   } else if (item.type === 'sword') {
     const ex = arr.find(h => h.type === 'sword');
     if (ex) ex.count = Math.min(2, (ex.count || 1) + 1);
-    else if (arr.length < 3) arr.push({ type: 'sword', count: 1 });
+    else if (_heldSlotCount(arr) < 3) arr.push({ type: 'sword', count: 1 });
   } else if (item.type === 'gun') {
     const ex = arr.find(h => h.type === 'gun');
     if (ex) ex.ammo = Math.min(1000, (ex.ammo || 0) + (item.ammo || 5));
-    else if (arr.length < 3) arr.push({ type: 'gun', ammo: item.ammo || 5 });
+    else if (_heldSlotCount(arr) < 3) arr.push({ type: 'gun', ammo: item.ammo || 5 });
   } else if (item.type === 'lightning' || item.type === 'zeusLightning') {
     const ex = arr.find(h => h.type === item.type);
     if (ex) ex.count = (ex.count || 1) + 1;
-    else if (arr.length < 3) arr.push({ type: item.type, count: 1 });
+    else if (_heldSlotCount(arr) < 3) arr.push({ type: item.type, count: 1 });
   } else if (item.type === 'speed') {
     const ex = arr.find(h => h.type === 'speed');
     if (ex) { ex.level = Math.max(ex.level || 1, item.level || 1); }
-    else if (arr.length < 3) arr.push({ type: 'speed', level: item.level || 1, singleUse: item.singleUse });
+    else if (_heldSlotCount(arr) < 3) arr.push({ type: 'speed', level: item.level || 1, singleUse: item.singleUse });
   } else if (item.type === 'rareBubble') {
     // 황금 버블: 한 개만 보유, 아이템 칸 제한 없이 저장
     if (!arr.find(h => h.type === 'rareBubble')) arr.push({ type: 'rareBubble' });
   } else {
-    if (!arr.find(h => h.type === item.type) && arr.length < 3) arr.push(item);
+    if (!arr.find(h => h.type === item.type) && _heldSlotCount(arr) < 3) arr.push(item);
   }
   return arr;
 }
@@ -1233,6 +1248,15 @@ function showMarket() {
       </button>`;
     card.querySelector('.market-buy-btn').addEventListener('click', () => {
       if (save.totalScore < mi.cost) return;
+      // 칼/총/번개/스피드처럼 "새로 얻을 때만" 보유 칸(최대 3칸)이 필요한 아이템은,
+      // 결제 전에 칸 여유를 먼저 확인한다 — 안 그러면 칸이 없어 지급이 안 되는데도
+      // 포인트만 빠져나가는 문제가 생긴다 (이미 보유 중이면 칸을 새로 안 쓰므로 통과).
+      const NEW_SLOT_TYPES = ['sword', 'gun', 'lightning', 'zeusLightning', 'speed'];
+      if (NEW_SLOT_TYPES.includes(mi.id) && !save.heldItems.some(h => h.type === mi.id)
+          && _heldSlotCount(save.heldItems) >= 3) {
+        _showMarketToast(t('market.slotFull'));
+        return;
+      }
       save.totalScore -= mi.cost;
       if (!save.persistentBonus) save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0 };
       if (mi.id === 'splitCharge') {

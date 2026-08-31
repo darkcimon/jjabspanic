@@ -43,6 +43,7 @@ const dict = {
     'game.moveModeHold': '유지',
     'game.bubbleTag': '🫧 버블',
     'game.rareBubbleTag': '🫧✨ 황금버블',
+    'game.rareBubbleAutoToast': '🫧 황금 버블은 피격 시 자동으로 발동돼요 (직접 사용하는 아이템이 아니에요)',
 
     'clear.complete': '완료',
     'clear.score': '점수',
@@ -209,6 +210,7 @@ const dict = {
     'market.buyConfirm': '{name}을(를) {cost}pt에 구입할까요?',
     'market.buySuccess': '{name} 구입 완료!',
     'market.buyToast': '{icon} {name} 구입!',
+    'market.slotFull': '보유 아이템 칸이 가득 찼어요 (최대 3개). 기존 아이템을 다 쓴 뒤 다시 구매해주세요.',
 
     'ads.btnLabel': '광고 보고 포인트 받기',
     'ads.rewardToast': '📺 광고 시청 완료! +{n}pt 획득',
@@ -333,6 +335,7 @@ const dict = {
     'game.moveModeHold': 'Hold',
     'game.bubbleTag': '🫧 Bubble',
     'game.rareBubbleTag': '🫧✨ Golden Bubble',
+    'game.rareBubbleAutoToast': "🫧 Golden Bubble activates automatically when you're hit — it's not something you use manually",
 
     'clear.complete': 'Complete',
     'clear.score': 'Score',
@@ -499,6 +502,7 @@ const dict = {
     'market.buyConfirm': 'Buy {name} for {cost}pt?',
     'market.buySuccess': '{name} purchased!',
     'market.buyToast': '{icon} {name} purchased!',
+    'market.slotFull': 'Your item slots are full (max 3). Use up an existing item before buying another.',
 
     'ads.btnLabel': 'Watch Ad for Points',
     'ads.rewardToast': '📺 Ad watched! +{n}pt earned',
