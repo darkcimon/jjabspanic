@@ -6,10 +6,11 @@ import {
   requestPackPurchase, saveLocalPurchase, PACK_DEFS,
 } from './payment.js';
 import {
-  COLS, ROWS, PLAYER_SPEED, CLEAR_THRESHOLD,
-  getMonsterCount, getMonsterSpeed, getTimeLimit, getBatchIndex,
+  COLS, ROWS, PLAYER_SPEED, CLEAR_THRESHOLD, MAX_STAGE,
+  getMonsterCount, getMonsterSpeed, getTimeLimit, getBatchIndex, toImageStage, getLoopMultiplier,
 } from './config.js';
 import { t, onLangChange } from './i18n.js';
+import { computeNextAdReward, watchRewardAd } from './ads.js';
 
 // ── Screen management ────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -29,6 +30,9 @@ let api  = new API('');
 // 넘어가버리는 문제) boot() 시점에 복구할 수 있게 한다.
 let pendingCollectionStage = 0;
 let pendingRewardStage = 0;
+// 300단계(MAX_STAGE) 클리어 후 특전/소장품 화면이 끝나면 보여줄 "게임 클리어" 안내 대기 플래그.
+// 위 두 변수와 마찬가지로 save.pendingGameComplete로도 함께 저장해 모바일 재로드에도 복구한다.
+let pendingGameComplete = false;
 let marketReturnScreen = 'main'; // 마켓 진입 전 화면
 
 // ── Canvas sizing ────────────────────────────────────────────
@@ -208,9 +212,20 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   // 화면 전환 플래그를 가장 먼저 설정 — 이후 코드 예외에 영향받지 않도록.
   // save에도 함께 기록해 페이지 재로드로 이 값이 유실돼도 복구 가능하게 한다.
   if (stage % 10 === 0)  { pendingCollectionStage = stage; save.pendingCollectionStage = stage; }
-  if (stage % 100 === 0) { pendingRewardStage = stage;     save.pendingRewardStage = stage; }
+  // 특전 이미지는 100/200/300단계 전용 — 300단계를 넘어 이어서 플레이할 때 400, 500...
+  // 에서 다시 트리거되지 않도록 MAX_STAGE 이하일 때만 대기시킨다.
+  if (stage % 100 === 0 && stage <= MAX_STAGE) { pendingRewardStage = stage; save.pendingRewardStage = stage; }
+  // 300단계를 처음 클리어한 순간에만 "게임 클리어" 안내를 띄운다 (이어서 플레이를
+  // 선택하면 스테이지는 계속 증가하므로 이후 루프에서는 다시 뜨지 않음 — 처음부터
+  // 다시 시작을 선택해 재도전한 경우에만 재발생).
+  if (stage === MAX_STAGE) {
+    pendingGameComplete = true;
+    save.pendingGameComplete = true;
+  }
 
   if (stage > save.bestStage) save.bestStage = stage;
+  // 스테이지 번호 자체는 300 이후로도 계속 증가한다 — 실제 존재하는 아트워크는
+  // 300장뿐이라 캐릭터 이미지만 1단계부터 순환해서 보여준다 (game.js의 toImageStage 참고).
   save.stage = stage + 1;
   // Persistent/single-use speed items are re-applied each stage — don't carry them over
   save.heldItems = heldItems.filter(h => !(h.type === 'speed' && (h.persistent || h.singleUse)));
@@ -218,7 +233,12 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   if (save.persistentBonus) save.persistentBonus.rareLifeSuspended = rareLifeLost;
   if (!save.totalScore) save.totalScore = 0;
   save.totalScore += score;
-  if (stage % 10 === 0 && !save.gallery.includes(stage)) save.gallery.push(stage);
+  // 갤러리(소장 이미지)는 실제 아트워크 식별자(1~300)로 저장한다 — 300 이후 루프에서
+  // 같은 이미지를 다시 클리어해도 중복 없이 동일한 칸을 가리키게 하기 위함.
+  if (stage % 10 === 0) {
+    const imgStage = toImageStage(stage);
+    if (!save.gallery.includes(imgStage)) save.gallery.push(imgStage);
+  }
   try { Storage.save(save); } catch (e) { console.warn('[Storage] save failed:', e); }
   updateMainStats();
 
@@ -293,7 +313,7 @@ function setupInput(canvas, g) {
   const held = new Set();
   const onKey = e => {
     if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); g.useSword(); return; }
-    if (e.key === 'x' || e.key === 'X') { e.preventDefault(); g.useGun();   return; }
+    if (e.key === 'x' || e.key === 'X' || e.key === ' ' || e.code === 'Space') { e.preventDefault(); g.useGun(); return; }
     const d = dirs[e.key];
     if (!d) return;
     e.preventDefault();
@@ -552,18 +572,22 @@ async function showCollectionPick(completedStage) {
       save.collection.push(selectedStage);
     }
     Storage.save(save);
-    startGame(save.stage, save.rating);
+    advanceAfterClear();
   };
 }
 
+// stageNum: 실제 플레이한 스테이지 번호(300 이후에도 계속 증가) — 라벨 표시에만 사용.
+// imgStage: 실제 존재하는 아트워크 식별자(1~300, 300 이후는 순환) — 이미지 조회/소장 저장은
+// 이 값을 기준으로 한다 (그래야 나중에 갤러리에서도 같은 이미지로 정상 표시됨).
 function makeCollectionPickCard(stageNum, purchases, onSelect) {
-  const packId = stageNum <= 100 ? 'pack_a' : stageNum <= 200 ? 'pack_b' : 'pack_c';
+  const imgStage = toImageStage(stageNum);
+  const packId = imgStage <= 100 ? 'pack_a' : imgStage <= 200 ? 'pack_b' : 'pack_c';
   const packOwned = purchases.includes('pack_all') || purchases.includes(packId);
-  const alreadyCollected = (save.collection || []).includes(stageNum);
+  const alreadyCollected = (save.collection || []).includes(imgStage);
 
   const card = document.createElement('div');
   card.className = 'collection-pick-card' + (packOwned ? ' loading' : ' locked');
-  card.dataset.stage = stageNum;
+  card.dataset.stage = imgStage;
 
   const label = document.createElement('div');
   label.className = 'card-label';
@@ -576,7 +600,7 @@ function makeCollectionPickCard(stageNum, purchases, onSelect) {
     lock.innerHTML = '<span class="gallery-lock-icon">🔒</span>';
     card.appendChild(lock);
   } else {
-    api.getImage(stageNum, save.rating).then(data => {
+    api.getImage(imgStage, save.rating).then(data => {
       card.classList.remove('loading');
       if (data.status === 'ready' && data.url) {
         const img = document.createElement('img');
@@ -594,7 +618,7 @@ function makeCollectionPickCard(stageNum, purchases, onSelect) {
     card.appendChild(badge);
   }
 
-  card.addEventListener('pointerdown', () => onSelect(stageNum));
+  card.addEventListener('pointerdown', () => onSelect(imgStage));
   return card;
 }
 
@@ -695,6 +719,53 @@ function updateMainStats() {
   $('current-stage').textContent = save.stage;
   const tsEl = $('main-total-score');
   if (tsEl) tsEl.textContent = (save.totalScore || 0).toLocaleString();
+  updateAdButtons();
+}
+
+// ── 리워드 광고 (구글 애드센스 Ad Placement API) ────────────────
+// 시청 1회당 3,000 → 6,000 → 12,000(2배씩) → 이후 1.5배씩(100 단위 절삭) 지급.
+function updateAdButtons() {
+  const amount = computeNextAdReward(save.lastAdReward || 0);
+  const label = `(+${amount.toLocaleString()}pt)`;
+  const mainEl  = $('main-ad-amount');
+  const clearEl = $('clear-ad-amount');
+  if (mainEl)  mainEl.textContent  = label;
+  if (clearEl) clearEl.textContent = label;
+}
+
+let _adInFlight = false;
+function requestRewardAd() {
+  if (_adInFlight) return;
+  _adInFlight = true;
+  const btnMain  = $('btn-main-ad');
+  const btnClear = $('btn-clear-ad');
+  if (btnMain)  btnMain.disabled  = true;
+  if (btnClear) btnClear.disabled = true;
+
+  const finish = () => {
+    _adInFlight = false;
+    if (btnMain)  btnMain.disabled  = false;
+    if (btnClear) btnClear.disabled = false;
+  };
+
+  watchRewardAd({
+    onReward: () => {
+      const reward = computeNextAdReward(save.lastAdReward || 0);
+      save.totalScore   = (save.totalScore || 0) + reward;
+      save.lastAdReward = reward;
+      Storage.save(save);
+      updateMainStats();
+      const clearTotalEl = $('clear-total-score');
+      if (clearTotalEl) clearTotalEl.textContent = save.totalScore.toLocaleString() + 'pt';
+      $('btn-clear-market').style.display = save.totalScore >= 3000 ? 'block' : 'none';
+      _showMarketToast(t('ads.rewardToast', { n: reward.toLocaleString() }));
+      finish();
+    },
+    onUnavailable: () => {
+      _showMarketToast(t('ads.unavailable'));
+      finish();
+    },
+  });
 }
 
 
@@ -741,8 +812,25 @@ function proceedAfterReward() {
     Storage.save(save);
     showCollectionPick(s);
   } else {
-    startGame(save.stage, save.rating);
+    advanceAfterClear();
   }
+}
+
+// 특전/소장품 화면을 모두 거친 뒤 다음 스테이지로 넘어가는 마지막 관문.
+// 300단계 클리어 직후라면 다음 스테이지를 시작하는 대신 게임 클리어 안내를 띄운다.
+function advanceAfterClear() {
+  if (pendingGameComplete) {
+    pendingGameComplete = false;
+    save.pendingGameComplete = false;
+    Storage.save(save);
+    showGameCompleteModal();
+    return;
+  }
+  startGame(save.stage, save.rating);
+}
+
+function showGameCompleteModal() {
+  $('modal-game-complete').classList.add('active');
 }
 
 async function showRewardScreen(completedStage) {
@@ -788,11 +876,26 @@ async function showRewardScreen(completedStage) {
     $('reward-loading').classList.remove('hidden');
     $('btn-reward-skip').classList.add('hidden');
 
+    // 생성 요청은 성공했지만 이미지가 실제로 뜨지 않는 경우(엑박) —
+    // 예를 들어 응답에 imageUrl이 없거나, URL이 가리키는 파일이 없어 로드에
+    // 실패하는 경우 — 를 "성공"으로 취급해 다음 버튼을 눌러버리지 않도록,
+    // 이미지가 실제로 로드된 뒤에만 완료 상태로 전환한다.
+    const failGeneration = (msg) => {
+      $('reward-loading').classList.add('hidden');
+      $('reward-input-area').classList.remove('hidden');
+      $('btn-reward-skip').classList.remove('hidden');
+      $('btn-reward-generate').disabled = false;
+      showAlert(msg || t('reward.genError'));
+    };
+
     try {
       const data = await api.rewardGenerate(rewardUserId, keywords, rewardToken);
-      $('reward-loading').classList.add('hidden');
-      if (data.imageUrl) {
-        $('reward-result-img').src = data.imageUrl;
+      if (!data.imageUrl) { failGeneration(); return; }
+
+      const resultImg = $('reward-result-img');
+      resultImg.onload = () => {
+        resultImg.onload = null; resultImg.onerror = null;
+        $('reward-loading').classList.add('hidden');
         $('reward-result').classList.remove('hidden');
 
         // 저장 버튼: 이미 저장된 스테이지면 비활성화
@@ -810,17 +913,19 @@ async function showRewardScreen(completedStage) {
           saveBtn.disabled = true;
           saveBtn.textContent = t('reward.savedBtn');
         };
-      }
-      $('btn-reward-continue').classList.remove('hidden');
-      $('btn-reward-skip').classList.remove('hidden');
+
+        $('btn-reward-continue').classList.remove('hidden');
+        $('btn-reward-skip').classList.remove('hidden');
+      };
+      resultImg.onerror = () => {
+        resultImg.onload = null; resultImg.onerror = null;
+        failGeneration();
+      };
+      resultImg.src = data.imageUrl;
     } catch (err) {
-      $('reward-loading').classList.add('hidden');
-      $('reward-input-area').classList.remove('hidden');
-      $('btn-reward-skip').classList.remove('hidden');
-      $('btn-reward-generate').disabled = false;
       // 서버가 구체적인 사유(금지 키워드, 쿨다운, 일일 한도 등)를 내려주므로
       // 그대로 보여줘 사용자가 원인을 알고 다시 시도할 수 있게 한다.
-      showAlert(err.message || t('reward.genError'));
+      failGeneration(err.message);
     }
   };
 
@@ -872,10 +977,10 @@ $('btn-next-stage').onclick = () => {
     Storage.save(save);
     showCollectionPick(s);
   } else {
-    startGame(save.stage, save.rating);
+    advanceAfterClear();
   }
 };
-$('btn-collection-skip').onclick = () => startGame(save.stage, save.rating);
+$('btn-collection-skip').onclick = () => advanceAfterClear();
 $('btn-retry').onclick      = () => { save.heldItems = []; startGame(save.stage, save.rating); };
 $('btn-back-menu').onclick  = () => show('main');
 $('btn-back-menu2').onclick = () => show('main');
@@ -900,6 +1005,29 @@ $('btn-reset-confirm').onclick = () => {
   show('main');
 };
 
+// ── 게임 클리어(300단계 완주) 안내 모달 ────────────────────
+// 확인: 스테이지 번호는 301부터 계속 이어서 증가하되(체력 등 난이도는 루프마다 더 어려워짐 —
+//       getStageHP 참고), 배경 이미지는 1단계 이미지부터 다시 순환. 갤러리·소장품·특전
+//       이미지·무기 정보는 그대로 유지.
+// 아니오: 스테이지 1부터 새로 시작 — 갤러리·소장품·특전 이미지·무기 정보를 비우되, 누적 점수는 유지.
+$('btn-complete-yes').onclick = () => {
+  $('modal-game-complete').classList.remove('active');
+  // save.stage는 onStageClear에서 이미 301로 증가해둔 상태 — 그대로 이어서 시작.
+  startGame(save.stage, save.rating);
+};
+$('btn-complete-no').onclick = () => {
+  $('modal-game-complete').classList.remove('active');
+  save.stage = 1;
+  save.gallery = [];
+  save.collection = [];
+  save.rewardImages = [];
+  save.heldItems = [];
+  save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0 };
+  Storage.save(save);
+  updateMainStats();
+  show('main');
+};
+
 // ── Alert modal ──────────────────────────────────────────────
 function showAlert(msg) {
   $('modal-alert-msg').textContent = msg;
@@ -911,17 +1039,31 @@ $('modal-alert').addEventListener('pointerdown', e => {
 });
 
 // ── Market ───────────────────────────────────────────────────
+// 무기 강화(총/총탄/칼) 상한 — 1회차(1~300단계) 기준치. 300단계를 한 바퀴 돌 때마다
+// 몹 체력이 직전 루프보다 2배씩 강해지는 것과 밸런스를 맞추기 위해, 루프마다
+// (getLoopMultiplier) 2배씩 계속 풀린다.
+const GUN_BASE_CAP = 111, BULLET_BASE_CAP = 100, SWORD_BASE_CAP = 100;
+function getUpgradeCaps() {
+  const mult = getLoopMultiplier(save.stage);
+  return { gun: GUN_BASE_CAP * mult, bullet: BULLET_BASE_CAP * mult, sword: SWORD_BASE_CAP * mult };
+}
+
 function getMarketItems() {
   const pb      = save.persistentBonus || {};
   const speedLv = pb.speedLevel || 0;
   const hasSword = save.heldItems.some(h => h.type === 'sword');
   const hasGun   = save.heldItems.some(h => h.type === 'gun');
+  // 스피드 부스트·황금버블은 중첩 보유가 안 되고(구매해도 효과가 없음) 스테이지를
+  // 넘기거나(스피드) 터지면(황금버블) 소모되므로, 이미 보유 중일 때만 목록에서 숨긴다.
+  const hasSpeedItem  = save.heldItems.some(h => h.type === 'speed');
+  const hasRareBubble = save.heldItems.some(h => h.type === 'rareBubble');
+  const caps = getUpgradeCaps();
 
   const items = [
     // Normal
     { id:'timeboost',      tier:'normal', cost:3000,  icon:'⏱️', name:t('market.item.timeboost.name'),   desc:t('market.item.timeboost.desc') },
     { id:'extraLife',      tier:'normal', cost:3000,  icon:'💊', name:t('market.item.extraLife.name'),   desc:t('market.item.extraLife.desc') },
-    { id:'speed',          tier:'normal', cost:3000,  icon:'💨', name:t('market.item.speed.name'),       desc:t('market.item.speed.desc') },
+    ...(hasSpeedItem ? [] : [{ id:'speed', tier:'normal', cost:3000, icon:'💨', name:t('market.item.speed.name'), desc:t('market.item.speed.desc') }]),
     { id:'splitCharge',    tier:'normal', cost:4000,  icon:'💥', name:t('market.item.splitCharge.name'), desc:t('market.item.splitCharge.desc') },
     // Rare
     { id:'rareLife',       tier:'rare',   cost:12000, icon:'❤️‍🔥', name:t('market.item.rareLife.name'),  desc:t('market.item.rareLife.desc') },
@@ -945,13 +1087,13 @@ function getMarketItems() {
   // 칼 강화 — 칼 관련 항목끼리 묶이도록 칼/신검 바로 다음에 배치 (기존엔 목록
   // 맨 끝에 있어 모바일에서 스크롤을 끝까지 내려야만 보였음)
   const swordLv = (save.persistentBonus?.swordLevel) || 0;
-  if (hasSword && swordLv < 100) {
+  if (hasSword && swordLv < caps.sword) {
     const swCost = 5000 + Math.floor(swordLv / 5) * 1000;
     const swIcons=['⚪','🔴','🟠','🟡','🟢','🔵','🔷','🟣','⚫','🩵','🌈'];
     const swIcon = swIcons[Math.min(Math.floor(swordLv/10),10)];
     items.push({id:'swordLevelUp', tier: swordLv<10?'normal':swordLv<30?'rare':'legend', cost:swCost, icon:swIcon+'⚔️',
       name: t('market.item.swordLevelUp.name', { from: t('market.unitLevel', { n: swordLv }), to: t('market.unitLevel', { n: swordLv + 1 }) }),
-      desc: t('market.item.swordLevelUp.desc', { to: swordLv + 1 }) });
+      desc: t('market.item.swordLevelUp.desc', { to: swordLv + 1, max: caps.sword }) });
   }
   if (!hasGun) items.push(
     { id:'gun',            tier:'legend', cost:30000, icon:'🔫', name:t('market.item.gun.name'), desc:t('market.item.gun.desc') }
@@ -962,11 +1104,13 @@ function getMarketItems() {
   items.push(
     { id:'lightning',      tier:'legend', cost:10000,  icon:'⚡',  name:t('market.item.lightning.name'),     desc:t('market.item.lightning.desc') },
     { id:'zeusLightning',  tier:'legend', cost:15000,  icon:'🌩️', name:t('market.item.zeusLightning.name'), desc:t('market.item.zeusLightning.desc') },
+  );
+  if (!hasRareBubble) items.push(
     { id:'rareBubble',     tier:'legend', cost:20000,  icon:'🫧',  name:t('market.item.rareBubble.name'),    desc:t('market.item.rareBubble.desc') }
   );
   // Gun upgrade — 총 보유 시에만 표시
   const gunLv = (save.persistentBonus?.gunLevel) || 0;
-  if (hasGun && gunLv < 111) {
+  if (hasGun && gunLv < caps.gun) {
     const gunCost = 3000 + Math.floor(gunLv / 5) * 1000;
     const gunLabel = gunLv===0 ? t('market.item.gunUpgrade.labelBase') : t('market.unitLevel', { n: gunLv });
     const _gunPatternKey = lv => {
@@ -988,9 +1132,9 @@ function getMarketItems() {
   }
   // Bullet upgrade — 총 보유 시에만 표시
   const bulletLv = (save.persistentBonus?.bulletLevel) || 0;
-  if (hasGun && bulletLv < 100) {
+  if (hasGun && bulletLv < caps.bullet) {
     const bulletCost = 3000 + Math.floor(bulletLv / 5) * 1000;
-    const bulletSz = Math.round((0.25 + (Math.min(bulletLv+1,100)-1)/99*1.75)*10)/10;
+    const bulletSz = Math.round((0.25 + (Math.min(bulletLv+1,caps.bullet)-1)/99*1.75)*10)/10;
     items.push({id:'bulletUpgrade', tier: bulletLv<10?'normal':bulletLv<50?'rare':'legend', cost:bulletCost, icon:'🔵',
       name: t('market.item.bulletUpgrade.name', { from: t('market.unitLevel', { n: bulletLv }), to: t('market.unitLevel', { n: bulletLv + 1 }) }),
       desc: t('market.item.bulletUpgrade.desc', { size: bulletSz }) });
@@ -1105,14 +1249,14 @@ function showMarket() {
         save.heldItems = _mergeHeldItem(save.heldItems, { type: 'speed', level: 1, singleUse: true });
       } else if (mi.id === 'gunUpgrade') {
         if (!save.persistentBonus) save.persistentBonus = { extraLives:0, extraTime:0, speedLevel:0, gunLevel:0, swordLevel:0, bulletLevel:0 };
-        save.persistentBonus.gunLevel = Math.min(111, (save.persistentBonus.gunLevel||0) + 1);
+        save.persistentBonus.gunLevel = Math.min(getUpgradeCaps().gun, (save.persistentBonus.gunLevel||0) + 1);
         save.heldItems = _mergeHeldItem(save.heldItems, { type:'gun', ammo:10 });
       } else if (mi.id === 'bulletUpgrade') {
         if (!save.persistentBonus) save.persistentBonus = { extraLives:0, extraTime:0, speedLevel:0, gunLevel:0, swordLevel:0, bulletLevel:0 };
-        save.persistentBonus.bulletLevel = Math.min(100, (save.persistentBonus.bulletLevel||0) + 1);
+        save.persistentBonus.bulletLevel = Math.min(getUpgradeCaps().bullet, (save.persistentBonus.bulletLevel||0) + 1);
       } else if (mi.id === 'swordLevelUp') {
         if (!save.persistentBonus) save.persistentBonus = { extraLives:0, extraTime:0, speedLevel:0, gunLevel:0, swordLevel:0 };
-        save.persistentBonus.swordLevel = Math.min(100, (save.persistentBonus.swordLevel||0) + 1);
+        save.persistentBonus.swordLevel = Math.min(getUpgradeCaps().sword, (save.persistentBonus.swordLevel||0) + 1);
         save.heldItems = _mergeHeldItem(save.heldItems, { type:'sword', count:1 });
       } else {
         save.heldItems = _mergeHeldItem(save.heldItems, { type: mi.id });
@@ -1137,6 +1281,8 @@ function _showMarketToast(msg) {
 
 $('btn-main-market').onclick  = () => { marketReturnScreen = 'main';        showMarket(); };
 $('btn-clear-market').onclick = () => { marketReturnScreen = 'stage-clear'; showMarket(); };
+$('btn-main-ad').onclick  = requestRewardAd;
+$('btn-clear-ad').onclick = requestRewardAd;
 $('btn-back-market').onclick  = () => show(marketReturnScreen);
 
 // ── Boot ─────────────────────────────────────────────────────
@@ -1163,6 +1309,7 @@ async function boot() {
   // (그렇지 않으면 100단계 특전 화면 등이 조용히 스킵된 것처럼 보임).
   pendingCollectionStage = save.pendingCollectionStage || 0;
   pendingRewardStage     = save.pendingRewardStage || 0;
+  pendingGameComplete    = !!save.pendingGameComplete;
   chkContinuous.checked = !!save.continuousMove;
   updateMoveDesc();
   updateMainStats();
@@ -1182,6 +1329,12 @@ async function boot() {
     save.pendingCollectionStage = 0;
     Storage.save(save);
     showCollectionPick(s);
+  } else if (pendingGameComplete) {
+    pendingGameComplete = false;
+    save.pendingGameComplete = false;
+    Storage.save(save);
+    show('main');
+    showGameCompleteModal();
   } else {
     show('main');
   }

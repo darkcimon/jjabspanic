@@ -8,8 +8,22 @@
   <title data-i18n="brand.name">짭스패닉</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="/manifest.json">
+  <!-- 구글 애드센스 사이트 소유권 확인용 메타 태그 (애드센스 콘솔 "메타 태그" 확인 방식) -->
+  <meta name="google-adsense-account" content="ca-pub-5609288406160464">
   <!-- 토스페이먼츠 SDK (async: 결제 SDK 로딩 실패가 게임 진입을 막지 않도록) -->
   <script src="https://js.tosspayments.com/v1/payment" async></script>
+  <!-- 구글 애드센스 리워드 광고 (Ad Placement API)
+       ⚠️ 사이트가 애드센스 심사를 통과해 "광고 게재 준비 완료" 상태가 된 뒤에는
+          data-adbreak-test="on" 속성을 제거할 것 (그 전까지는 테스트 광고만 표시됨).
+          참고: https://developers.google.com/ad-placement -->
+  <script async
+    data-adbreak-test="on"
+    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5609288406160464"
+    crossorigin="anonymous"></script>
+  <script>
+    window.adsbygoogle = window.adsbygoogle || [];
+    window.adBreak = window.adConfig = function (o) { window.adsbygoogle.push(o); };
+  </script>
 </head>
 <body>
 
@@ -34,6 +48,7 @@
     </div>
     <div class="menu-btns">
       <button id="btn-start"   class="btn-primary" data-i18n="main.btnStart">게임 시작</button>
+      <button id="btn-main-ad" class="btn-ad" type="button">📺 <span data-i18n="ads.btnLabel">광고 보고 포인트 받기</span> <span class="ad-amount" id="main-ad-amount"></span></button>
       <button id="btn-main-market" class="btn-market" data-i18n="main.btnMarket">🛒 마켓</button>
       <button id="btn-gallery" class="btn-secondary" data-i18n="main.btnGallery">갤러리</button>
       <button id="btn-help"    class="btn-secondary" data-i18n="main.btnHelp">도움말 / 조작법</button>
@@ -125,6 +140,7 @@
     </div>
     <div class="result-btns">
       <button id="btn-next-stage"  class="btn-primary" data-i18n="common.nextStage">다음 스테이지 →</button>
+      <button id="btn-clear-ad" class="btn-ad" type="button">📺 <span data-i18n="ads.btnLabel">광고 보고 포인트 받기</span> <span class="ad-amount" id="clear-ad-amount"></span></button>
       <button id="btn-clear-market" class="btn-market" style="display:none" data-i18n="clear.btnMarket">🛒 마켓 (3,000pt~)</button>
       <button id="btn-back-menu"   class="btn-secondary" data-i18n="common.mainMenu">메인 메뉴</button>
     </div>
@@ -624,6 +640,22 @@
     <div class="confirm-modal-btns">
       <button id="btn-reset-cancel" class="btn-secondary" data-i18n="common.cancel">취소</button>
       <button id="btn-reset-confirm" class="btn-danger" data-i18n="common.reset">초기화</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 300단계(전체) 클리어 안내 모달 ─────────────────── -->
+<div id="modal-game-complete" class="confirm-modal">
+  <div class="confirm-modal-box">
+    <div class="confirm-modal-icon">🎉</div>
+    <h3 class="confirm-modal-title" style="color:var(--accent)" data-i18n="modalComplete.title">게임 클리어!</h3>
+    <p class="confirm-modal-desc" data-i18n-html="modalComplete.desc">
+      축하드립니다! 게임을 모두 클리어 하셨습니다.<br>
+      게임을 계속 하시겠습니까?
+    </p>
+    <div class="confirm-modal-btns">
+      <button id="btn-complete-no" class="btn-secondary" data-i18n="common.no">아니오</button>
+      <button id="btn-complete-yes" class="btn-primary" data-i18n="common.yes">확인</button>
     </div>
   </div>
 </div>

@@ -804,6 +804,19 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 }
 .btn-market:active { transform: scale(0.97); opacity: 0.9; }
 
+/* ── Reward ad button ────────────────────────────────── */
+.btn-ad {
+  background: linear-gradient(135deg, #1f6a3a, #2fbf6a);
+  color: #eaffee;
+  font-size: 1rem; font-weight: 700;
+  padding: 12px 24px; border-radius: var(--radius);
+  border: 1px solid rgba(100, 255, 170, 0.35);
+  transition: transform 0.1s, opacity 0.1s;
+}
+.btn-ad:active { transform: scale(0.97); opacity: 0.9; }
+.btn-ad:disabled { opacity: 0.55; transform: none; }
+.btn-ad .ad-amount { color: #ffe566; }
+
 .stat-row-score { font-size: 0.85rem; }
 .stat-row-score b { color: #ffe566; }
 

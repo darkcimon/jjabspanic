@@ -14,3 +14,12 @@ export const getMonsterCount = (n) => Math.min(2 + Math.floor(n / 3), 8);
 export const getMonsterSpeed  = (n) => Math.min(1.0 + n * 0.06, 3.5);
 export const getTimeLimit     = (n) => Math.max(120 - n * 2, 60);
 export const getBatchIndex    = (n) => Math.floor((n - 1) / BATCH_SIZE);
+
+// 300단계(MAX_STAGE)를 넘어 계속 플레이할 때, 실제로는 존재하는 이미지가 300장뿐이므로
+// 캐릭터 아트워크는 1단계 이미지부터 순환해서 보여준다 (스테이지 번호 자체는 계속 증가).
+export const toImageStage     = (n) => ((n - 1) % MAX_STAGE) + 1;
+
+// 300단계를 한 바퀴(루프) 돌 때마다 몹 체력이 직전 루프보다 2배씩 강해지는 것과
+// 밸런스를 맞추기 위해, 무기 강화 상한도 루프마다 2배씩 계속 풀린다.
+// (1~300단계: ×1, 301~600단계: ×2, 601~900단계: ×4, 901~1200단계: ×8 ...)
+export const getLoopMultiplier = (n) => Math.pow(2, Math.floor((n - 1) / MAX_STAGE));

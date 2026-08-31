@@ -7,8 +7,8 @@
  *   - activate 시               → 구버전 캐시 삭제
  */
 
-const CACHE_NAME   = 'galspanic-v7';
-const API_CACHE    = 'galspanic-api-v7';
+const CACHE_NAME   = 'galspanic-v8';
+const API_CACHE    = 'galspanic-api-v8';
 
 // install 시 pre-cache할 정적 자산 목록
 const STATIC_ASSETS = [
@@ -109,7 +109,9 @@ async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    // Cache API는 GET 요청만 저장 가능 — POST(특전 이미지 생성 등)에 put()을
+    // 호출하면 거부된 Promise가 되어 콘솔에 처리되지 않은 rejection이 남는다.
+    if (response.ok && request.method === 'GET') {
       cache.put(request, response.clone());
     }
     return response;

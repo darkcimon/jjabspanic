@@ -1,4 +1,5 @@
 import { t } from './i18n.js';
+import { MAX_STAGE, toImageStage, getLoopMultiplier } from './config.js';
 
 // ── Cell states ──────────────────────────────────────────────
 const EMPTY    = 0;
@@ -10,10 +11,21 @@ const rnd  = (a, b) => a + Math.random() * (b - a);
 const rndI = (a, b) => Math.floor(rnd(a, b));
 const PI2  = Math.PI * 2;
 
+// 스테이지에 비례해 체력이 가속 증가 (s^1.5 곡선). 300단계 이후 "이어서 플레이"를
+// 선택하면 스테이지 번호는 계속 늘어나지만 아트워크는 1단계부터 순환하므로, 체력이
+// 그대로 완만하게 이어지면 이전 루프 마지막 스테이지보다 오히려 쉬워 보일 수 있다.
+// 그래서 루프(300단계)를 한 바퀴 돌 때마다 "직전 루프 마지막 스테이지 체력의 2배"에서
+// 다시 같은 곡선으로 증가하도록, 루프 수만큼 (2×300단계 체력)을 거듭제곱해 곱한다.
+function _stageHPBase(s) {
+  if (s <= 10) return 1;
+  return Math.max(1, Math.ceil(Math.pow(s / 10, 1.5)));
+}
 function getStageHP(stage) {
-  // 스테이지에 비례해 체력이 가속 증가 (s^1.5 곡선)
-  if (stage <= 10) return 1;
-  return Math.max(1, Math.ceil(Math.pow(stage / 10, 1.5)));
+  const loop = Math.floor((stage - 1) / MAX_STAGE);
+  const s = toImageStage(stage);
+  if (loop === 0) return _stageHPBase(s);
+  const loopMultiplier = Math.pow(2 * _stageHPBase(MAX_STAGE), loop);
+  return _stageHPBase(s) * loopMultiplier;
 }
 
 // ── Star shape helper ─────────────────────────────────────────
@@ -644,7 +656,13 @@ class LaserBeam {
 // ── Sword attrs helper ────────────────────────────────────────
 function _getSwordAttrs(level, cs) {
   if (level<=0) return {reach:2,arcHalf:0,bulletEvery:0,bulletDmg:0,bulletR:6,color:'#ffffff'};
-  if (level>=100) return {reach:11,arcHalf:75,bulletEvery:1,bulletDmg:10,bulletR:cs*1.5,color:'rainbow'};
+  if (level>=100) {
+    // 100단(무지개 최종 형태) 도달 후에도 사거리·데미지는 10단마다 조금씩 계속 성장한다.
+    // 200단부터는 판정 각도가 75도(직선에 가까운 좁은 부채꼴)에서 90도(반원형)로 넓어진다.
+    const extra = Math.floor((level - 100) / 10);
+    const arcHalf = level >= 200 ? 90 : 75;
+    return {reach:11+extra, arcHalf, bulletEvery:1, bulletDmg:10+extra, bulletR:cs*1.5, color:'rainbow'};
+  }
   const group=Math.floor((level-1)/10), pos=((level-1)%10)+1;
   let reach, arcHalf=0, bulletEvery=0, bulletDmg=0, bulletR=6;
   if (pos<=5)      { reach=2+group+pos; arcHalf=0; }
@@ -675,7 +693,7 @@ export class Game extends EventTarget {
     // Item & effect state
     this.slowTimer=0; this.shieldTimer=0; this.bubbleActive=false;
     this.speedActive=false; this.heldItems=[];
-    this.swordActive=false; this.swordTimer=0; this.swordDx=1; this.swordDy=0; this.swordReach=2;
+    this.swordActive=false; this.swordTimer=0; this.swordDx=1; this.swordDy=0; this.swordReach=2; this.swordArcHalf=0;
     this.lightningMode=false; this.activeWeapon=null;
     this._lastDx=0; this._lastDy=1;
     this._itemSchedule=[]; this._itemScheduleIdx=0; this._itemContinuousTimer=20;
@@ -728,7 +746,7 @@ export class Game extends EventTarget {
     this._ammoRechargeTimer=0;
     this._soulSwordTimer=0;
 
-    this.charImage=null; this._fetchCharImage(stage,rating);
+    this.charImage=null; this._fetchCharImage(toImageStage(stage),rating);
   }
 
   setWeaponLevels(gunLevel, swordLevel, bulletLevel) {
@@ -744,9 +762,11 @@ export class Game extends EventTarget {
     const lv = level;
     // 데미지 = 총 업그레이드 레벨
     const dmg = lv;
-    // 총알 크기: 총탄 업그레이드 레벨로 결정 (1단=블록 절반, 100단=블록 4개)
+    // 총알 크기: 총탄 업그레이드 레벨로 결정 (1단=블록 절반). 상한은 총탄 강화
+    // 상한과 마찬가지로 300단계를 한 바퀴 돌 때마다 2배씩 계속 풀린다.
     const bLv = Math.max(1, this._bulletLevel || 1);
-    const sz  = Math.min(bLv, 100);
+    const bulletCap = 100 * getLoopMultiplier(this.stage);
+    const sz  = Math.min(bLv, bulletCap);
     const r   = this.cs * (0.25 + (sz - 1) / 99 * 1.75);
 
     let bullets;
@@ -809,7 +829,7 @@ export class Game extends EventTarget {
     const attrs=_getSwordAttrs(swordLv,this.cs);
     const {reach,arcHalf,bulletEvery,bulletDmg,bulletR,color}=attrs;
     this.swordActive=true; this.swordTimer=0.35;
-    this.swordDx=dx; this.swordDy=dy; this.swordReach=reach;
+    this.swordDx=dx; this.swordDy=dy; this.swordReach=reach; this.swordArcHalf=arcHalf;
     this.swordColor=color;
     if(!this._swordSwingCount) this._swordSwingCount=0;
     this._swordSwingCount++;
@@ -1431,7 +1451,17 @@ export class Game extends EventTarget {
       const sc=this.swordColor||'#ffd700';
       ctx.fillStyle=sc==='rainbow'?`hsl(${(this._time*200)%360},100%,60%)`:sc;
       const sLen=this.swordReach*cs, px=this.player.px, py=this.player.py;
-      if (this.swordDx!==0) { const x=this.swordDx>0?px:px-sLen; ctx.fillRect(x,py-cs*0.18,sLen,cs*0.36); }
+      if ((this.swordArcHalf||0) >= 90) {
+        // 200단 이상: 직선 슬래시 대신 반원형 부채꼴로 넓게 휘두르는 모습을 그린다
+        // (판정 각도가 실제로 90도라 시각적으로도 그에 맞춰 넓게 표시).
+        const mainAngle=Math.atan2(this.swordDy,this.swordDx);
+        const arcRad=this.swordArcHalf*Math.PI/180;
+        ctx.beginPath();
+        ctx.moveTo(px,py);
+        ctx.arc(px,py,sLen,mainAngle-arcRad,mainAngle+arcRad);
+        ctx.closePath();
+        ctx.fill();
+      } else if (this.swordDx!==0) { const x=this.swordDx>0?px:px-sLen; ctx.fillRect(x,py-cs*0.18,sLen,cs*0.36); }
       else { const y=this.swordDy>0?py:py-sLen; ctx.fillRect(px-cs*0.18,y,cs*0.36,sLen); }
       ctx.restore();
     }
