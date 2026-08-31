@@ -1536,17 +1536,20 @@ export class Game extends EventTarget {
   }
 
   _drawPlaceholder(ctx, w, h) {
-    const t=this._time;
+    // 주의: 지역변수명을 't'로 쓰면 상단에서 import한 i18n 번역 함수 t()를
+    // 가려버려 아래쪽 t('game.imageLoading') 호출이 "t is not a function"
+    // 런타임 에러로 죽는다 (이 함수가 매 프레임 렌더링 루프를 멈춰버렸음).
+    const time=this._time;
     const bg=ctx.createLinearGradient(0,0,w,h);
-    bg.addColorStop(0,`hsl(${270+Math.sin(t*0.3)*20},70%,15%)`);
-    bg.addColorStop(0.5,`hsl(${320+Math.sin(t*0.4)*15},60%,12%)`);
-    bg.addColorStop(1,`hsl(${220+Math.sin(t*0.25)*20},70%,10%)`);
+    bg.addColorStop(0,`hsl(${270+Math.sin(time*0.3)*20},70%,15%)`);
+    bg.addColorStop(0.5,`hsl(${320+Math.sin(time*0.4)*15},60%,12%)`);
+    bg.addColorStop(1,`hsl(${220+Math.sin(time*0.25)*20},70%,10%)`);
     ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
     ctx.save();
     for (let i=0;i<8;i++) {
-      const sx=w*(0.2+0.6*(i/8))+Math.sin(t*1.5+i)*w*0.06;
-      const sy=h*(0.1+0.8*(i%4/3))+Math.cos(t*1.2+i)*h*0.04;
-      const a=(Math.sin(t*2.5+i*1.3)+1)*0.5;
+      const sx=w*(0.2+0.6*(i/8))+Math.sin(time*1.5+i)*w*0.06;
+      const sy=h*(0.1+0.8*(i%4/3))+Math.cos(time*1.2+i)*h*0.04;
+      const a=(Math.sin(time*2.5+i*1.3)+1)*0.5;
       ctx.beginPath(); ctx.arc(sx,sy,2,0,PI2); ctx.fillStyle=`rgba(255,180,255,${a*0.7})`; ctx.fill();
     }
     ctx.restore();
@@ -1559,11 +1562,11 @@ export class Game extends EventTarget {
     ctx.beginPath(); ctx.ellipse(cx,cy-sc*0.28,sc*0.16,sc*0.28,0,0,PI2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(cx,cy+sc*0.12,sc*0.24,sc*0.2,0,0,PI2); ctx.fill();
     ctx.restore();
-    const pulse=Math.sin(t*1.8)*0.4+0.6;
+    const pulse=Math.sin(time*1.8)*0.4+0.6;
     const sg=ctx.createRadialGradient(cx,cy,0,cx,cy,sc*1.1);
     sg.addColorStop(0,`rgba(200,80,192,${0.12*pulse})`); sg.addColorStop(0.6,`rgba(65,88,208,${0.08*pulse})`); sg.addColorStop(1,'transparent');
     ctx.fillStyle=sg; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle=`rgba(255,200,255,${0.3+Math.sin(t*2)*0.15})`;
+    ctx.fillStyle=`rgba(255,200,255,${0.3+Math.sin(time*2)*0.15})`;
     ctx.font=`${Math.max(10,Math.floor(w*0.04))}px sans-serif`;
     ctx.textAlign='center'; ctx.fillText(t('game.imageLoading'),w/2,h*0.91); ctx.textAlign='left';
   }
