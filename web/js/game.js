@@ -1353,9 +1353,8 @@ export class Game extends EventTarget {
     const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*100*bonusMult):0;
     const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*1000*bonusMult):0;
     const fillBonus=fillBonus75+fillBonus94;
-    // 전멸 보너스: 클리어 시 살아있는 적이 없으면 추가 지급 (시간/스테이지 보너스와
-    // 같은 이유로 예전 배율로 되돌림)
-    const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult):0;
+    // 전멸 보너스: 클리어 시 살아있는 적이 없으면 추가 지급 (예전 배율에서 1.3배로 조정)
+    const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult*1.3):0;
     this.score+=timeBonus+stageBonus+fillBonus+allClearBonus; this.stop();
     this.dispatchEvent(new CustomEvent('stageClear', { detail: {
       stage:this.stage, fill:this.fillPct, timeLeft:Math.ceil(this.timeLeft),
