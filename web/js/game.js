@@ -1344,9 +1344,11 @@ export class Game extends EventTarget {
   _onStageClear() {
     // 스테이지 비례 보너스 배율 (10스테이지마다 +30%) — 포인트 획득 난이도 완화를 위해 2배 지급
     const bonusMult=(1+Math.floor(this.stage/10)*0.3)*2;
-    const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult*3);
+    // 시간/스테이지 보너스: 광고 리워드 포인트 도입 후 이 둘까지 과하게 얹으면
+    // 광고를 볼 유인이 사라진다는 피드백에 따라 예전 배율(추가 배율 없음)로 되돌림
+    const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult);
     const _pos=((this.stage-1)%10)+1, _cyc=Math.floor((this.stage-1)/10);
-    const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult*2);
+    const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult);
     const fillPct100=Math.floor(this.fillPct*100);
     const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*100*bonusMult):0;
     const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*1000*bonusMult):0;

@@ -1058,13 +1058,20 @@ function getMarketItems() {
   const hasSpeedItem  = save.heldItems.some(h => h.type === 'speed');
   const hasRareBubble = save.heldItems.some(h => h.type === 'rareBubble');
   const caps = getUpgradeCaps();
+  // 분열 아이템은 스테이지당 최대 2개까지만 구매 가능 (무제한 파밍 방지).
+  // save.splitBuyStage에 마지막으로 센 스테이지 번호를 저장해두고, 현재
+  // save.stage와 다르면(=새 스테이지로 넘어감) 자동으로 0부터 다시 센다.
+  const SPLIT_BUY_LIMIT = 2;
+  const splitBuyCount = save.splitBuyStage === save.stage ? (save.splitBuysCount || 0) : 0;
 
   const items = [
     // Normal
     { id:'timeboost',      tier:'normal', cost:3000,  icon:'⏱️', name:t('market.item.timeboost.name'),   desc:t('market.item.timeboost.desc') },
     { id:'extraLife',      tier:'normal', cost:3000,  icon:'💊', name:t('market.item.extraLife.name'),   desc:t('market.item.extraLife.desc') },
     ...(hasSpeedItem ? [] : [{ id:'speed', tier:'normal', cost:3000, icon:'💨', name:t('market.item.speed.name'), desc:t('market.item.speed.desc') }]),
-    { id:'splitCharge',    tier:'normal', cost:4000,  icon:'💥', name:t('market.item.splitCharge.name'), desc:t('market.item.splitCharge.desc') },
+    ...(splitBuyCount < SPLIT_BUY_LIMIT ? [{ id:'splitCharge', tier:'normal', cost:4000, icon:'💥',
+      name:t('market.item.splitCharge.name'),
+      desc:t('market.item.splitCharge.desc', { count: splitBuyCount, max: SPLIT_BUY_LIMIT }) }] : []),
     // Rare
     { id:'rareLife',       tier:'rare',   cost:12000, icon:'❤️‍🔥', name:t('market.item.rareLife.name'),  desc:t('market.item.rareLife.desc') },
     { id:'rareClock',      tier:'rare',   cost:10000, icon:'🕰️', name:t('market.item.rareClock.name'),  desc:t('market.item.rareClock.desc') },
@@ -1229,6 +1236,8 @@ function showMarket() {
       save.totalScore -= mi.cost;
       if (!save.persistentBonus) save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0 };
       if (mi.id === 'splitCharge') {
+        if (save.splitBuyStage !== save.stage) { save.splitBuyStage = save.stage; save.splitBuysCount = 0; }
+        save.splitBuysCount = (save.splitBuysCount || 0) + 1;
         save.heldItems = _mergeHeldItem(save.heldItems, { type: 'split' });
       } else if (mi.id === 'extraLife') {
         save.bonusLives = (save.bonusLives || 0) + 1;
