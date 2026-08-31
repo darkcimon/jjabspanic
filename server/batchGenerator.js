@@ -101,16 +101,35 @@ async function generateBatch(batchIndex, rating) {
 
     let progress = 0;
     for (let stage = startStage; stage <= endStage; stage++) {
+        if (store.getImageUrl(stage, rating)) {
+            // 이미 생성되어 있으면 재생성하지 않음 (재시도 시 API 비용 절감)
+            progress++;
+            store.updateBatchProgress(batchIndex, progress);
+            continue;
+        }
         try {
             await generateImage(stage, rating);
             progress++;
             store.updateBatchProgress(batchIndex, progress);
         } catch (err) {
             console.error(`[Batch] Stage ${stage} 생성 실패: ${err.message}`);
-            // 실패한 스테이지는 건너뛰고 계속 진행 (추후 재시도 가능)
+            // 실패한 스테이지는 건너뛰고 계속 진행 (완료 여부는 아래에서 다시 확인)
         }
         // API rate limit 방지: 스테이지 간 1초 대기
         await sleep(1000);
+    }
+
+    // progress 카운터가 아니라 실제 저장된 이미지 존재 여부로 완료를 판단한다 —
+    // 예전엔 일부 스테이지 생성이 실패해도 배치가 'ready'로 표시돼, 그 스테이지
+    // 이미지가 영구히 표시되지 않는 문제가 있었다 (재시도 경로가 없었음).
+    const missing = [];
+    for (let stage = startStage; stage <= endStage; stage++) {
+        if (!store.getImageUrl(stage, rating)) missing.push(stage);
+    }
+    if (missing.length > 0) {
+        console.error(`[Batch] 배치 ${batchIndex}(${rating}) 미완료 — 누락된 스테이지: ${missing.join(', ')}. 'pending'으로 되돌려 다음 트리거 때 재시도하게 함.`);
+        store.resetBatchToPending(batchIndex);
+        return;
     }
 
     store.markBatchReady(batchIndex);

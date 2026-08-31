@@ -6,6 +6,7 @@
 
 const express      = require('express');
 const path         = require('path');
+const fs           = require('fs');
 const crypto       = require('crypto');
 const rateLimit    = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
@@ -219,10 +220,17 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
     if (tokenData.userId !== userId || Date.now() > tokenData.expiresAt)
         return res.status(403).json({ error: i18n.t(req, 'tokenExpired') });
 
+    // images.json에는 레코드가 남아있어도 실제 파일이 없으면(예: 호스팅 재배포로
+    // 디스크가 초기화됨) "성공"으로 응답하면 프론트에서 엑박만 뜨고 끝나버리므로,
+    // 파일 존재를 직접 확인해 없으면 재생성 절차로 진행시킨다.
     const existing = store.getRewardImageUrl(userId);
     if (existing) {
-        rewardTokens.delete(token);
-        return res.json({ status: 'ready', imageUrl: existing });
+        const existingPath = store.getRewardImagePath(userId);
+        if (existingPath && fs.existsSync(existingPath)) {
+            rewardTokens.delete(token);
+            return res.json({ status: 'ready', imageUrl: existing });
+        }
+        console.warn(`[Server] 보상 이미지 레코드는 있으나 파일이 없어 재생성합니다: ${userId}`);
     }
 
     // userId 쿨다운 체크

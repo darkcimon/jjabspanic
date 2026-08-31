@@ -82,6 +82,17 @@ function markBatchReady(batchIndex) {
     save(db);
 }
 
+/**
+ * 배치를 다시 'pending'으로 되돌린다. 생성 도중 일부 스테이지가 실패해
+ * 배치가 실제로는 완료되지 않았을 때, 다음 트리거 시 재시도할 수 있게 한다.
+ */
+function resetBatchToPending(batchIndex) {
+    const db = load();
+    if (!db.batches[batchIndex]) return;
+    db.batches[batchIndex].status = 'pending';
+    save(db);
+}
+
 // ── 이미지 관련 ───────────────────────────────────────────
 function getImageKey(stage, rating) {
     return `${stage}_${rating}`;
@@ -122,6 +133,15 @@ function getRewardImageUrl(userId) {
     return `/images/rewards/${db.rewards[userId]}`;
 }
 
+// 저장된 보상 이미지 레코드가 가리키는 실제 파일 경로.
+// 디스크에 파일이 실제로 있는지 확인할 때 사용 (예: 호스팅 재배포로 파일이
+// 사라졌는데 images.json 레코드만 남아있는 경우를 감지).
+function getRewardImagePath(userId) {
+    const db = load();
+    if (!db.rewards || !db.rewards[userId]) return null;
+    return path.join(IMG_DIR, 'rewards', db.rewards[userId]);
+}
+
 module.exports = {
     init,
     BATCH_SIZE,
@@ -132,11 +152,13 @@ module.exports = {
     claimBatchGeneration,
     updateBatchProgress,
     markBatchReady,
+    resetBatchToPending,
     setImageUrl,
     getImageUrl,
     getImageFilePath,
     getImageFilename,
     setRewardImageUrl,
     getRewardImageUrl,
+    getRewardImagePath,
     IMG_DIR,
 };

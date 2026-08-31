@@ -2,7 +2,7 @@
   "batches": {
     "0": {
       "status": "ready",
-      "progress": 9,
+      "progress": 30,
       "triggeredAt": null,
       "completedAt": "2026-03-11T15:12:12.134Z"
     },
@@ -357,7 +357,11 @@
     "297_g": "stage_297_g.jpg",
     "298_g": "stage_298_g.jpg",
     "299_g": "stage_299_g.jpg",
-    "300_g": "stage_300_g.jpg"
+    "300_g": "stage_300_g.jpg",
+    "27_g": "stage_27_g.jpg",
+    "28_g": "stage_28_g.jpg",
+    "29_g": "stage_29_g.jpg",
+    "30_g": "stage_30_g.jpg"
   },
   "rewards": {
     "fc46c3e5-04d7-43b1-b135-225e4b7fa1e3_stage100": "reward_fc46c3e5-04d7-43b1-b135-225e4b7fa1e3_stage100_1775126959650.jpg"
