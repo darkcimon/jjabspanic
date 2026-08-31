@@ -32,7 +32,12 @@
     th, td { border: 1px solid #3b2d6e; padding: 8px 10px; text-align: left; }
     th { background: #1e1040; color: #c084fc; }
     a  { color: #818cf8; }
-    [data-lang-block] { display: none; }
+    /* 기본은 한국어만 보이게 하고(문서 lang="ko" 기준), 언어 전환 스크립트가
+       정상 실행됐을 때만 영어로 바꾼다. 스크립트 로드가 어떤 이유로든
+       실패해도(모듈 로드 오류, 구형 웹뷰 등) 본문이 통째로 비어 보이는
+       사고를 막기 위한 안전장치 — 예전엔 두 언어 블록을 모두 숨겨두고
+       JS가 하나를 보여주는 방식이라, JS가 실패하면 화면이 완전히 비었다. */
+    [data-lang-block="en"] { display: none; }
   </style>
 </head>
 <body>
@@ -166,25 +171,49 @@
     </p>
   </div>
 </div>
-<script type="module">
-  import { getLang, setLang, onLangChange } from './js/i18n.js';
+<script>
+  // 이 페이지는 본문 표시를 js/i18n.js 모듈 로드 성공 여부에 의존하지 않는다
+  // (예전엔 두 언어 블록을 CSS로 모두 숨겨두고 모듈 import가 끝나야만 하나를
+  // 보여주는 구조라, import가 실패하면 —모듈 스크립트 차단, 구형 웹뷰 등— 화면이
+  // 통째로 비어 보였다). 아래는 로컬 감지만으로 즉시 렌더링하고, 메인 앱과
+  // 언어 설정을 공유하기 위한 i18n.js 연동은 되면 좋고 안 돼도 무방한 보강으로만 쓴다.
+  var LANG_KEY = 'de_lang';
 
-  function render() {
-    const lang = getLang();
+  function detectLang() {
+    try {
+      var stored = localStorage.getItem(LANG_KEY);
+      if (stored === 'ko' || stored === 'en') return stored;
+    } catch (e) { /* localStorage 사용 불가 — 무시 */ }
+    var nav = (navigator.language || 'ko').toLowerCase();
+    return nav.indexOf('ko') === 0 ? 'ko' : 'en';
+  }
+
+  function applyLang(lang) {
     document.documentElement.lang = lang;
-    document.querySelectorAll('[data-lang-block]').forEach(el => {
-      el.style.display = el.getAttribute('data-lang-block') === lang ? '' : 'none';
-    });
-    const label = document.getElementById('privacy-lang-label');
+    var blocks = document.querySelectorAll('[data-lang-block]');
+    for (var i = 0; i < blocks.length; i++) {
+      blocks[i].style.display = blocks[i].getAttribute('data-lang-block') === lang ? '' : 'none';
+    }
+    var label = document.getElementById('privacy-lang-label');
     if (label) label.textContent = lang === 'ko' ? 'EN' : '한국어';
   }
 
-  render();
-  onLangChange(render);
+  var currentLang = detectLang();
+  applyLang(currentLang);
 
-  document.getElementById('btn-privacy-lang').addEventListener('click', () => {
-    setLang(getLang() === 'ko' ? 'en' : 'ko');
+  document.getElementById('btn-privacy-lang').addEventListener('click', function () {
+    currentLang = currentLang === 'ko' ? 'en' : 'ko';
+    try { localStorage.setItem(LANG_KEY, currentLang); } catch (e) { /* 무시 */ }
+    applyLang(currentLang);
+    // 메인 앱(js/i18n.js)에도 같은 설정을 반영 시도 — 실패해도 위 표시는 이미 끝났음
+    import('./js/i18n.js').then(function (m) { m.setLang(currentLang); }).catch(function () {});
   });
+
+  // 메인 앱에서 언어를 바꾼 뒤 이 탭으로 돌아왔을 때 최신 설정을 반영 (되면 좋고, 안 돼도 무방)
+  import('./js/i18n.js').then(function (m) {
+    applyLang(m.getLang());
+    m.onLangChange(applyLang);
+  }).catch(function () { /* i18n.js 로드 실패해도 위 로컬 감지로 이미 정상 표시됨 */ });
 </script>
 </body>
 </html>
