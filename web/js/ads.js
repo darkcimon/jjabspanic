@@ -16,18 +16,22 @@
  */
 
 const AD_NAME = 'gp_point_reward';
+// 무한정 커지면 밸런스가 깨지므로, 10만 포인트에 도달하면 그 이후로는 고정 지급.
+const AD_REWARD_CAP = 100000;
 
 /**
  * 다음 광고 시청 보상 포인트를 계산한다.
  * 3,000 → 6,000 → 12,000 (2배씩) → 이후로는 1.5배씩 증가, 100 단위 절삭.
+ * 10만 포인트에 도달한 뒤로는 더 늘지 않고 10만으로 고정된다.
  * @param {number} lastReward  직전에 지급된 보상 포인트 (없으면 0)
  * @returns {number}
  */
 export function computeNextAdReward(lastReward) {
   if (!lastReward || lastReward <= 0) return 3000;
+  if (lastReward >= AD_REWARD_CAP) return AD_REWARD_CAP;
   if (lastReward === 3000) return 6000;
   if (lastReward === 6000) return 12000;
-  return Math.floor((lastReward * 1.5) / 100) * 100;
+  return Math.min(Math.floor((lastReward * 1.5) / 100) * 100, AD_REWARD_CAP);
 }
 
 /**
