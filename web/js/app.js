@@ -99,7 +99,10 @@ function updateHeldItemsBar(heldItems) {
   const bar = $('held-items-bar');
   bar.innerHTML = '';
   for (const item of heldItems) {
-    if (item.type === 'speed' || item.type === 'timeboost') continue;
+    // speed/timeboost는 원래도 바 목록에서 제외. rareBubble(황금버블)은 탭해도
+    // 아무 동작이 없는 수동형 아이템이라 버튼으로 보여줄 필요가 없고, 보유 중엔
+    // 화면 하단에 이미 "황금버블" 타이머 필(rareBubbleActive)이 떠 있어 중복이다.
+    if (item.type === 'speed' || item.type === 'timeboost' || item.type === 'rareBubble') continue;
     bar.appendChild(makeHeldItemButton(item, game));
   }
 }
