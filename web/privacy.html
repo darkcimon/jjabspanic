@@ -192,7 +192,10 @@
     document.documentElement.lang = lang;
     var blocks = document.querySelectorAll('[data-lang-block]');
     for (var i = 0; i < blocks.length; i++) {
-      blocks[i].style.display = blocks[i].getAttribute('data-lang-block') === lang ? '' : 'none';
+      // 'block'을 명시해야 한다 — 빈 문자열('')은 "인라인 스타일 없음"과 같은
+      // 뜻이라 위 CSS의 [data-lang-block="en"]{display:none} 기본 규칙이 그대로
+      // 남아, 영어로 진입해도 en 블록이 계속 숨겨진 채였다.
+      blocks[i].style.display = blocks[i].getAttribute('data-lang-block') === lang ? 'block' : 'none';
     }
     var label = document.getElementById('privacy-lang-label');
     if (label) label.textContent = lang === 'ko' ? 'EN' : '한국어';
