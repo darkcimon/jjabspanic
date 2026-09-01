@@ -24,6 +24,13 @@ const rewardTokens = new Map();
 
 const app = express();
 
+// Railway 등 PaaS는 앞단에 리버스 프록시가 1홉 있고, 그 프록시가 실제 클라이언트
+// IP를 X-Forwarded-For에 담아 전달한다. Express가 이를 신뢰하도록 설정하지 않으면
+// express-rate-limit이 X-Forwarded-For를 보고도 신뢰할 수 없다며 ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// 에러를 던지고, req.ip도 항상 프록시 IP로 잡혀 모든 사용자가 같은 레이트리밋
+// 버킷을 공유하게 된다. 프록시 1홉만 신뢰하도록 설정.
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
