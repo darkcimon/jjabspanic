@@ -686,7 +686,7 @@ export class Game extends EventTarget {
     this.stage=1; this.rating='g'; this.lives=3; this.timeLeft=120; this.fillPct=0;
     this.cs=16; this.grid=null; this.player=null;
     this.monsters=[]; this.bullets=[]; this.particles=[]; this.playerBullets=[];
-    this.items=[]; this.charImage=null;
+    this.items=[]; this.charImage=null; this._imageFetchToken=0;
     this.shakeTimer=0; this.shakeAmt=0; this.flashTimer=0;
     this.flashColor='rgba(255,255,100,0.6)'; this.dangerPulse=0;
     this._time=0; this.score=0;
@@ -746,7 +746,9 @@ export class Game extends EventTarget {
     this._ammoRechargeTimer=0;
     this._soulSwordTimer=0;
 
-    this.charImage=null; this._fetchCharImage(toImageStage(stage),rating);
+    this.charImage=null;
+    const fetchToken=++this._imageFetchToken;
+    this._fetchCharImage(toImageStage(stage),rating,fetchToken);
   }
 
   setWeaponLevels(gunLevel, swordLevel, bulletLevel) {
@@ -1077,12 +1079,32 @@ export class Game extends EventTarget {
     if(item.type!=='enemyUp') { this.flashTimer=0.15; this.flashColor='rgba(255,255,200,0.25)'; }
   }
 
-  async _fetchCharImage(stage, rating) {
+  // 서버가 배치 이미지를 아직 생성 중이거나(status!=='ready') 모바일 네트워크
+  // 순단으로 fetch가 실패하면, 예전에는 여기서 그냥 포기해 캐릭터 이미지가
+  // 스테이지 내내 영영 로드되지 않고 플레이스홀더만 계속 표시되는 버그가 있었다.
+  // 준비될 때까지 짧은 간격으로 재시도한다. fetchToken으로 새 init() 호출이
+  // 진행 중인 재시도보다 먼저 끝나 낡은 응답이 최신 상태를 덮어쓰는 것을 막는다.
+  async _fetchCharImage(stage, rating, fetchToken, attempt=0) {
+    if (fetchToken!==this._imageFetchToken) return; // 이 스테이지는 이미 지나감
     try {
       const res=await fetch(`${this.serverUrl}/api/image?stage=${stage}&rating=${rating}`);
       const data=await res.json();
-      if (data.status==='ready'&&data.url) { const img=new Image(); img.onload=()=>{this.charImage=img;}; img.src=data.url; }
+      if (fetchToken!==this._imageFetchToken) return;
+      if (data.status==='ready'&&data.url) {
+        const img=new Image();
+        img.onload=()=>{ if(fetchToken===this._imageFetchToken) this.charImage=img; };
+        img.onerror=()=>this._scheduleImageRetry(stage,rating,fetchToken,attempt);
+        img.src=data.url;
+        return;
+      }
     } catch {}
+    this._scheduleImageRetry(stage,rating,fetchToken,attempt);
+  }
+
+  _scheduleImageRetry(stage, rating, fetchToken, attempt) {
+    if (fetchToken!==this._imageFetchToken) return;
+    const delay=Math.min(2000+attempt*500,8000); // 2s → 최대 8s 간격으로 재시도
+    setTimeout(()=>this._fetchCharImage(stage,rating,fetchToken,attempt+1),delay);
   }
 
   // ── Loop ─────────────────────────────────────────────────────
