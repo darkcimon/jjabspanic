@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { MAX_STAGE, toImageStage, getLoopMultiplier } from './config.js';
+import { MAX_STAGE, MAX_MONSTERS, toImageStage, getLoopMultiplier } from './config.js';
 
 // ── Cell states ──────────────────────────────────────────────
 const EMPTY    = 0;
@@ -925,6 +925,9 @@ export class Game extends EventTarget {
       else toAdd.push(new NormalMonster(gx,gy,this.cs,spd,this.stage));
     }
     this.monsters.push(...toAdd);
+    // 분열을 연속/다수 사용해도 몹 수가 무한정 늘지 않도록 상한을 둔다
+    // (충돌 판정 루프가 몹 수에 비례해 늘어나 버벅거림의 원인이 됨).
+    if(this.monsters.length>MAX_MONSTERS) this.monsters.length=MAX_MONSTERS;
     sp.count--;
     if(sp.count<=0) this.heldItems=this.heldItems.filter(h=>h!==sp);
     this.flashTimer=0.2; this.flashColor='rgba(255,100,100,0.35)';
@@ -1152,6 +1155,7 @@ export class Game extends EventTarget {
       }
     }
     this.monsters.push(...toAdd);
+    if(this.monsters.length>MAX_MONSTERS) this.monsters.length=MAX_MONSTERS;
 
     // MidBoss merge
     const toRemove=new Set();

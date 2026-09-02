@@ -10,7 +10,7 @@ import {
   getMonsterCount, getMonsterSpeed, getTimeLimit, getBatchIndex, toImageStage, getLoopMultiplier,
 } from './config.js';
 import { t, onLangChange } from './i18n.js';
-import { computeNextAdReward, watchRewardAd } from './ads.js';
+import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds } from './ads.js';
 
 // ── Screen management ────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -423,6 +423,16 @@ const PACK_RANGES = {
 };
 
 /**
+ * 팩 보유 여부: 실 결제(purchases) 또는 광고 누적 시청 해금(adWatchCount) 중
+ * 하나라도 충족하면 보유로 간주한다.
+ */
+function isPackOwned(packId, purchases) {
+  if (purchases.includes('pack_all')) return true;
+  if (purchases.includes(packId)) return true;
+  return isPackUnlockedByAds(packId, save.adWatchCount || 0);
+}
+
+/**
  * 갤러리 카드 한 장을 생성한다.
  * packOwned = true이면 이미지를 정상 표시, false이면 블러 + 자물쇠 오버레이.
  */
@@ -475,8 +485,8 @@ $('img-lightbox').addEventListener('click', e => {
  * 팩 배너의 구매 버튼 상태를 갱신한다.
  * 구매 완료 시 버튼을 숨기고 완료 메시지를 표시.
  *
- * [팩 구매 보류] 광고를 통한 팩 해금으로 전환 검토 중이라 실 결제 구매는
- * 일단 막아둔다. 버튼은 항상 숨기고 "준비중" 안내만 보여준다.
+ * [팩 구매 보류] 실 결제 구매는 막아두고, 광고 누적 시청으로만 해금한다
+ * (팩 A: 100회, 팩 B: 200회, 팩 C: 300회 — 끝까지 봐서 보상이 지급된 시청만 카운트).
  * 재개하려면 아래 else 분기를 원래 구현(주석 처리된 코드)으로 되돌리면 된다.
  */
 function updatePackBanner(packId, owned) {
@@ -488,17 +498,17 @@ function updatePackBanner(packId, owned) {
   const status = $(`pack-${suffix}-status`);
   if (!btn || !status) return;
 
+  // -- 구매 재개 시 아래로 원복 --
+  // btn.style.display = owned ? 'none' : '';
+  btn.style.display = 'none';
+
   if (owned) {
-    btn.style.display    = 'none';
     status.textContent   = t('gallery.packUnlocked');
     status.classList.add('pack-owned');
   } else {
-    // -- 구매 재개 시 아래로 원복 --
-    // btn.style.display    = '';
-    // status.textContent   = '';
-    // status.classList.remove('pack-owned');
-    btn.style.display    = 'none';
-    status.textContent   = t('gallery.packComingSoon');
+    const threshold = AD_PACK_THRESHOLDS[packId];
+    const count = Math.min(save.adWatchCount || 0, threshold);
+    status.textContent   = t('gallery.packAdProgress', { count, threshold });
     status.classList.remove('pack-owned');
   }
 }
@@ -507,8 +517,7 @@ function updatePackBanner(packId, owned) {
 const COLLECTION_LIMIT = 10;
 
 function hasUnlimitedCollection(purchases) {
-  return purchases.includes('pack_all') ||
-    ['pack_a','pack_b','pack_c'].every(p => purchases.includes(p));
+  return ['pack_a','pack_b','pack_c'].every(p => isPackOwned(p, purchases));
 }
 
 async function showCollectionPick(completedStage) {
@@ -591,7 +600,7 @@ async function showCollectionPick(completedStage) {
 function makeCollectionPickCard(stageNum, purchases, onSelect) {
   const imgStage = toImageStage(stageNum);
   const packId = imgStage <= 100 ? 'pack_a' : imgStage <= 200 ? 'pack_b' : 'pack_c';
-  const packOwned = purchases.includes('pack_all') || purchases.includes(packId);
+  const packOwned = isPackOwned(packId, purchases);
   const alreadyCollected = (save.collection || []).includes(imgStage);
 
   const card = document.createElement('div');
@@ -683,14 +692,12 @@ async function showGallery() {
 
   // 팩 A/B/C 배너 상태 갱신
   for (const packId of ['pack_a', 'pack_b', 'pack_c']) {
-    const owned = purchases.includes('pack_all') || purchases.includes(packId);
-    updatePackBanner(packId, owned);
+    updatePackBanner(packId, isPackOwned(packId, purchases));
   }
 
   // 완전판 팩 버튼: 전체 구매 완료 시 숨김
   // [팩 구매 보류] 실 결제 구매를 막아두는 동안은 항상 숨김.
-  const allOwned = purchases.includes('pack_all') ||
-    (['pack_a', 'pack_b', 'pack_c'].every(p => purchases.includes(p)));
+  const allOwned = ['pack_a', 'pack_b', 'pack_c'].every(p => isPackOwned(p, purchases));
   const btnAll = $('btn-pack-all');
   // if (btnAll) btnAll.style.display = allOwned ? 'none' : '';
   if (btnAll) btnAll.style.display = 'none';
@@ -702,7 +709,7 @@ async function showGallery() {
     if (!gridEl) continue;
     gridEl.innerHTML = '';
 
-    const packOwned = purchases.includes('pack_all') || purchases.includes(packId);
+    const packOwned = isPackOwned(packId, purchases);
 
     // 플레이로 언락된 스테이지 중 이 팩 범위에 해당하는 것만 표시
     const staged = save.gallery.filter(s => s >= range.from && s <= range.to);
@@ -762,6 +769,9 @@ function requestRewardAd() {
       const reward = computeNextAdReward(save.lastAdReward || 0);
       save.totalScore   = (save.totalScore || 0) + reward;
       save.lastAdReward = reward;
+      // 보관함 팩 해금용 누적 시청 횟수 — 끝까지 봐서 보상이 실제로 지급된 경우만 카운트.
+      // (adDismissed로 중간에 닫은 시청은 onReward가 호출되지 않으므로 자동으로 제외됨)
+      save.adWatchCount = (save.adWatchCount || 0) + 1;
       Storage.save(save);
       updateMainStats();
       const clearTotalEl = $('clear-total-score');

@@ -6,6 +6,9 @@ export const LIVES_START = 3;
 export const INVINCIBLE_DURATION = 1.5;
 export const MAX_STAGE = 300;
 export const BATCH_SIZE = 30;
+// 분열 아이템 연쇄 사용 등으로 몹 수가 걷잡을 수 없이 늘어나
+// (충돌 판정이 몹 수에 비례/제곱으로 늘어나) 버벅거리는 것을 막기 위한 상한.
+export const MAX_MONSTERS = 60;
 
 export const getStageHP = (n) => n <= 10 ? 1 : Math.max(1, Math.ceil(Math.pow(n / 10, 1.5)));
 
