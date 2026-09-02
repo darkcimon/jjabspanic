@@ -19,6 +19,22 @@ const AD_NAME = 'gp_point_reward';
 // 무한정 커지면 밸런스가 깨지므로, 10만 포인트에 도달하면 그 이후로는 고정 지급.
 const AD_REWARD_CAP = 100000;
 
+// ── 보관함 팩 해금: 광고 누적 시청 횟수 기준 ──────────────────
+// "누적 시청"은 adViewed(끝까지 봐서 보상이 실제로 지급된 경우)만 센다.
+// 중간에 닫아 보상을 못 받은 시청(adDismissed)은 카운트하지 않는다.
+export const AD_PACK_THRESHOLDS = { pack_a: 100, pack_b: 200, pack_c: 300 };
+
+/**
+ * 누적 광고 시청 횟수(성공 지급 기준)로 팩이 해금됐는지 확인한다.
+ * @param {string} packId  'pack_a' | 'pack_b' | 'pack_c'
+ * @param {number} adWatchCount  누적 성공 시청 횟수
+ * @returns {boolean}
+ */
+export function isPackUnlockedByAds(packId, adWatchCount) {
+  const threshold = AD_PACK_THRESHOLDS[packId];
+  return threshold != null && (adWatchCount || 0) >= threshold;
+}
+
 /**
  * 다음 광고 시청 보상 포인트를 계산한다.
  * 3,000 → 6,000 → 12,000 (2배씩) → 이후로는 1.5배씩 증가, 100 단위 절삭.
