@@ -166,15 +166,29 @@ async function generateRewardImage(userId, keywords) {
     form.append('output_format',   'jpeg');
     form.append('aspect_ratio',    '2:3');
 
-    const resp = await axios.post(API_URL, form, {
-        headers: {
-            ...form.getHeaders(),
-            Authorization: `Bearer ${apiKey}`,
-            Accept: 'image/*',
-        },
-        responseType: 'arraybuffer',
-        timeout: 90000,
-    });
+    let resp;
+    try {
+        resp = await axios.post(API_URL, form, {
+            headers: {
+                ...form.getHeaders(),
+                Authorization: `Bearer ${apiKey}`,
+                Accept: 'image/*',
+            },
+            responseType: 'arraybuffer',
+            timeout: 90000,
+        });
+    } catch (err) {
+        // Stability AI 안전 시스템이 프롬프트를 차단하면 403을 반환한다 (로컬
+        // BLOCKED 키워드 필터를 통과했더라도 API 쪽에서 다시 걸러질 수 있음).
+        // 사용자에게는 원인을 명확히 알리고, 이 실패는 요청 횟수에 포함되지
+        // 않도록 BLOCKED_KEYWORD와 동일한 code로 던진다 (app.js에서 처리).
+        if (err.response?.status === 403) {
+            const blocked = new Error('선정적이거나 성적인 이미지는 생성할 수 없습니다.');
+            blocked.code = 'BLOCKED_KEYWORD';
+            throw blocked;
+        }
+        throw err;
+    }
 
     const rewardDir  = require('path').join(store.IMG_DIR, 'rewards');
     fs.mkdirSync(rewardDir, { recursive: true });

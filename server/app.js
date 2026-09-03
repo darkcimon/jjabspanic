@@ -85,13 +85,17 @@ const apiLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
-// 특전 이미지 생성: IP당 하루 3회
+// 특전 이미지 생성: IP당 하루 3회 (실제로 이미지가 생성된 요청만 셈 — 콘텐츠
+// 차단, 유효성 검사 실패, API 오류 등으로 실패한 요청은 소모하지 않는다.
+// 그렇지 않으면 성인물 등 차단된 키워드를 몇 번 시도해본 사용자가 진짜 원인
+// ("성적인 이미지는 생성할 수 없습니다")을 모른 채 "횟수 초과"라는 엉뚱한
+// 메시지만 보게 된다.)
 const rewardLimiter = rateLimit({
     windowMs: 24 * 60 * 60 * 1000,
     max: 3,
     keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
     message: (req) => ({ error: i18n.t(req, 'rewardDailyLimit') }),
-    skipSuccessfulRequests: false,
+    skipFailedRequests: true,
 });
 
 // userId당 쿨다운 (1시간)
