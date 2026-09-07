@@ -8,10 +8,12 @@ import {
 import {
   COLS, ROWS, PLAYER_SPEED, CLEAR_THRESHOLD, MAX_STAGE,
   getMonsterCount, getMonsterSpeed, getTimeLimit, getBatchIndex, toImageStage, getLoopMultiplier,
-  GUN_BASE_CAP, BULLET_BASE_CAP, SWORD_BASE_CAP, PET_BASE_CAP,
+  GUN_BASE_CAP, BULLET_BASE_CAP, SWORD_BASE_CAP, PET_BASE_CAP, PET_MAX_COUNT,
 } from './config.js';
 import { t, onLangChange } from './i18n.js';
 import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds } from './ads.js';
+import { drawBragCard, buildShareUrl } from './bragCard.js';
+import { ACCESSORY_LEVEL_REQUIREMENT, ACCESSORY_CATEGORIES, ACCESSORIES, getAccessory } from './accessories.js';
 
 // ── Screen management ────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -258,6 +260,8 @@ async function startGame(stage, rating, resumeState = null) {
       guardianOrb: !!pb?.guardianOrb, phoenixHeart: !!pb?.phoenixHeart, midasTouch: !!pb?.midasTouch,
       petCount: pb?.petCount||0, petLevel: pb?.petLevel||0, autoModeOwned: !!pb?.autoModeOwned,
       autoModeUpgradeLevel: getAutoModeUpgradeLevel(pb),
+      mythicZeusOwned: !!pb?.mythicZeusOwned, mythicZeusLevel: pb?.mythicZeusLevel||0,
+      equippedAccessories: save.accessoryEquipped||{},
       repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0,
       gatherSeconds: useGather ? 15 : 0, shieldSeconds });
   if (!resumeState) {
@@ -313,9 +317,9 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   // 화면 전환 플래그를 가장 먼저 설정 — 이후 코드 예외에 영향받지 않도록.
   // save에도 함께 기록해 페이지 재로드로 이 값이 유실돼도 복구 가능하게 한다.
   if (stage % 10 === 0)  { pendingCollectionStage = stage; save.pendingCollectionStage = stage; }
-  // 특전 이미지는 100/200/300단계 전용 — 300단계를 넘어 이어서 플레이할 때 400, 500...
-  // 에서 다시 트리거되지 않도록 MAX_STAGE 이하일 때만 대기시킨다.
-  if (stage % 100 === 0 && stage <= MAX_STAGE) { pendingRewardStage = stage; save.pendingRewardStage = stage; }
+  // 특전 이미지는 100단계마다 반복 지급 — 300단계를 넘어 이어서 플레이해도
+  // 400, 500... 에서 계속 나온다.
+  if (stage % 100 === 0) { pendingRewardStage = stage; save.pendingRewardStage = stage; }
   // 300단계를 처음 클리어한 순간에만 "게임 클리어" 안내를 띄운다 (이어서 플레이를
   // 선택하면 스테이지는 계속 증가하므로 이후 루프에서는 다시 뜨지 않음 — 처음부터
   // 다시 시작을 선택해 재도전한 경우에만 재발생).
@@ -325,6 +329,8 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   }
 
   if (stage > save.bestStage) save.bestStage = stage;
+  // 자랑하기 카드용 통계 — 99% 이상 점령하고 클리어한 횟수를 누적 기록한다.
+  if (fill >= 0.99) save.highFillClearCount = (save.highFillClearCount || 0) + 1;
   // 스테이지 번호 자체는 300 이후로도 계속 증가한다 — 실제 존재하는 아트워크는
   // 300장뿐이라 캐릭터 이미지만 1단계부터 순환해서 보여준다 (game.js의 toImageStage 참고).
   save.stage = stage + 1;
@@ -1128,6 +1134,80 @@ $('btn-gallery').onclick = () => showGallery();
 $('btn-help').onclick = () => { show('help'); switchHelpTab('how'); };
 $('btn-back-help').onclick = () => show('main');
 
+// ── 내 캐릭터 자랑하기 ────────────────────────────────────────
+// 서버 DB 없이, 통계값을 그대로 공유 URL 쿼리스트링에 실어 공유 페이지
+// (share.html)에서 같은 카드를 다시 그리게 한다 (bragCard.js buildShareUrl 참고).
+// 레벨/월계관 등 티어는 최고 스테이지(bestStage) 기준 — bragCard.js getBragTier.
+let _bragRafId = null;
+function _bragStats() {
+  return {
+    bestStage: save.bestStage || 0,
+    totalScore: save.totalScore || 0,
+    highFillClearCount: save.highFillClearCount || 0,
+    equippedAccessories: save.accessoryEquipped || {},
+  };
+}
+function _bragLabels() {
+  return {
+    title: t('brag.cardTitle'),
+    level: t('brag.level'),
+    points: t('brag.points'),
+    highFillClears: t('brag.highFillClears'),
+    timesSuffix: t('brag.timesSuffix'),
+    tagline: t('brag.tagline'),
+    appName: t('brand.name'),
+  };
+}
+function openBragModal() {
+  const ctx = $('brag-canvas').getContext('2d');
+  const stats = _bragStats();
+  const labels = _bragLabels();
+  const start = performance.now();
+  const draw = () => {
+    drawBragCard(ctx, stats, (performance.now() - start) / 1000, labels);
+    _bragRafId = requestAnimationFrame(draw);
+  };
+  draw();
+  $('modal-brag').classList.add('active');
+}
+function closeBragModal() {
+  $('modal-brag').classList.remove('active');
+  if (_bragRafId) { cancelAnimationFrame(_bragRafId); _bragRafId = null; }
+}
+$('btn-brag-close').onclick = closeBragModal;
+$('modal-brag').addEventListener('pointerdown', e => {
+  if (e.target === $('modal-brag')) closeBragModal();
+});
+$('btn-main-brag').onclick  = () => openBragModal();
+$('btn-clear-brag').onclick = () => openBragModal();
+
+$('btn-brag-share').onclick = async () => {
+  const stats = _bragStats();
+  const shareUrl = buildShareUrl(location.origin, stats);
+  const shareText = t('brag.shareText', { stage: stats.bestStage });
+  const shareTitle = t('brag.cardTitle');
+  const copyFallback = () => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(
+        () => showAlert(t('brag.linkCopied')),
+        () => showAlert(shareUrl)
+      );
+    } else {
+      showAlert(shareUrl);
+    }
+  };
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+      return;
+    }
+    copyFallback();
+  } catch (e) {
+    // 사용자가 공유 시트를 직접 취소한 경우(AbortError)는 실패로 취급하지 않는다.
+    if (e?.name !== 'AbortError') copyFallback();
+  }
+};
+
 // 도움말 탭 전환
 function switchHelpTab(tabId) {
   document.querySelectorAll('.help-tab').forEach(b =>
@@ -1192,9 +1272,10 @@ $('btn-reset-confirm').onclick = () => {
   save = Storage.load();
   save.stage = 1; save.bestStage = 0; save.gallery = []; save.heldItems = []; save.collection = [];
   save.totalScore = 0; save.bonusLives = 0; save.mythicUnlockShown = false;
+  save.accessoryOwned = []; save.accessoryEquipped = {}; save.accessoryAdProgress = {};
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgradeLevel: 0 };
+    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgradeLevel: 0, mythicZeusOwned: false, mythicZeusLevel: 0 };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1221,9 +1302,10 @@ $('btn-complete-no').onclick = () => {
   save.rewardImages = [];
   save.heldItems = [];
   save.mythicUnlockShown = false;
+  save.accessoryOwned = []; save.accessoryEquipped = {}; save.accessoryAdProgress = {};
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgradeLevel: 0 };
+    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgradeLevel: 0, mythicZeusOwned: false, mythicZeusLevel: 0 };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1262,9 +1344,22 @@ function getUpgradeCaps() {
   return { gun: GUN_BASE_CAP * mult, bullet: BULLET_BASE_CAP * mult, sword: SWORD_BASE_CAP * mult, pet: petCap };
 }
 
-// 신화 등급 "방패" — 스테이지 시작 시 무적 시간을 1초씩 늘려주는 영구템. 최대 5초(5회)까지
-// 누적 구매 가능하고, 살 때마다 다음 구매 가격이 50만씩 비싸진다.
-const MYTHIC_SHIELD_MAX = 5;
+// 신화 등급 "방패" — 스테이지 시작 시 무적 시간을 1초씩 늘려주는 영구템. 최대 100초까지
+// 누적 구매 가능하고, 살 때마다 다음 구매 가격이 50만씩 비싸진다. 운명의 주사위의
+// "방패강화" 항목도 같은 스탯(persistentBonus.mythicShieldLevel)을 올려준다.
+const MYTHIC_SHIELD_MAX = 100;
+
+// 운명의 주사위 가격 — 기본 60,000pt에서, 레벨(최고 스테이지 기준) 50단계마다
+// 기본가의 절반(0.5배)씩 추가로 붙는다 (50단: 1.5배, 100단: 2배, 150단: 2.5배 ...).
+const DICE_OF_FATE_BASE_COST = 60000;
+function getDiceOfFateCost() {
+  const tier = Math.floor((save.bestStage || 0) / 50);
+  return Math.round(DICE_OF_FATE_BASE_COST * (1 + tier * 0.5));
+}
+
+// 신화 등급 "제우스의 분노" — 구매마다(2000만pt) 독립된 자동 발동 타이머가 하나씩
+// 늘어나는 영구템. 최대 5강화까지 가능 (기본 5초 + 10/15/20/25/30초 타이머).
+const MYTHIC_ZEUS_MAX_LEVEL = 5;
 
 // 신화 등급 "몬스터 회피/시간 동결 부적" — 구매마다 다음 스테이지에 발동할 확률이
 // +1%p씩 쌓이는 영구 스탯. 100개 사면 100% 확정 발동, 그 이상은 구매 불가.
@@ -1367,18 +1462,32 @@ function getMarketItems() {
       { id:'autoModeUpgrade2', tier:'mythic', cost:10000000, icon:'🎯',
         name:t('market.item.autoModeUpgrade2.name'), desc:t('market.item.autoModeUpgrade2.desc') }
     );
-    // 방패 — 스테이지 시작 시 무적 시간 +1초(최대 5초), 살 때마다 50만씩 비싸짐.
+    // 제우스의 분노 — 구매 자체는 1회성 영구, 켜져 있으면 조작 없이 정해진 주기마다
+    // 캐릭터 앞쪽에 제우스의 번개(5x5)를 자동으로 내리친다 (game.js _update/
+    // _triggerMythicZeusWrath 참고). 기본 주기 5초, 강화마다 독립된 타이머가
+    // 하나씩 늘어나(10/15/20/25/30초) 최대 5강화까지 발동 빈도가 계속 늘어난다.
+    const zeusLv = pb.mythicZeusLevel || 0;
+    if (!pb.mythicZeusOwned) items.push(
+      { id:'mythicZeusWrath', tier:'mythic', cost:10000000, icon:'⚡',
+        name:t('market.item.mythicZeusWrath.name'), desc:t('market.item.mythicZeusWrath.desc') }
+    );
+    if (pb.mythicZeusOwned && zeusLv < MYTHIC_ZEUS_MAX_LEVEL) items.push(
+      { id:'mythicZeusWrathUpgrade', tier:'mythic', cost:20000000, icon:'⚡',
+        name:t('market.item.mythicZeusWrathUpgrade.name', { from: zeusLv, to: zeusLv + 1 }),
+        desc:t('market.item.mythicZeusWrathUpgrade.desc', { sec: (zeusLv + 2) * 5, max: MYTHIC_ZEUS_MAX_LEVEL }) }
+    );
+    // 방패 — 스테이지 시작 시 무적 시간 +1초(최대 100초), 살 때마다 50만씩 비싸짐.
     const shieldLv = pb.mythicShieldLevel || 0;
     if (shieldLv < MYTHIC_SHIELD_MAX) items.push(
       { id:'mythicShield', tier:'mythic', cost:getMythicShieldCost(shieldLv), icon:'🛡️',
         name:t('market.item.mythicShield.name'),
         desc:t('market.item.mythicShield.desc', { sec: shieldLv + 1, max: MYTHIC_SHIELD_MAX }) }
     );
-    // 펫 — 최대 2마리, 마리당 500만pt 고정가.
+    // 펫 — 최대 PET_MAX_COUNT마리, 마리당 500만pt 고정가.
     const petCount = pb.petCount || 0;
-    if (petCount < 2) items.push(
+    if (petCount < PET_MAX_COUNT) items.push(
       { id:'pet', tier:'mythic', cost:5000000, icon:'🐿️',
-        name:t('market.item.pet.name'), desc:t('market.item.pet.desc', { count: petCount, max: 2 }) }
+        name:t('market.item.pet.name'), desc:t('market.item.pet.desc', { count: petCount, max: PET_MAX_COUNT }) }
     );
     // 펫강화 — 펫을 1마리 이상 보유해야 표시, 10만→최대 1000만pt.
     const petLv = pb.petLevel || 0, petCap = caps.pet;
@@ -1415,7 +1524,7 @@ function getMarketItems() {
         desc:t('market.item.gatherCharm.desc', { pct: gatherChance + 1, max: REPEL_FREEZE_CHANCE_MAX }) }
     );
     items.push(
-      { id:'diceOfFate', tier:'mythic', cost:60000, icon:'🎲',
+      { id:'diceOfFate', tier:'mythic', cost:getDiceOfFateCost(), icon:'🎲',
         name:t('market.item.diceOfFate.name'), desc:t('market.item.diceOfFate.desc') },
     );
   }
@@ -1544,26 +1653,50 @@ function tierLabel(tier) {
 
 // 운명의 주사위 — 구매 즉시 결과가 나오는 도박성 소모템. 가중치 순서대로 굴려 첫 당첨
 // 구간에 해당하는 효과를 save에 바로 적용하고, 결과 안내 토스트 문구를 반환한다.
+// 펫구매/펫강화/방패강화 세 항목은 상태에 따라 아예 목록에서 빠질 수 있는데(이미
+// 최대치라 더 줄 게 없는 경우), 그 확률만큼은 그냥 사라진다 — 안전망(table[0], "꽝")이
+// 남는 확률을 자연스럽게 흡수하므로 나머지 가중치를 다시 100으로 맞출 필요는 없다.
 function _rollDiceOfFate() {
+  if (!save.persistentBonus) save.persistentBonus = { extraLives:0, extraTime:0, speedLevel:0, gunLevel:0, swordLevel:0, bulletLevel:0 };
+  const pb = save.persistentBonus;
+  const petCap = getUpgradeCaps().pet;
+
+  const table = [
+    // 당첨 포인트는 전부 기존의 10배로 책정 (가중치/확률은 그대로).
+    { weight: 39, apply: () => t('market.dice.bust') },
+    { weight: 25, apply: () => { save.totalScore += 100000; return t('market.dice.small', { n: '100,000' }); } },
+    { weight: 15, apply: () => { save.totalScore += 300000; return t('market.dice.small', { n: '300,000' }); } },
+    { weight: 10, apply: () => { save.bonusLives = (save.bonusLives || 0) + 1; return t('market.dice.life'); } },
+    { weight: 7,  apply: () => { save.totalScore += 1000000; return t('market.dice.big', { n: '1,000,000' }); } },
+    { weight: 3,  apply: () => { save.totalScore += 3000000; return t('market.dice.jackpot', { n: '3,000,000' }); } },
+  ];
+
+  // 펫구매(1%) — 펫을 한 마리도 안 샀을 때만 등장. 사고 나면(마리 수와 무관하게)
+  // 이 항목은 영영 사라지고, 대신 펫강화 항목이 등장한다.
+  if ((pb.petCount || 0) === 0) {
+    table.push({ weight: 1, apply: () => {
+      pb.petCount = (pb.petCount || 0) + 1;
+      return t('market.dice.pet');
+    } });
+  } else if ((pb.petLevel || 0) < petCap) {
+    // 펫강화(2%) — 펫을 이미 보유 중일 때만 등장, 강화 상한(petCap)에 닿으면 사라진다.
+    table.push({ weight: 2, apply: () => {
+      pb.petLevel = Math.min(petCap, (pb.petLevel || 0) + 1);
+      return t('market.dice.petUpgrade', { lv: pb.petLevel });
+    } });
+  }
+
+  // 방패강화(1%) — 스테이지 시작 시 무적 시간 +1초. MYTHIC_SHIELD_MAX(100초)를
+  // 넘기면 사라진다. 마켓의 "방패" 아이템과 완전히 같은 스탯을 올려준다.
+  if ((pb.mythicShieldLevel || 0) < MYTHIC_SHIELD_MAX) {
+    table.push({ weight: 1, apply: () => {
+      pb.mythicShieldLevel = Math.min(MYTHIC_SHIELD_MAX, (pb.mythicShieldLevel || 0) + 1);
+      return t('market.dice.shield', { sec: pb.mythicShieldLevel });
+    } });
+  }
+
   const roll = Math.random() * 100;
   let acc = 0;
-  const table = [
-    { weight: 39, apply: () => t('market.dice.bust') },
-    { weight: 25, apply: () => { save.totalScore += 10000; return t('market.dice.small', { n: '10,000' }); } },
-    { weight: 15, apply: () => { save.totalScore += 30000; return t('market.dice.small', { n: '30,000' }); } },
-    { weight: 10, apply: () => { save.bonusLives = (save.bonusLives || 0) + 1; return t('market.dice.life'); } },
-    { weight: 7,  apply: () => { save.totalScore += 100000; return t('market.dice.big', { n: '100,000' }); } },
-    { weight: 3,  apply: () => { save.totalScore += 300000; return t('market.dice.jackpot', { n: '300,000' }); } },
-    // 1% 확률로 펫 1마리 — 500만pt짜리 신화템을 공짜로 얻는 초희귀 당첨. 이미 2마리를
-    // 다 보유해 지급할 수 없으면, 당첨이 헛되지 않도록 그만큼의 포인트로 대신 지급한다.
-    { weight: 1,  apply: () => {
-        if (!save.persistentBonus) save.persistentBonus = { extraLives:0, extraTime:0, speedLevel:0, gunLevel:0, swordLevel:0, bulletLevel:0 };
-        const pb = save.persistentBonus;
-        if ((pb.petCount || 0) < 2) { pb.petCount = (pb.petCount || 0) + 1; return t('market.dice.pet'); }
-        save.totalScore += 5000000;
-        return t('market.dice.petAlt', { n: '5,000,000' });
-      } },
-  ];
   for (const entry of table) {
     acc += entry.weight;
     if (roll < acc) return entry.apply();
@@ -1613,6 +1746,7 @@ function showMarket() {
     const autoUpgLv = getAutoModeUpgradeLevel(pb);
     pbParts.push(t(autoUpgLv >= 2 ? 'market.pbAutoModeUpgraded2' : autoUpgLv >= 1 ? 'market.pbAutoModeUpgraded' : 'market.pbAutoMode'));
   }
+  if (pb.mythicZeusOwned) pbParts.push(t('market.pbMythicZeusWrath', { n: (pb.mythicZeusLevel || 0) + 1 }));
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
     ? `<b>${t('market.pbTitle')}</b><br>${pbParts.join(' · ')}` : '';
@@ -1687,12 +1821,20 @@ function showMarket() {
         // 신화 등급 영구템: 오토모드 발사 속도를 초당 4발 → 6발로 올린다 — game.js _update()의
         // autoModeUpgradeLevel 참고.
         save.persistentBonus.autoModeUpgradeLevel = 2;
+      } else if (mi.id === 'mythicZeusWrath') {
+        // 신화 등급 영구템: 켜져 있으면 5초마다 자동으로 캐릭터 앞쪽에 제우스의
+        // 번개를 내리친다 — game.js init()의 mythicZeusOwned 참고.
+        save.persistentBonus.mythicZeusOwned = true;
+      } else if (mi.id === 'mythicZeusWrathUpgrade') {
+        // 신화 등급 영구템: 독립된 자동 발동 타이머를 하나 더 추가한다(최대 5강화)
+        // — game.js _getZeusPeriods 참고.
+        save.persistentBonus.mythicZeusLevel = Math.min(MYTHIC_ZEUS_MAX_LEVEL, (save.persistentBonus.mythicZeusLevel || 0) + 1);
       } else if (mi.id === 'mythicShield') {
-        // 신화 등급 영구템: 스테이지 시작 시 무적 시간 +1초(최대 5초) — game.js init()의 shieldSeconds 참고.
+        // 신화 등급 영구템: 스테이지 시작 시 무적 시간 +1초(최대 100초) — game.js init()의 shieldSeconds 참고.
         save.persistentBonus.mythicShieldLevel = Math.min(MYTHIC_SHIELD_MAX, (save.persistentBonus.mythicShieldLevel || 0) + 1);
       } else if (mi.id === 'pet') {
-        // 신화 등급 영구템: 펫 1마리 추가(최대 2마리) — game.js init()의 petCount 참고.
-        save.persistentBonus.petCount = Math.min(2, (save.persistentBonus.petCount || 0) + 1);
+        // 신화 등급 영구템: 펫 1마리 추가(최대 PET_MAX_COUNT마리) — game.js init()의 petCount 참고.
+        save.persistentBonus.petCount = Math.min(PET_MAX_COUNT, (save.persistentBonus.petCount || 0) + 1);
       } else if (mi.id === 'petUpgrade') {
         // 신화 등급 영구템: 펫강화 레벨 +1 — game.js의 _getPetPattern 참고.
         save.persistentBonus.petLevel = Math.min(getUpgradeCaps().pet, (save.persistentBonus.petLevel || 0) + 1);
@@ -1736,7 +1878,131 @@ function showMarket() {
     });
     list.appendChild(card);
   }
+  _switchMarketTab(_marketActiveTab);
   show('market');
+}
+
+// ── 악세사리 탭 (코스메틱 전용, 레벨 50 이상 해금) ───────────────
+// 카테고리(모자/옷/악세사리/신발)당 하나만 착용 가능. 구매하려면 포인트뿐 아니라
+// 아이템마다 정해진 횟수만큼 광고도 봐야 한다(accessories.js의 ads 필드) — 진행도는
+// save.accessoryAdProgress[아이템id]에 개별로 쌓인다(카테고리 공용이 아님).
+let _marketActiveTab = 'items';
+function _switchMarketTab(tab) {
+  _marketActiveTab = tab;
+  $('market-tab-items').classList.toggle('active', tab === 'items');
+  $('market-tab-accessories').classList.toggle('active', tab === 'accessories');
+  $('market-item-list').classList.toggle('hidden', tab !== 'items');
+  $('market-accessory-list').classList.toggle('hidden', tab !== 'accessories');
+  if (tab === 'accessories') renderAccessoryTab();
+}
+$('market-tab-items').onclick       = () => _switchMarketTab('items');
+$('market-tab-accessories').onclick = () => _switchMarketTab('accessories');
+
+function renderAccessoryTab() {
+  const list = $('market-accessory-list');
+  list.innerHTML = '';
+  const level = save.bestStage || 0;
+  if (level < ACCESSORY_LEVEL_REQUIREMENT) {
+    const note = document.createElement('div');
+    note.className = 'accessory-locked-note';
+    note.textContent = t('accessory.locked', { level: ACCESSORY_LEVEL_REQUIREMENT });
+    list.appendChild(note);
+    return;
+  }
+  if (!save.accessoryOwned) save.accessoryOwned = [];
+  if (!save.accessoryEquipped) save.accessoryEquipped = {};
+  if (!save.accessoryAdProgress) save.accessoryAdProgress = {};
+
+  for (const category of ACCESSORY_CATEGORIES) {
+    const catLabel = document.createElement('div');
+    catLabel.className = 'accessory-category-label';
+    catLabel.textContent = t(`accessory.category.${category}`);
+    list.appendChild(catLabel);
+
+    for (const item of ACCESSORIES.filter(a => a.category === category)) {
+      const owned    = save.accessoryOwned.includes(item.id);
+      const equipped = save.accessoryEquipped[category] === item.id;
+      const adProgress = Math.min(item.ads, save.accessoryAdProgress[item.id] || 0);
+      const adsReady  = adProgress >= item.ads;
+      const canAfford = save.totalScore >= item.cost;
+
+      const card = document.createElement('div');
+      card.className = `market-card market-mythic accessory-card${equipped ? ' equipped' : ''}`;
+      card.innerHTML = `
+        <span class="market-icon">${item.icon}</span>
+        <div class="market-info">
+          <b class="market-name">${t(`accessory.item.${item.id}.name`)}</b>
+          <span class="market-desc">${t(`accessory.item.${item.id}.desc`)}</span>
+          ${owned ? '' : `<div class="accessory-req-row">📺 ${adProgress}/${item.ads}${adsReady ? ' ✅' : ''}</div>`}
+        </div>
+        <div class="accessory-buy-col"></div>`;
+
+      const buyCol = card.querySelector('.accessory-buy-col');
+      if (owned) {
+        const btn = document.createElement('button');
+        btn.className = `market-buy-btn ${equipped ? 'btn-secondary' : 'btn-primary'}`;
+        btn.textContent = equipped ? t('accessory.btnUnequip') : t('accessory.btnEquip');
+        btn.addEventListener('click', () => {
+          save.accessoryEquipped[category] = equipped ? null : item.id;
+          if (game) game.equippedAccessories = save.accessoryEquipped;
+          Storage.save(save);
+          renderAccessoryTab();
+        });
+        buyCol.appendChild(btn);
+      } else {
+        if (!adsReady) {
+          const adBtn = document.createElement('button');
+          adBtn.className = 'accessory-ad-btn';
+          adBtn.textContent = t('accessory.btnWatchAd');
+          adBtn.addEventListener('click', () => _requestAccessoryAd(item));
+          buyCol.appendChild(adBtn);
+        }
+        const buyBtn = document.createElement('button');
+        buyBtn.className = 'market-buy-btn btn-primary';
+        buyBtn.textContent = `${item.cost.toLocaleString()}pt`;
+        buyBtn.disabled = !(adsReady && canAfford);
+        buyBtn.addEventListener('click', () => {
+          if (!(adsReady && canAfford)) return;
+          save.totalScore -= item.cost;
+          save.accessoryOwned.push(item.id);
+          save.accessoryEquipped[category] = item.id; // 구매 즉시 장착
+          if (game) game.equippedAccessories = save.accessoryEquipped;
+          Storage.save(save);
+          updateMainStats();
+          renderAccessoryTab();
+          _showMarketToast(t('market.buyToast', { icon: item.icon, name: t(`accessory.item.${item.id}.name`) }));
+        });
+        buyCol.appendChild(buyBtn);
+      }
+      list.appendChild(card);
+    }
+  }
+}
+
+let _accessoryAdInFlight = false;
+function _requestAccessoryAd(item) {
+  if (_accessoryAdInFlight) return;
+  _accessoryAdInFlight = true;
+  watchRewardAd({
+    onReward: () => {
+      const reward = computeNextAdReward(save.lastAdReward || 0);
+      save.totalScore   = (save.totalScore || 0) + reward;
+      save.lastAdReward = reward;
+      // 이 광고도 "성공 시청"이므로 보관함 팩 해금용 누적 시청 횟수에도 함께 잡힌다.
+      save.adWatchCount = (save.adWatchCount || 0) + 1;
+      if (!save.accessoryAdProgress) save.accessoryAdProgress = {};
+      save.accessoryAdProgress[item.id] = Math.min(item.ads, (save.accessoryAdProgress[item.id] || 0) + 1);
+      Storage.save(save);
+      updateMainStats();
+      _accessoryAdInFlight = false;
+      renderAccessoryTab();
+      _showMarketToast(t('ads.rewardToast', { n: reward.toLocaleString() }));
+    },
+    onUnavailable: () => {
+      _accessoryAdInFlight = false;
+      _showMarketToast(t('ads.unavailable'));
+    },
+  });
 }
 
 function _showMarketToast(msg) {

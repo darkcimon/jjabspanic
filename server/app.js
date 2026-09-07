@@ -18,7 +18,12 @@ const i18n = require('./i18n');
 
 // ── 특전 일회용 토큰 저장소 ───────────────────────────────
 // Map<token, { userId, stage, expiresAt }>
-const REWARD_VALID_STAGES = new Set([100, 200, 300]);
+// 특전은 100단계마다 반복 지급된다 (100, 200, 300, ... 300단계를 넘어 계속
+// 이어서 플레이해도 400, 500...에서 계속 발동). 예전엔 100/200/300 세 개만
+// 허용하는 고정 Set이라, 300단계를 넘긴 이후로는 특전 화면 자체가 뜨지 않았다.
+function isValidRewardStage(n) {
+    return Number.isInteger(n) && n > 0 && n % 100 === 0;
+}
 const REWARD_TOKEN_TTL_MS = 30 * 60 * 1000; // 30분
 const rewardTokens = new Map();
 
@@ -69,6 +74,45 @@ app.get('/manifest.json', (req, res) => {
     const lang = detectServerLang(req);
     res.setHeader('Content-Type', 'application/manifest+json');
     res.json({ ...MANIFEST_I18N[lang], ...MANIFEST_BASE });
+});
+
+// ── /share — "내 캐릭터 자랑하기" 공유 링크 ──────────────────
+// DB 없이 stateless하게 동작한다: 클라이언트(web/js/bragCard.js buildShareUrl)가
+// 통계값을 쿼리스트링에 그대로 실어 보내면, 서버는 그 값으로 동적 OG 메타태그
+// (카카오톡/디스코드/트위터 등 링크 미리보기용)만 채워 web/share.html을 내려준다.
+// 카드 그림 자체는 서버가 렌더링하지 않고, 그 페이지의 JS가 bragCard.js로
+// 다시 그린다 — manifest.json과 동일한 "정적 파일 + 언어별 동적 헤더" 패턴.
+function _escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+app.get('/share', (req, res) => {
+    const stage = Math.max(0, parseInt(req.query.stage, 10) || 0);
+    const score = Math.max(0, parseInt(req.query.score, 10) || 0);
+    const lang  = detectServerLang(req);
+
+    let html;
+    try {
+        html = fs.readFileSync(path.join(__dirname, '..', 'web', 'share.html'), 'utf8');
+    } catch (err) {
+        return res.status(500).send('share page unavailable');
+    }
+
+    const title = lang === 'ko'
+        ? `스테이지 ${stage} 달성! 짭스패닉 다람쥐 자랑`
+        : `Reached stage ${stage}! GalsPanic squirrel flex`;
+    const desc = lang === 'ko'
+        ? `누적 ${score.toLocaleString()}pt — 나도 도전해볼까?`
+        : `${score.toLocaleString()}pt total — think you can beat it?`;
+    const imageUrl = `${req.protocol}://${req.get('host')}/icons/icon-512.png`;
+    const ogTags = `<title>${_escapeHtml(title)}</title>
+<meta property="og:title" content="${_escapeHtml(title)}">
+<meta property="og:description" content="${_escapeHtml(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:image" content="${_escapeHtml(imageUrl)}">
+<meta name="twitter:card" content="summary">`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html.replace('<!--OG_TAGS-->', ogTags));
 });
 
 // Serve web frontend
@@ -199,7 +243,7 @@ app.post('/api/reward/token', (req, res) => {
     const { userId, stage } = req.body;
     const stageNum = parseInt(stage, 10);
 
-    if (!userId || !REWARD_VALID_STAGES.has(stageNum))
+    if (!userId || !isValidRewardStage(stageNum))
         return res.status(400).json({ error: i18n.t(req, 'invalidRequest') });
 
     // 만료된 토큰 정리

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>짭스패닉</title>
+<!--OG_TAGS-->
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 24px 16px; gap: 18px; text-align: center;
+    background: radial-gradient(ellipse at top, #2d1b4e 0%, var(--bg) 70%);
+  }
+  .share-logo { font-size: 1.4rem; font-weight: 800; color: var(--text); margin: 0; }
+  #share-canvas {
+    width: min(360px, 90vw); height: auto; border-radius: 18px;
+    border: 1px solid rgba(200,80,192,0.35); box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  .share-cta {
+    display: inline-block; text-decoration: none;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #fff; font-weight: 800; font-size: 1.05rem;
+    padding: 14px 32px; border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(200,80,192,0.4);
+  }
+  .share-cta:active { transform: scale(0.97); }
+  .share-note { font-size: 0.78rem; color: var(--muted); max-width: 320px; }
+</style>
+</head>
+<body>
+  <h1 class="share-logo" data-i18n="brand.name">짭스패닉</h1>
+  <canvas id="share-canvas" width="640" height="800"></canvas>
+  <a id="share-cta" class="share-cta" href="#" data-i18n="brag.ctaTryIt">나도 해보기 →</a>
+  <p class="share-note" data-i18n="brag.shareNote">캐릭터를 키우고 친구에게 자랑해보세요!</p>
+
+  <script type="module">
+    import { drawBragCard, statsFromSearchParams } from '/js/bragCard.js';
+    import { t } from '/js/i18n.js';
+
+    const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.jjabspanic.app&pcampaignid=web_share';
+
+    const stats = statsFromSearchParams(new URLSearchParams(location.search));
+    const ctx = document.getElementById('share-canvas').getContext('2d');
+    const labels = {
+      title: t('brag.cardTitle'),
+      level: t('brag.level'),
+      points: t('brag.points'),
+      highFillClears: t('brag.highFillClears'),
+      timesSuffix: t('brag.timesSuffix'),
+      tagline: t('brag.tagline'),
+      appName: t('brand.name'),
+    };
+    const start = performance.now();
+    (function draw() {
+      drawBragCard(ctx, stats, (performance.now() - start) / 1000, labels);
+      requestAnimationFrame(draw);
+    })();
+
+    // 안드로이드는 플레이스토어로, 그 외(iOS/데스크톱 등 앱스토어가 아직 없는
+    // 플랫폼)는 웹판 게임으로 바로 보낸다.
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    document.getElementById('share-cta').href = isAndroid ? PLAY_STORE_URL : '/';
+  </script>
+</body>
+</html>

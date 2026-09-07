@@ -1,5 +1,6 @@
 import { t } from './i18n.js';
-import { MAX_STAGE, MAX_MONSTERS, toImageStage, GUN_BASE_CAP, BULLET_BASE_CAP, PET_BASE_CAP } from './config.js';
+import { MAX_STAGE, MAX_MONSTERS, toImageStage, GUN_BASE_CAP, BULLET_BASE_CAP, PET_BASE_CAP, PET_MAX_COUNT } from './config.js';
+import { drawStarShape as _sharedDrawStarShape, drawSquirrelBody, drawAccessories, resolveDynamicColor as _sharedResolveDynamicColor } from './squirrel.js';
 
 // ── Cell states ──────────────────────────────────────────────
 const EMPTY    = 0;
@@ -35,15 +36,9 @@ function getStageHP(stage) {
 }
 
 // ── Star shape helper ─────────────────────────────────────────
+// squirrel.js로 옮긴 공용 구현에 위임 (자랑하기 카드에서도 같은 그림을 쓴다).
 function _drawStarShape(ctx, cx, cy, pts, outer, inner) {
-  ctx.beginPath();
-  for (let i = 0; i < pts * 2; i++) {
-    const r = i % 2 === 0 ? outer : inner;
-    const a = (i / (pts * 2)) * PI2 - Math.PI / 2;
-    if (i === 0) ctx.moveTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
-    else         ctx.lineTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
-  }
-  ctx.closePath(); ctx.fill();
+  _sharedDrawStarShape(ctx, cx, cy, pts, outer, inner);
 }
 
 // ── Item icon drawers ─────────────────────────────────────────
@@ -854,7 +849,11 @@ function _getSwordAttrs(level, cs) {
 class Pet {
   constructor(index) {
     this.index = index;
-    this.angle = index * Math.PI; // 두 마리면 서로 반대편에서 시작
+    // 펫 최대 마리 수(PET_MAX_COUNT)만큼 궤도를 균등 분할해 시작 위치를 잡는다.
+    // 예전엔 index*Math.PI(반바퀴)로 고정돼 있어서 2마리일 땐 정반대로 잘
+    // 나뉘었지만, 마리 수를 늘리면 index*Math.PI가 한 바퀴를 넘어가면서 기존
+    // 펫과 각도가 겹쳐버렸다 (예: 3번째 펫이 1번째 펫과 같은 위치에서 시작).
+    this.angle = index * (Math.PI * 2 / PET_MAX_COUNT);
     this.px = 0; this.py = 0;
     this.fireTimer = rnd(0.3, 0.8);
   }
@@ -950,9 +949,7 @@ function _getPetColor(lv) {
   return `hsl(${(tier * 137) % 360}, 75%, 58%)`;
 }
 function _resolveDynamicColor(colorKey, t) {
-  if (!colorKey) return null;
-  if (colorKey === 'rainbow') return `hsl(${(t * 200) % 360}, 90%, 60%)`;
-  return colorKey;
+  return _sharedResolveDynamicColor(colorKey, t);
 }
 
 // ── Game ─────────────────────────────────────────────────────
@@ -987,6 +984,8 @@ export class Game extends EventTarget {
     this._monsterSpeed=1;
     this.pets=[]; this.petBullets=[]; this._petLevel=0; this._petCap=PET_BASE_CAP;
     this.autoModeOwned=false; this.autoModeActive=false; this._autoFireTimer=0; this.autoModeUpgradeLevel=0;
+    this.mythicZeusOwned=false; this.mythicZeusLevel=0; this._zeusTimers=[];
+    this.equippedAccessories={};
   }
 
   async init(stage, rating, _count, monsterSpeed, timeLimit, heldItems=[], resumeState=null, weaponLevels={}) {
@@ -1028,7 +1027,7 @@ export class Game extends EventTarget {
     this._petCap=Math.max(PET_BASE_CAP,Math.floor(stage/100)*100);
     this._petLevel=Math.min(weaponLevels.petLevel||0,this._petCap);
     this.pets=[];
-    for(let i=0;i<Math.min(2,weaponLevels.petCount||0);i++) this.pets.push(new Pet(i));
+    for(let i=0;i<Math.min(PET_MAX_COUNT,weaponLevels.petCount||0);i++) this.pets.push(new Pet(i));
     this.petBullets=[];
     // 신화 등급 영구 아이템 "오토모드" — 게임 중 토글하면 선택된 무기(총/칼)를
     // 자동 발사한다 (toggleAutoMode/_update 참고). 기본은 초당 2회, "오토모드 강화"를
@@ -1036,6 +1035,17 @@ export class Game extends EventTarget {
     this.autoModeOwned=!!weaponLevels.autoModeOwned;
     this.autoModeUpgradeLevel=weaponLevels.autoModeUpgradeLevel||0;
     this.autoModeActive=false; this._autoFireTimer=0;
+    // 신화 등급 영구 아이템 "제우스의 분노" — 켜져 있으면 정해진 주기마다 자동으로
+    // 캐릭터 앞쪽에 제우스의 번개를 내리친다 (_getZeusPeriods/_triggerMythicZeusWrath
+    // /_update 참고). 강화할 때마다 독립된 타이머가 하나씩 추가돼 발동 빈도가 늘어난다.
+    this.mythicZeusOwned=!!weaponLevels.mythicZeusOwned;
+    this.mythicZeusLevel=weaponLevels.mythicZeusLevel||0;
+    this._zeusTimers=this.mythicZeusOwned?this._getZeusPeriods().slice():[];
+    // 코스메틱 전용 "악세사리" — 레벨(최고 스테이지) 50 이상부터 마켓 악세사리
+    // 탭에서 구매·착용 가능 (accessories.js/squirrel.js drawAccessories 참고).
+    // 카테고리(hat/outfit/accessory/shoes)당 하나만 착용되며, 게임 결과에는
+    // 영향을 주지 않는 순수 꾸미기 요소다.
+    this.equippedAccessories=weaponLevels.equippedAccessories||{};
     const sp=this.heldItems.find(h=>h.type==='speed');
     if (sp) { this.speedActive=true; }
 
@@ -1254,10 +1264,9 @@ export class Game extends EventTarget {
     if(gun.ammo<=0) this.heldItems=this.heldItems.filter(h=>h!==gun);
   }
 
-  triggerLightning(px, py) {
-    const li=this.heldItems.find(h=>h.type==='lightning'||h.type==='zeusLightning');
-    if (!li) return;
-    const radius=li.type==='zeusLightning'?2:1;
+  // 번개 AOE 공통 로직 — 보유템 소모형(triggerLightning)과 신화 등급 영구
+  // 자동발동형(_triggerMythicZeusWrath)이 함께 쓴다.
+  _lightningStrike(px, py, radius) {
     const gx=Math.floor(px/this.cs), gy=Math.floor(py/this.cs);
     for (let dx=-radius;dx<=radius;dx++) for (let dy=-radius;dy<=radius;dy++) {
       this.grid._s(gx+dx,gy+dy,CAPTURED);
@@ -1267,11 +1276,33 @@ export class Game extends EventTarget {
       if (Math.abs(m.gx-gx)<=radius&&Math.abs(m.gy-gy)<=radius) { this._spawnHitParticles(m.px,m.py); this.score+=_killScore(m); return false; }
       return true;
     });
+  }
+
+  triggerLightning(px, py) {
+    const li=this.heldItems.find(h=>h.type==='lightning'||h.type==='zeusLightning');
+    if (!li) return;
+    const radius=li.type==='zeusLightning'?2:1;
+    this._lightningStrike(px, py, radius);
     li.count=(li.count||1)-1;
     if (li.count<=0) this.heldItems=this.heldItems.filter(h=>h!==li);
     this.lightningMode=false;
     this.flashTimer=0.4;
     this.flashColor=li.type==='zeusLightning'?'rgba(180,255,100,0.7)':'rgba(255,255,100,0.55)';
+  }
+
+  // 신화 등급 영구 아이템 "제우스의 분노" — 켜져 있으면 조작 없이 정해진 주기마다
+  // 캐릭터가 바라보는 방향 앞쪽(2칸 앞)에 제우스의 번개(5x5)를 자동으로 내리친다.
+  // 강화(_getZeusPeriods 참고)할 때마다 독립된 타이머가 하나씩 늘어나는 방식이라
+  // 강화할수록 총 발동 빈도가 계속 늘어난다.
+  _getZeusPeriods() {
+    return [5,10,15,20,25,30].slice(0, (this.mythicZeusLevel||0)+1);
+  }
+  _triggerMythicZeusWrath() {
+    const dx=this._lastDx||0, dy=this._lastDy||1;
+    const ax=this.player.px+dx*this.cs*2, ay=this.player.py+dy*this.cs*2;
+    this._lightningStrike(ax, ay, 2);
+    this.flashTimer=0.4;
+    this.flashColor='rgba(180,255,100,0.7)';
   }
 
   triggerSplit() {
@@ -1548,20 +1579,23 @@ export class Game extends EventTarget {
       }
       // 신화 등급 "수집 부적": 몹 종류와 무관하게 플레이어 쪽으로 다음 프레임 이동
       // 방향을 덮어쓴다 (추적형 몹의 추적도 함께 무효화됨). "회피 부적"과 함께
-      // 쓰면, 끌려오다가 아래 회피 부적의 최소 접근 거리 장벽에 막혀 캐릭터 바로
-      // 바깥에 링 모양으로 뭉치게 되어 총/칼로 한 번에 쓸어담기 좋다.
+      // 쓰면, 끌려오다가 아래 최소 접근 거리 장벽에 막혀 캐릭터 바로 바깥에
+      // 링 모양으로 뭉치게 되어 총/칼로 한 번에 쓸어담기 좋다.
       if (this.gatherTimer>0) {
         for (const m of this.monsters) {
           const dx=this.player.px-m.px, dy=this.player.py-m.py, d=Math.sqrt(dx*dx+dy*dy)||1;
           m.vx=(dx/d)*m.spd; m.vy=(dy/d)*m.spd;
         }
       }
-      // 신화 등급 "회피 부적": 예전엔 몹이 플레이어에게서 무한정 도망치는 방식이었지만,
-      // "수집 부적"과 반대 방향으로 서로 밀고 당기기만 해 조합했을 때 아무 효과가
-      // 없어져버렸다. 그래서 "플레이어에게서 절대 접근할 수 없는 최소 거리(장벽)"로
-      // 바꿨다 — 반경은 총탄 강화가 최대일 때의 총알 크기(_getMaxBulletRadius)와
-      // 같아, 어차피 총/칼이 닿는 사정거리 바로 바깥에서 몹이 멈추는 셈이다.
-      if (this.repelTimer>0) {
+      // 최소 접근 거리 장벽 — 반경은 총탄 강화가 최대일 때의 총알 크기
+      // (_getMaxBulletRadius)와 같아, 어차피 총/칼이 닿는 사정거리 바로 바깥에서
+      // 몹이 멈추는 셈이다. "회피 부적"이 켜져 있을 때는 물론, "수집 부적"만
+      // 켜져 있고 회피 부적은 없을 때도 적용한다 — 그렇지 않으면 끌려온 몹이
+      // 캐릭터 위치에 완전히 겹칠 때까지 끌려와 버려서, 총을 쏘면 총알이 코앞의
+      // 몹에 바로 맞아 사라지는 게 "총알이 짧은 거리만 날아가다 사라진다"처럼
+      // 보이는 문제가 있었다 (수집 부적 효과가 끝난 직후에도 몹이 그 자리에
+      // 그대로 남아있어 한동안 증상이 이어짐).
+      if (this.repelTimer>0 || this.gatherTimer>0) {
         const barrierR=this._getMaxBulletRadius();
         for (const m of this.monsters) {
           const dx=m.px-this.player.px, dy=m.py-this.player.py;
@@ -1756,6 +1790,21 @@ export class Game extends EventTarget {
       }
     } else {
       this._autoFireTimer=0;
+    }
+
+    // 신화 등급 "제우스의 분노" — 켜져 있으면 조작과 무관하게 정해진 주기마다
+    // 자동으로 캐릭터 앞쪽에 제우스의 번개를 내리친다. 강화로 늘어난 타이머
+    // 각각이 독립적으로 돌아가므로(_getZeusPeriods), 여러 개가 동시에 터질 수도 있다.
+    if (this.mythicZeusOwned) {
+      const periods=this._getZeusPeriods();
+      while (this._zeusTimers.length<periods.length) this._zeusTimers.push(periods[this._zeusTimers.length]);
+      for (let i=0;i<periods.length;i++) {
+        this._zeusTimers[i]-=dt;
+        if (this._zeusTimers[i]<=0) {
+          this._zeusTimers[i]=periods[i];
+          this._triggerMythicZeusWrath();
+        }
+      }
     }
 
     // Collision: monster hits LINE
@@ -2153,6 +2202,7 @@ export class Game extends EventTarget {
     }
 
     this._drawSquirrelBody(ctx,h,isShield,t);
+    if (this.equippedAccessories) drawAccessories(ctx,h,this.equippedAccessories);
 
     ctx.restore();
 
@@ -2181,108 +2231,10 @@ export class Game extends EventTarget {
     }
   }
 
-  // 다람쥐 캐릭터 몸체 그리기 — 본캐(_drawCutePlayer)와 펫(_drawPetSprite)이 공용으로
-  // 쓴다. 호출 전 ctx가 이미 캐릭터 중심으로 translate(+rotate/scale)돼 있다고 가정하며,
-  // 이 함수 안에서는 save/restore를 하지 않는다(호출부가 관리).
-  // furOverride: 펫강화 10단 이상일 때 본체 색을 갈아입히는 색상 문자열
-  // (_getPetColor/_resolveDynamicColor 참고) — 본캐 호출에서는 항상 null.
+  // 다람쥐 캐릭터 몸체 그리기 — squirrel.js의 공용 구현에 위임한다 (본캐/펫뿐
+  // 아니라 메인 메뉴의 "내 캐릭터 자랑하기" 카드에서도 같은 그림을 그대로 쓴다).
   _drawSquirrelBody(ctx, h, isShield, t, furOverride=null) {
-    // Shield aura
-    if (isShield) {
-      const hue=(t*120)%360;
-      const aura=ctx.createRadialGradient(0,0,h*0.5,0,0,h*2);
-      aura.addColorStop(0,`hsla(${hue},100%,70%,0.4)`);
-      aura.addColorStop(1,'transparent');
-      ctx.beginPath(); ctx.arc(0,0,h*2,0,PI2); ctx.fillStyle=aura; ctx.fill();
-    } else if (furOverride) {
-      // 펫강화로 색이 바뀌었음을 강조하는 은은한 색상 오라 — "뭔가 더 강해졌다"는
-      // 느낌을 몸체 색 자체보다 한눈에 먼저 알아차리게 해준다.
-      const aura=ctx.createRadialGradient(0,0,h*0.5,0,0,h*1.8);
-      aura.addColorStop(0,furOverride.replace('hsl(','hsla(').replace(')',',0.35)'));
-      aura.addColorStop(1,'transparent');
-      ctx.beginPath(); ctx.arc(0,0,h*1.8,0,PI2); ctx.fillStyle=aura; ctx.fill();
-    }
-
-    const furColor=isShield?`hsl(${(t*120)%360},100%,72%)`:(furOverride||'#c07030');
-    const bellyColor='#f5d080';
-    const earInner='#e89070';
-
-    // Glow aura (warm orange for squirrel)
-    const grd=ctx.createRadialGradient(0,0,0,0,0,h*1.5);
-    grd.addColorStop(0,'rgba(220,140,50,0.45)'); grd.addColorStop(1,'transparent');
-    ctx.beginPath(); ctx.arc(0,0,h*1.5,0,PI2); ctx.fillStyle=grd; ctx.fill();
-
-    // Bushy tail (drawn first, behind body)
-    const tailWag=Math.sin(t*4.5)*0.28;
-    ctx.save();
-    ctx.strokeStyle=isShield?furColor:'#a05820';
-    ctx.lineWidth=h*0.42; ctx.lineCap='round'; ctx.lineJoin='round';
-    ctx.beginPath();
-    ctx.moveTo(0,h*0.12);
-    ctx.bezierCurveTo(h*(0.55+tailWag*0.2),h*0.35, h*(0.85+tailWag*0.25),-h*0.25, h*(0.42+tailWag*0.18),-h*0.82);
-    ctx.stroke();
-    // fluffy tail tip
-    ctx.fillStyle=isShield?furColor:bellyColor;
-    ctx.beginPath(); ctx.arc(h*(0.42+tailWag*0.18),-h*0.85,h*0.24,0,PI2); ctx.fill();
-    ctx.restore();
-
-    // Body
-    ctx.fillStyle=furColor;
-    ctx.beginPath(); ctx.ellipse(0,h*0.15,h*0.31,h*0.27,0,0,PI2); ctx.fill();
-    // Belly patch
-    ctx.fillStyle=bellyColor;
-    ctx.beginPath(); ctx.ellipse(0,h*0.18,h*0.17,h*0.17,0,0,PI2); ctx.fill();
-
-    // Head
-    ctx.fillStyle=furColor;
-    ctx.beginPath(); ctx.arc(0,-h*0.2,h*0.37,0,PI2); ctx.fill();
-
-    // Ears
-    if (isShield) {
-      // Super glowing spiky ears
-      ctx.fillStyle=furColor;
-      ctx.beginPath(); ctx.moveTo(-h*0.26,-h*0.48); ctx.lineTo(-h*0.42,-h*1.0); ctx.lineTo(-h*0.1,-h*0.58); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(h*0.26,-h*0.48); ctx.lineTo(h*0.42,-h*1.0); ctx.lineTo(h*0.1,-h*0.58); ctx.closePath(); ctx.fill();
-    } else {
-      // Pointy squirrel ears
-      ctx.fillStyle=furColor;
-      ctx.beginPath(); ctx.moveTo(-h*0.24,-h*0.46); ctx.lineTo(-h*0.38,-h*0.88); ctx.lineTo(-h*0.08,-h*0.56); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(h*0.24,-h*0.46); ctx.lineTo(h*0.38,-h*0.88); ctx.lineTo(h*0.08,-h*0.56); ctx.closePath(); ctx.fill();
-      // Inner ear
-      ctx.fillStyle=earInner;
-      ctx.beginPath(); ctx.moveTo(-h*0.22,-h*0.5); ctx.lineTo(-h*0.33,-h*0.8); ctx.lineTo(-h*0.12,-h*0.59); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(h*0.22,-h*0.5); ctx.lineTo(h*0.33,-h*0.8); ctx.lineTo(h*0.12,-h*0.59); ctx.closePath(); ctx.fill();
-    }
-
-    // Eyes (big round cute squirrel eyes)
-    const eyY=-h*0.22, eyX=h*0.13, eyR=h*0.115;
-    ctx.fillStyle='#fff';
-    ctx.beginPath(); ctx.ellipse(-eyX,eyY,eyR*0.78,eyR,0,0,PI2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(eyX,eyY,eyR*0.78,eyR,0,0,PI2); ctx.fill();
-    // iris (dark brown, very large = cute)
-    ctx.fillStyle='#2a1400';
-    ctx.beginPath(); ctx.arc(-eyX,eyY+eyR*0.06,eyR*0.65,0,PI2); ctx.fill();
-    ctx.beginPath(); ctx.arc(eyX,eyY+eyR*0.06,eyR*0.65,0,PI2); ctx.fill();
-    // shine
-    ctx.fillStyle='rgba(255,255,255,0.95)';
-    ctx.beginPath(); ctx.arc(-eyX-eyR*0.1,eyY-eyR*0.16,eyR*0.22,0,PI2); ctx.fill();
-    ctx.beginPath(); ctx.arc(eyX-eyR*0.1,eyY-eyR*0.16,eyR*0.22,0,PI2); ctx.fill();
-
-    // Nose (small round)
-    ctx.fillStyle='#cc6040';
-    ctx.beginPath(); ctx.ellipse(0,-h*0.05,eyR*0.3,eyR*0.22,0,0,PI2); ctx.fill();
-    // Mouth
-    ctx.strokeStyle='#aa3822'; ctx.lineWidth=Math.max(0.8,eyR*0.35); ctx.lineCap='round';
-    ctx.beginPath(); ctx.arc(0,-h*0.0,eyR*0.36,0.25,Math.PI-0.25); ctx.stroke();
-
-    // Cheek blush
-    ctx.fillStyle='rgba(255,120,80,0.28)';
-    ctx.beginPath(); ctx.ellipse(-eyX-eyR*0.35,eyY+eyR*0.7,eyR*0.52,eyR*0.25,0,0,PI2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(eyX+eyR*0.35,eyY+eyR*0.7,eyR*0.52,eyR*0.25,0,0,PI2); ctx.fill();
-
-    // Acorn sparkle accessory
-    ctx.fillStyle='#ffe566';
-    _drawStarShape(ctx,h*0.28,-h*0.76,4,Math.max(1.5,h*0.09),Math.max(0.8,h*0.04));
+    drawSquirrelBody(ctx, h, isShield, t, furOverride);
   }
 
   // 신화 등급 "펫" 렌더링 — 본캐와 같은 몸체를 1/3 크기로 그린다. 펫은 죽지 않는

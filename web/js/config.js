@@ -13,6 +13,8 @@ export const GUN_BASE_CAP = 111;
 export const BULLET_BASE_CAP = 100;
 export const SWORD_BASE_CAP = 100;
 export const PET_BASE_CAP = 200;
+// 펫은 최대 몇 마리까지 살 수 있는지 (마리당 5,000,000pt 고정가 — app.js 참고).
+export const PET_MAX_COUNT = 4;
 // 분열 아이템 연쇄 사용 등으로 몹 수가 걷잡을 수 없이 늘어나
 // (충돌 판정이 몹 수에 비례/제곱으로 늘어나) 버벅거리는 것을 막기 위한 상한.
 export const MAX_MONSTERS = 100;
