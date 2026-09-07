@@ -862,10 +862,12 @@ class Pet {
 
 // 펫 자동발사 총알 — 일반 PlayerBullet과 달리 homing이면 매 프레임 가장 가까운
 // 몹 쪽으로 서서히 조향한다. 관통 없이 처음 맞힌 몹 하나에만 데미지를 주고 소멸.
+// color가 주어지면(펫강화 10단 이상 — _getPetColor 참고) 그 색으로, 없으면
+// (10단 미만) 기존 유도탄/일반탄 구분 색을 그대로 쓴다.
 class PetBullet {
-  constructor(px, py, vx, vy, dmg, r, homing = false) {
+  constructor(px, py, vx, vy, dmg, r, homing = false, color = null) {
     this.px = px; this.py = py; this.vx = vx; this.vy = vy;
-    this.dmg = dmg; this.r = r; this.homing = homing;
+    this.dmg = dmg; this.r = r; this.homing = homing; this.color = color;
     this.life = 5; this.dead = false;
   }
   update(dt, grid, cs, monsters) {
@@ -891,8 +893,9 @@ class PetBullet {
   }
   hitsMonster(m) { const dx = this.px - m.px, dy = this.py - m.py; return dx * dx + dy * dy < (this.r + m.r) ** 2; }
   draw(ctx) {
+    const c = this.color || (this.homing ? '#ff66ff' : '#66ffcc');
     const g = ctx.createRadialGradient(this.px, this.py, 0, this.px, this.py, this.r * 2.2);
-    g.addColorStop(0, this.homing ? '#ff66ff' : '#66ffcc'); g.addColorStop(1, 'transparent');
+    g.addColorStop(0, c); g.addColorStop(1, 'transparent');
     ctx.beginPath(); ctx.arc(this.px, this.py, this.r * 2.2, 0, PI2); ctx.fillStyle = g; ctx.fill();
     ctx.beginPath(); ctx.arc(this.px, this.py, this.r, 0, PI2); ctx.fillStyle = '#fff'; ctx.fill();
   }
@@ -933,6 +936,23 @@ function _getPetPattern(lv, cs, maxHalfR) {
   }
   const dmg = Math.max(1, getStageHP(lv));
   return { bullets, homing, interval, r, dmg };
+}
+
+// 펫강화 10단마다 펫 몸체·총알 색이 바뀌도록 하는 색상 키. null이면(10단 미만)
+// 기본 색상을 그대로 쓰고, 200단(PET_TIER5) 이상은 칼의 100단 최종형처럼 시간에
+// 따라 색이 도는 무지개('rainbow' 센티널 — _resolveDynamicColor에서 실제 색으로
+// 풀어준다)로 "완전히 다른 존재가 됐다"는 느낌을 준다. 그 사이 19개 구간은
+// 황금각(137°)만큼씩 색상환을 건너뛰어 인접 단계끼리도 색이 뚜렷이 구분되게 했다.
+function _getPetColor(lv) {
+  if (lv < PET_TIER1) return null;
+  if (lv >= PET_TIER5) return 'rainbow';
+  const tier = Math.floor(lv / 10); // 1~19
+  return `hsl(${(tier * 137) % 360}, 75%, 58%)`;
+}
+function _resolveDynamicColor(colorKey, t) {
+  if (!colorKey) return null;
+  if (colorKey === 'rainbow') return `hsl(${(t * 200) % 360}, 90%, 60%)`;
+  return colorKey;
 }
 
 // ── Game ─────────────────────────────────────────────────────
@@ -1596,9 +1616,10 @@ export class Game extends EventTarget {
             const pattern=_getPetPattern(this._petLevel,this.cs,playerMaxR/2);
             pet.fireTimer=pattern.interval;
             const baseAngle=Math.atan2(this._lastDy,this._lastDx);
+            const bulletColor=_resolveDynamicColor(_getPetColor(this._petLevel),this._time);
             for (const {angDeg} of pattern.bullets) {
               const ang=baseAngle+angDeg*Math.PI/180;
-              this.petBullets.push(new PetBullet(pet.px,pet.py,Math.cos(ang)*260,Math.sin(ang)*260,pattern.dmg,pattern.r,pattern.homing));
+              this.petBullets.push(new PetBullet(pet.px,pet.py,Math.cos(ang)*260,Math.sin(ang)*260,pattern.dmg,pattern.r,pattern.homing,bulletColor));
             }
           }
         }
@@ -2104,7 +2125,9 @@ export class Game extends EventTarget {
   // 다람쥐 캐릭터 몸체 그리기 — 본캐(_drawCutePlayer)와 펫(_drawPetSprite)이 공용으로
   // 쓴다. 호출 전 ctx가 이미 캐릭터 중심으로 translate(+rotate/scale)돼 있다고 가정하며,
   // 이 함수 안에서는 save/restore를 하지 않는다(호출부가 관리).
-  _drawSquirrelBody(ctx, h, isShield, t) {
+  // furOverride: 펫강화 10단 이상일 때 본체 색을 갈아입히는 색상 문자열
+  // (_getPetColor/_resolveDynamicColor 참고) — 본캐 호출에서는 항상 null.
+  _drawSquirrelBody(ctx, h, isShield, t, furOverride=null) {
     // Shield aura
     if (isShield) {
       const hue=(t*120)%360;
@@ -2112,9 +2135,16 @@ export class Game extends EventTarget {
       aura.addColorStop(0,`hsla(${hue},100%,70%,0.4)`);
       aura.addColorStop(1,'transparent');
       ctx.beginPath(); ctx.arc(0,0,h*2,0,PI2); ctx.fillStyle=aura; ctx.fill();
+    } else if (furOverride) {
+      // 펫강화로 색이 바뀌었음을 강조하는 은은한 색상 오라 — "뭔가 더 강해졌다"는
+      // 느낌을 몸체 색 자체보다 한눈에 먼저 알아차리게 해준다.
+      const aura=ctx.createRadialGradient(0,0,h*0.5,0,0,h*1.8);
+      aura.addColorStop(0,furOverride.replace('hsl(','hsla(').replace(')',',0.35)'));
+      aura.addColorStop(1,'transparent');
+      ctx.beginPath(); ctx.arc(0,0,h*1.8,0,PI2); ctx.fillStyle=aura; ctx.fill();
     }
 
-    const furColor=isShield?`hsl(${(t*120)%360},100%,72%)`:'#c07030';
+    const furColor=isShield?`hsl(${(t*120)%360},100%,72%)`:(furOverride||'#c07030');
     const bellyColor='#f5d080';
     const earInner='#e89070';
 
@@ -2197,15 +2227,17 @@ export class Game extends EventTarget {
   }
 
   // 신화 등급 "펫" 렌더링 — 본캐와 같은 몸체를 1/3 크기로 그린다. 펫은 죽지 않는
-  // 보조 유닛이라 무적 깜빡임 등 본캐 전용 연출은 없다.
+  // 보조 유닛이라 무적 깜빡임 등 본캐 전용 연출은 없다. 펫강화 10단마다 몸 색이
+  // 바뀌어(_getPetColor) 강해졌다는 느낌을 준다.
   _drawPetSprite(ctx, cs, pet) {
     const isShield=this.shieldTimer>0;
     const t=this._time+pet.index*0.7;
     const h=(cs*0.7)/3;
     const bounce=Math.sin(t*3.5)*cs*0.03;
+    const furOverride=_resolveDynamicColor(_getPetColor(this._petLevel),t);
     ctx.save();
     ctx.translate(pet.px,pet.py+bounce);
-    this._drawSquirrelBody(ctx,h,isShield,t);
+    this._drawSquirrelBody(ctx,h,isShield,t,furOverride);
     ctx.restore();
   }
 }
