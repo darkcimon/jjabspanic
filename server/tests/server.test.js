@@ -16,7 +16,12 @@ jest.mock('../imageStore', () => ({
     getImageUrl:            jest.fn(),
     claimBatchGeneration:   jest.fn(),
     getRewardImageUrl:      jest.fn(),
+    getRewardImagePath:     jest.fn(),
 }));
+
+// fs는 express.static 등 다른 곳에서도 실제로 쓰이므로 모듈 전체를 모킹하지 않고,
+// /api/reward/generate의 fs.existsSync 호출만 필요한 테스트에서 spyOn으로 덮어쓴다.
+const fs = require('fs');
 
 // ── batchGenerator 모킹 ──────────────────────────────────
 jest.mock('../batchGenerator', () => ({
@@ -25,7 +30,7 @@ jest.mock('../batchGenerator', () => ({
 }));
 
 const request   = require('supertest');
-const { app, __resetRewardGlobalQuotaForTests } = require('../app');
+const { app, __resetRewardGlobalQuotaForTests, __resetRewardLimiterForTests } = require('../app');
 const store     = require('../imageStore');
 const generator = require('../batchGenerator');
 
@@ -33,6 +38,7 @@ const generator = require('../batchGenerator');
 beforeEach(() => {
     jest.clearAllMocks();
     __resetRewardGlobalQuotaForTests();
+    __resetRewardLimiterForTests();
 });
 
 // ─────────────────────────────────────────────────────────
@@ -266,6 +272,16 @@ describe('POST /api/batch/trigger', () => {
 
 // ─────────────────────────────────────────────────────────
 describe('POST /api/reward/generate', () => {
+    // /api/reward/generate는 토큰 검증(발급 시 지정한 userId+stage 일치)이 먼저
+    // 이뤄지므로, 200을 기대하는 테스트는 미리 /api/reward/token으로 유효한
+    // 토큰을 받아와야 한다.
+    async function getToken(userId, stage = 100) {
+        const res = await request(app)
+            .post('/api/reward/token')
+            .send({ userId, stage });
+        return res.body.token;
+    }
+
     // ── 유효성 검사 ───────────────────────────────────────
     test('userId 없으면 400', async () => {
         const res = await request(app)
@@ -294,6 +310,7 @@ describe('POST /api/reward/generate', () => {
         const longKeywords = 'a'.repeat(201);
         const res = await request(app)
             .post('/api/reward/generate')
+            .set('Accept-Language', 'ko')
             .send({ userId: 'user-1', keywords: longKeywords });
         expect(res.status).toBe(400);
         expect(res.body.error).toContain('200자');
@@ -307,9 +324,10 @@ describe('POST /api/reward/generate', () => {
             .mockReturnValue('http://localhost:3000/images/rewards/reward.jpg');
 
         const exactly200 = 'a'.repeat(200);
+        const token = await getToken('user-1');
         const res = await request(app)
             .post('/api/reward/generate')
-            .send({ userId: 'user-1', keywords: exactly200 });
+            .send({ userId: 'user-1', keywords: exactly200, token });
         expect(res.status).toBe(200);
     });
 
@@ -318,15 +336,20 @@ describe('POST /api/reward/generate', () => {
         store.getRewardImageUrl.mockReturnValue(
             'http://localhost:3000/images/rewards/reward_user-1_9999.jpg'
         );
+        store.getRewardImagePath.mockReturnValue('/tmp/rewards/reward_user-1_9999.jpg');
+        const existsSyncSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
 
+        const token = await getToken('user-1');
         const res = await request(app)
             .post('/api/reward/generate')
-            .send({ userId: 'user-1', keywords: 'fantasy' });
+            .send({ userId: 'user-1', keywords: 'fantasy', token });
 
         expect(res.status).toBe(200);
         expect(res.body.status).toBe('ready');
         expect(res.body.imageUrl).toContain('reward_user-1_9999.jpg');
         expect(generator.generateRewardImage).not.toHaveBeenCalled();
+
+        existsSyncSpy.mockRestore();
     });
 
     // ── 새 이미지 생성 ────────────────────────────────────
@@ -335,9 +358,10 @@ describe('POST /api/reward/generate', () => {
             .mockReturnValueOnce(null)  // 첫 호출: 없음
             .mockReturnValue('http://localhost:3000/images/rewards/reward_user-2_111.jpg');
 
+        const token = await getToken('user-2');
         const res = await request(app)
             .post('/api/reward/generate')
-            .send({ userId: 'user-2', keywords: 'magical girl' });
+            .send({ userId: 'user-2', keywords: 'magical girl', token });
 
         expect(res.status).toBe(200);
         expect(res.body.status).toBe('ready');
@@ -350,9 +374,10 @@ describe('POST /api/reward/generate', () => {
     test('keywords 앞뒤 공백 trim 후 전달', async () => {
         store.getRewardImageUrl.mockReturnValueOnce(null).mockReturnValue('http://x/img.jpg');
 
+        const token = await getToken('user-3');
         await request(app)
             .post('/api/reward/generate')
-            .send({ userId: 'user-3', keywords: '  fantasy  ' });
+            .send({ userId: 'user-3', keywords: '  fantasy  ', token });
 
         expect(generator.generateRewardImage).toHaveBeenCalledWith('user-3', 'fantasy');
     });
@@ -364,9 +389,10 @@ describe('POST /api/reward/generate', () => {
             new Error('허용되지 않는 키워드가 포함되어 있습니다.')
         );
 
+        const token = await getToken('user-err');
         const res = await request(app)
             .post('/api/reward/generate')
-            .send({ userId: 'user-err', keywords: 'bad content' });
+            .send({ userId: 'user-err', keywords: 'bad content', token });
 
         expect(res.status).toBe(500);
         expect(res.body.error).toContain('허용되지 않는 키워드');
@@ -376,9 +402,10 @@ describe('POST /api/reward/generate', () => {
         store.getRewardImageUrl.mockReturnValue(null);
         generator.generateRewardImage.mockRejectedValue(new Error('API connection failed'));
 
+        const token = await getToken('user-err2');
         const res = await request(app)
             .post('/api/reward/generate')
-            .send({ userId: 'user-err2', keywords: 'fantasy' });
+            .send({ userId: 'user-err2', keywords: 'fantasy', token });
 
         expect(res.status).toBe(500);
     });

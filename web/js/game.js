@@ -986,7 +986,7 @@ export class Game extends EventTarget {
     this._itemSchedule=[]; this._itemScheduleIdx=0; this._itemContinuousTimer=20;
     this._monsterSpeed=1;
     this.pets=[]; this.petBullets=[]; this._petLevel=0; this._petCap=PET_BASE_CAP;
-    this.autoModeOwned=false; this.autoModeActive=false; this._autoFireTimer=0;
+    this.autoModeOwned=false; this.autoModeActive=false; this._autoFireTimer=0; this.autoModeUpgraded=false;
   }
 
   async init(stage, rating, _count, monsterSpeed, timeLimit, heldItems=[], resumeState=null, weaponLevels={}) {
@@ -1030,8 +1030,10 @@ export class Game extends EventTarget {
     for(let i=0;i<Math.min(2,weaponLevels.petCount||0);i++) this.pets.push(new Pet(i));
     this.petBullets=[];
     // 신화 등급 영구 아이템 "오토모드" — 게임 중 토글하면 선택된 무기(총/칼)를
-    // 초당 4회 자동 발사한다 (toggleAutoMode/_update 참고).
+    // 자동 발사한다 (toggleAutoMode/_update 참고). 기본은 초당 2회, "오토모드 강화"를
+    // 추가로 구매하면 초당 4회로 늘어난다.
     this.autoModeOwned=!!weaponLevels.autoModeOwned;
+    this.autoModeUpgraded=!!weaponLevels.autoModeUpgraded;
     this.autoModeActive=false; this._autoFireTimer=0;
     const sp=this.heldItems.find(h=>h.type==='speed');
     if (sp) { this.speedActive=true; }
@@ -1281,8 +1283,9 @@ export class Game extends EventTarget {
   selectWeapon(type) { if (this.heldItems.find(h=>h.type===type)) this.activeWeapon=type; }
   useActiveWeapon() { if (this.activeWeapon==='sword') this.useSword(); else if (this.activeWeapon==='gun') this.useGun(); }
 
-  // 신화 등급 "오토모드" 켜기/끄기 — 켜져 있으면 _update()에서 매 0.25초(초당 4회)
-  // 마다 현재 selectWeapon()으로 선택된 총 또는 칼을 자동으로 사용한다.
+  // 신화 등급 "오토모드" 켜기/끄기 — 켜져 있으면 _update()에서 일정 간격마다(기본 초당
+  // 2회, "오토모드 강화" 보유 시 초당 4회) 현재 selectWeapon()으로 선택된 총 또는 칼을
+  // 자동으로 사용한다.
   toggleAutoMode() {
     if (!this.autoModeOwned) return false;
     this.autoModeActive = !this.autoModeActive;
@@ -1689,11 +1692,12 @@ export class Game extends EventTarget {
     if (this.swordTimer>0) this.swordTimer-=dt;
     if (this.swordTimer<=0) this.swordActive=false;
 
-    // 신화 등급 "오토모드" — 활성화 중이면 선택된 무기(총/칼)를 초당 4회 자동 사용
+    // 신화 등급 "오토모드" — 활성화 중이면 선택된 무기(총/칼)를 자동 사용.
+    // 기본은 초당 2발(0.5초 간격), "오토모드 강화" 보유 시 초당 4발(0.25초 간격).
     if (this.autoModeOwned&&this.autoModeActive&&(this.activeWeapon==='gun'||this.activeWeapon==='sword')) {
       this._autoFireTimer-=dt;
       if (this._autoFireTimer<=0) {
-        this._autoFireTimer=0.25; // 1초에 4발
+        this._autoFireTimer=this.autoModeUpgraded?0.25:0.5;
         if (this.activeWeapon==='gun') this.useGun(); else this.useSword();
       }
     } else {

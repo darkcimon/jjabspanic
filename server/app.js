@@ -90,12 +90,18 @@ app.use('/api/', apiLimiter);
 // 그렇지 않으면 성인물 등 차단된 키워드를 몇 번 시도해본 사용자가 진짜 원인
 // ("성적인 이미지는 생성할 수 없습니다")을 모른 채 "횟수 초과"라는 엉뚱한
 // 메시지만 보게 된다.)
+// store를 직접 만들어 갖고 있어야 테스트에서 resetAll()로 초기화할 수 있다
+// (rewardGlobalCount와 달리 이 IP당 하루 3회 한도는 지금까지 테스트 리셋
+// 수단이 없어, 한 테스트 파일 안에서 성공 응답이 누적되면 이후 테스트가
+// 실제로는 정상 동작인데도 429로 실패하는 문제가 있었다).
+const rewardLimiterStore = new rateLimit.MemoryStore();
 const rewardLimiter = rateLimit({
     windowMs: 24 * 60 * 60 * 1000,
     max: 3,
     keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
     message: (req) => ({ error: i18n.t(req, 'rewardDailyLimit') }),
     skipFailedRequests: true,
+    store: rewardLimiterStore,
 });
 
 // userId당 쿨다운 (1시간)
@@ -234,14 +240,23 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
     // images.json에는 레코드가 남아있어도 실제 파일이 없으면(예: 호스팅 재배포로
     // 디스크가 초기화됨) "성공"으로 응답하면 프론트에서 엑박만 뜨고 끝나버리므로,
     // 파일 존재를 직접 확인해 없으면 재생성 절차로 진행시킨다.
-    const existing = store.getRewardImageUrl(userId);
-    if (existing) {
-        const existingPath = store.getRewardImagePath(userId);
-        if (existingPath && fs.existsSync(existingPath)) {
-            rewardTokens.delete(token);
-            return res.json({ status: 'ready', imageUrl: existing });
+    // try/catch로 감싸는 이유: 이 라우트는 async 핸들러라 Express 4가 던져진
+    // 예외를 자동으로 잡아주지 않는다 — 여기서 뭔가 던지면(예: store 쪽 예외)
+    // 응답을 아예 못 보내 요청이 클라이언트 타임아웃까지 무한 대기하게 되고,
+    // 사용자에게는 "특전 이미지 요청 실패(응답 없음)"로 보인다.
+    try {
+        const existing = store.getRewardImageUrl(userId);
+        if (existing) {
+            const existingPath = store.getRewardImagePath(userId);
+            if (existingPath && fs.existsSync(existingPath)) {
+                rewardTokens.delete(token);
+                return res.json({ status: 'ready', imageUrl: existing });
+            }
+            console.warn(`[Server] 보상 이미지 레코드는 있으나 파일이 없어 재생성합니다: ${userId}`);
         }
-        console.warn(`[Server] 보상 이미지 레코드는 있으나 파일이 없어 재생성합니다: ${userId}`);
+    } catch (err) {
+        console.error(`[Server] 기존 보상 이미지 확인 중 오류: ${err.message}`);
+        return res.status(500).json({ error: i18n.t(req, 'rewardGenericError') });
     }
 
     // userId 쿨다운 체크
@@ -283,5 +298,9 @@ module.exports = {
     __resetRewardGlobalQuotaForTests: () => {
         rewardGlobalCount = 0;
         rewardGlobalWindowStart = Date.now();
+    },
+    // 테스트 전용: IP당 하루 3회 리미터를 초기화한다.
+    __resetRewardLimiterForTests: () => {
+        rewardLimiterStore.resetAll();
     },
 };

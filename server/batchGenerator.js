@@ -146,8 +146,13 @@ async function generateRewardImage(userId, keywords) {
     const apiKey = process.env.STABILITY_API_KEY;
     if (!apiKey) throw new Error('STABILITY_API_KEY 미설정');
 
-    // 금지 키워드 필터
-    const BLOCKED = ['nsfw', 'loli', 'gore', 'violence', 'blood', 'death', 'sexy', 'nude', 'naked', 'lingerie', 'swimsuit', 'bikini', 'adult', 'mature', 'porn', 'hentai', 'erotic', 'lewd'];
+    // 금지 키워드 필터 — CLAUDE.md에 명시된 하드 필터(nsfw, loli, child, teen,
+    // school uniform)를 반드시 포함해야 한다. 미성년자를 연상시키는 단어가 하나라도
+    // 빠지면 사용자가 입력한 키워드로 바로 이미지가 생성될 수 있으므로 목록에서
+    // 빠뜨리지 말 것.
+    const BLOCKED = ['nsfw', 'loli', 'gore', 'violence', 'blood', 'death', 'sexy', 'nude', 'naked',
+        'lingerie', 'swimsuit', 'bikini', 'adult', 'mature', 'porn', 'hentai', 'erotic', 'lewd',
+        'child', 'kid', 'teen', 'young', 'school uniform', 'minor'];
     const lc = keywords.toLowerCase();
     for (const word of BLOCKED) {
         if (lc.includes(word)) {
@@ -157,7 +162,10 @@ async function generateRewardImage(userId, keywords) {
         }
     }
 
-    const prompt = `anime girl, ${keywords}${QUALITY_SUFFIX}`;
+    // 로컬 필터를 통과한 키워드라도 캐릭터가 성인 여성으로 그려지도록 "mature female"을
+    // 항상 강제로 덧붙인다 — 사용자가 나이를 특정하지 않아도 모델이 임의로 앳된
+    // 외형을 그리는 것을 막기 위한 추가 안전장치.
+    const prompt = `anime girl, mature female, ${keywords}${QUALITY_SUFFIX}`;
 
     const form = new FormData();
     form.append('prompt',          prompt);

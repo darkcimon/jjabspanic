@@ -19,6 +19,7 @@ const dict = {
         rewardCooldown: (n) => `특전 이미지는 1시간에 1회만 생성할 수 있습니다. ${n}분 후 다시 시도해주세요.`,
         rewardGlobalCap: '오늘 전체 특전 이미지 생성 한도를 초과했습니다. 내일 다시 시도해주세요.',
         blockedKeyword: '선정적이거나 성적인 이미지는 생성할 수 없습니다. 다른 키워드로 다시 시도해주세요.',
+        rewardGenericError: '특전 이미지 요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
 
         userNotFound: '유저를 찾을 수 없습니다.',
         noPaymentMethod: '등록된 결제 수단이 없습니다. 구독 등록을 먼저 진행해주세요.',
@@ -50,6 +51,7 @@ const dict = {
         rewardCooldown: (n) => `You can only generate a bonus image once per hour. Please try again in ${n} minute(s).`,
         rewardGlobalCap: "Today's total bonus image limit has been reached. Please try again tomorrow.",
         blockedKeyword: "Sexual or explicit images can't be generated. Please try again with different keywords.",
+        rewardGenericError: 'Something went wrong processing your bonus image request. Please try again shortly.',
 
         userNotFound: 'User not found.',
         noPaymentMethod: 'No payment method on file. Please subscribe first.',

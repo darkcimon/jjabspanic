@@ -245,6 +245,7 @@ async function startGame(stage, rating, resumeState = null) {
     { gunLevel: pb?.gunLevel||0, swordLevel: pb?.swordLevel||0, bulletLevel: pb?.bulletLevel||0,
       guardianOrb: !!pb?.guardianOrb, phoenixHeart: !!pb?.phoenixHeart, midasTouch: !!pb?.midasTouch,
       petCount: pb?.petCount||0, petLevel: pb?.petLevel||0, autoModeOwned: !!pb?.autoModeOwned,
+      autoModeUpgraded: !!pb?.autoModeUpgraded,
       repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0, shieldSeconds });
   if (!resumeState) {
     if (save.bonusLives > 0) {
@@ -991,17 +992,29 @@ async function showRewardScreen(completedStage) {
 
   show('reward');
 
-  // 스테이지 클리어 직후 일회용 토큰 발급
+  // 스테이지 클리어 직후 일회용 토큰 발급.
+  // 생성 요청이 실패한 뒤 재시도 버튼을 다시 눌렀을 때도 이 함수를 다시 불러
+  // 토큰을 갱신한다 — 서버는 같은 userId+stage에 유효한 토큰이 남아있으면 그걸
+  // 그대로 재사용해서 돌려주고, 이미 소모(성공)됐거나 만료됐으면 새로 발급하므로
+  // 호출 자체는 항상 안전하다. (아래 "이미지는 실제로 만들어졌는데 브라우저가
+  // 표시만 실패한 경우" 참고 — 이때는 서버가 토큰을 이미 소모한 뒤라, 갱신 없이
+  // 같은 토큰으로 재시도하면 "유효하지 않거나 만료된 요청입니다"만 반복해서 뜬다.)
   const rewardUserId = `${save.userId}_stage${completedStage}`;
   let rewardToken = null;
-  try {
-    const tokenData = await api.rewardToken(rewardUserId, completedStage);
-    rewardToken = tokenData.token;
-  } catch (e) {
-    console.warn('[Reward] 토큰 발급 실패:', e.message);
-    $('btn-reward-generate').disabled = true;
-    $('btn-reward-generate').textContent = t('reward.genUnavailable');
+  async function fetchRewardToken() {
+    try {
+      const tokenData = await api.rewardToken(rewardUserId, completedStage);
+      rewardToken = tokenData.token;
+      $('btn-reward-generate').disabled = false;
+      $('btn-reward-generate').textContent = t('reward.btnGenerate');
+    } catch (e) {
+      console.warn('[Reward] 토큰 발급 실패:', e.message);
+      rewardToken = null;
+      $('btn-reward-generate').disabled = true;
+      $('btn-reward-generate').textContent = t('reward.genUnavailable');
+    }
   }
+  await fetchRewardToken();
 
   textarea.addEventListener('input', () => {
     $('reward-char-now').textContent = textarea.value.length;
@@ -1020,48 +1033,63 @@ async function showRewardScreen(completedStage) {
     // 예를 들어 응답에 imageUrl이 없거나, URL이 가리키는 파일이 없어 로드에
     // 실패하는 경우 — 를 "성공"으로 취급해 다음 버튼을 눌러버리지 않도록,
     // 이미지가 실제로 로드된 뒤에만 완료 상태로 전환한다.
+    //
+    // 이 경로로 실패하는 경우 서버는 이미 생성을 마치고 토큰을 소모한 뒤이므로
+    // (구버전 문제) 같은 토큰으로 재시도하면 "이미지 생성에 실패했습니다" 다음에
+    // "유효하지 않거나 만료된 요청입니다"만 반복해서 뜨고 막혀버렸다. failGeneration()
+    // 뒤에 fetchRewardToken()으로 토큰을 갱신해 재시도 버튼이 항상 살아있게 한다.
     const failGeneration = (msg) => {
       $('reward-loading').classList.add('hidden');
       $('reward-input-area').classList.remove('hidden');
       $('btn-reward-skip').classList.remove('hidden');
-      $('btn-reward-generate').disabled = false;
       showAlert(msg || t('reward.genError'));
+      fetchRewardToken();
     };
+
+    // sd3-large 보상 이미지는 용량이 커서, 느린 네트워크에서는 실제로는 정상
+    // 생성된 이미지인데도 첫 로드 시도가 타이밍상 실패로 보일 수 있다. 완전히
+    // 포기하기 전에 짧은 대기 후 몇 차례 더 로드를 시도한다.
+    function loadResultImage(url, attempt = 0) {
+      return new Promise((resolve, reject) => {
+        const resultImg = $('reward-result-img');
+        resultImg.onload = () => { resultImg.onload = null; resultImg.onerror = null; resolve(); };
+        resultImg.onerror = () => { resultImg.onload = null; resultImg.onerror = null; reject(); };
+        resultImg.src = attempt === 0 ? url : `${url}${url.includes('?') ? '&' : '?'}retry=${attempt}`;
+      });
+    }
 
     try {
       const data = await api.rewardGenerate(rewardUserId, keywords, rewardToken);
       if (!data.imageUrl) { failGeneration(); return; }
 
-      const resultImg = $('reward-result-img');
-      resultImg.onload = () => {
-        resultImg.onload = null; resultImg.onerror = null;
-        $('reward-loading').classList.add('hidden');
-        $('reward-result').classList.remove('hidden');
+      let loaded = false;
+      for (let attempt = 0; attempt <= 2 && !loaded; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 800));
+        try { await loadResultImage(data.imageUrl, attempt); loaded = true; } catch { /* 다음 시도 */ }
+      }
+      if (!loaded) { failGeneration(); return; }
 
-        // 저장 버튼: 이미 저장된 스테이지면 비활성화
-        const alreadySaved = (save.rewardImages || []).some(r => r.stage === completedStage);
-        const saveBtn = $('btn-reward-save');
-        saveBtn.classList.remove('hidden');
-        saveBtn.disabled = alreadySaved;
-        saveBtn.textContent = alreadySaved ? t('reward.savedBtn') : t('reward.btnSave');
-        saveBtn.onclick = () => {
-          if (!save.rewardImages) save.rewardImages = [];
-          const idx = save.rewardImages.findIndex(r => r.stage === completedStage);
-          if (idx >= 0) save.rewardImages[idx] = { stage: completedStage, url: data.imageUrl };
-          else save.rewardImages.push({ stage: completedStage, url: data.imageUrl });
-          Storage.save(save);
-          saveBtn.disabled = true;
-          saveBtn.textContent = t('reward.savedBtn');
-        };
+      $('reward-loading').classList.add('hidden');
+      $('reward-result').classList.remove('hidden');
 
-        $('btn-reward-continue').classList.remove('hidden');
-        $('btn-reward-skip').classList.remove('hidden');
+      // 저장 버튼: 이미 저장된 스테이지면 비활성화
+      const alreadySaved = (save.rewardImages || []).some(r => r.stage === completedStage);
+      const saveBtn = $('btn-reward-save');
+      saveBtn.classList.remove('hidden');
+      saveBtn.disabled = alreadySaved;
+      saveBtn.textContent = alreadySaved ? t('reward.savedBtn') : t('reward.btnSave');
+      saveBtn.onclick = () => {
+        if (!save.rewardImages) save.rewardImages = [];
+        const idx = save.rewardImages.findIndex(r => r.stage === completedStage);
+        if (idx >= 0) save.rewardImages[idx] = { stage: completedStage, url: data.imageUrl };
+        else save.rewardImages.push({ stage: completedStage, url: data.imageUrl });
+        Storage.save(save);
+        saveBtn.disabled = true;
+        saveBtn.textContent = t('reward.savedBtn');
       };
-      resultImg.onerror = () => {
-        resultImg.onload = null; resultImg.onerror = null;
-        failGeneration();
-      };
-      resultImg.src = data.imageUrl;
+
+      $('btn-reward-continue').classList.remove('hidden');
+      $('btn-reward-skip').classList.remove('hidden');
     } catch (err) {
       // 서버가 구체적인 사유(금지 키워드, 쿨다운, 일일 한도 등)를 내려주므로
       // 그대로 보여줘 사용자가 원인을 알고 다시 시도할 수 있게 한다.
@@ -1145,7 +1173,7 @@ $('btn-reset-confirm').onclick = () => {
   save.totalScore = 0; save.bonusLives = 0; save.mythicUnlockShown = false;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0, autoModeOwned: false };
+    repelChance: 0, freezeChance: 0, autoModeOwned: false, autoModeUpgraded: false };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1174,7 +1202,7 @@ $('btn-complete-no').onclick = () => {
   save.mythicUnlockShown = false;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0, autoModeOwned: false };
+    repelChance: 0, freezeChance: 0, autoModeOwned: false, autoModeUpgraded: false };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1288,11 +1316,16 @@ function getMarketItems() {
       { id:'territoryMark', tier:'mythic', cost:900000, icon:'🗺️',
         name:t('market.item.territoryMark.name'), desc:t('market.item.territoryMark.desc') }
     );
-    // 오토모드 — 게임 중 토글해서 선택된 총/칼을 초당 4회 자동 발사 (game.js의
+    // 오토모드 — 게임 중 토글해서 선택된 총/칼을 자동 발사 (game.js의
     // toggleAutoMode/_update 참고). 구매 자체는 1회성 영구, 발동은 게임 내 토글.
+    // 기본 발사 속도는 초당 2발이며, 아래 "오토모드 강화"를 추가로 사면 초당 4발이 된다.
     if (!pb.autoModeOwned) items.push(
       { id:'autoMode', tier:'mythic', cost:50000000, icon:'🤖',
         name:t('market.item.autoMode.name'), desc:t('market.item.autoMode.desc') }
+    );
+    if (pb.autoModeOwned && !pb.autoModeUpgraded) items.push(
+      { id:'autoModeUpgrade', tier:'mythic', cost:5000000, icon:'🎯',
+        name:t('market.item.autoModeUpgrade.name'), desc:t('market.item.autoModeUpgrade.desc') }
     );
     // 방패 — 스테이지 시작 시 무적 시간 +1초(최대 5초), 살 때마다 50만씩 비싸짐.
     const shieldLv = pb.mythicShieldLevel || 0;
@@ -1516,7 +1549,7 @@ function showMarket() {
   if (pb.petCount > 0)    pbParts.push(t('market.pbPet', { n: pb.petCount, lv: pb.petLevel || 0 }));
   if (pb.repelChance > 0)  pbParts.push(t('market.pbRepelChance',  { n: Math.min(pb.repelChance,  REPEL_FREEZE_CHANCE_MAX) }));
   if (pb.freezeChance > 0) pbParts.push(t('market.pbFreezeChance', { n: Math.min(pb.freezeChance, REPEL_FREEZE_CHANCE_MAX) }));
-  if (pb.autoModeOwned)   pbParts.push(t('market.pbAutoMode'));
+  if (pb.autoModeOwned)   pbParts.push(t(pb.autoModeUpgraded ? 'market.pbAutoModeUpgraded' : 'market.pbAutoMode'));
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
     ? `<b>${t('market.pbTitle')}</b><br>${pbParts.join(' · ')}` : '';
@@ -1583,6 +1616,10 @@ function showMarket() {
         // 신화 등급 영구템: 게임 중 토글로 켜고 끌 수 있는 자동 발사 — game.js init()의
         // autoModeOwned/toggleAutoMode() 참고. 구매 자체는 소지 여부만 켜둔다.
         save.persistentBonus.autoModeOwned = true;
+      } else if (mi.id === 'autoModeUpgrade') {
+        // 신화 등급 영구템: 오토모드 발사 속도를 초당 2발 → 4발로 올린다 — game.js _update()의
+        // autoModeUpgraded 참고.
+        save.persistentBonus.autoModeUpgraded = true;
       } else if (mi.id === 'mythicShield') {
         // 신화 등급 영구템: 스테이지 시작 시 무적 시간 +1초(최대 5초) — game.js init()의 shieldSeconds 참고.
         save.persistentBonus.mythicShieldLevel = Math.min(MYTHIC_SHIELD_MAX, (save.persistentBonus.mythicShieldLevel || 0) + 1);
