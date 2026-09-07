@@ -466,10 +466,19 @@ function setupInput(canvas, g) {
   canvas.addEventListener('touchend', onCanvasTouchEnd, { passive: false });
 
   // Swipe on canvas
+  // 번개 조준 모드이거나 총/칼이 "선택된 무기"로 활성화돼 있을 때는, 화면 터치가
+  // 발사 전용이어야 한다 — 예전엔 이 가드가 onTE(터치 종료 시 이동 정지)에만 있고
+  // onTS/onTM(터치 시작·이동)에는 없어서, 발사하려고 화면을 누르거나 손가락이
+  // 살짝만 움직여도(24px 이상) 스와이프로 인식돼 캐릭터가 같이 이동해버렸다.
   let tx = 0, ty = 0;
-  const onTS = e => { e.preventDefault(); tx = e.touches[0].clientX; ty = e.touches[0].clientY; };
+  const onTS = e => {
+    e.preventDefault();
+    if (g.lightningMode || _isFireableWeaponActive()) return;
+    tx = e.touches[0].clientX; ty = e.touches[0].clientY;
+  };
   const onTM = e => {
     e.preventDefault();
+    if (g.lightningMode || _isFireableWeaponActive()) return;
     const dx = e.touches[0].clientX - tx, dy = e.touches[0].clientY - ty;
     if (Math.abs(dx) + Math.abs(dy) > 24) {
       if (Math.abs(dx) > Math.abs(dy)) g.setDirection(dx > 0 ? 1 : -1, 0);
