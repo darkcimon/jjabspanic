@@ -133,8 +133,13 @@ function updateHeldItemsBar(heldItems) {
     if (item.type === 'speed' || item.type === 'timeboost' || item.type === 'rareBubble') continue;
     bar.appendChild(makeHeldItemButton(item, game));
   }
-  // 신화 등급 "오토모드" — 보유 중이면 총/칼 버튼들과 나란히 켜기/끄기 토글을 보여준다.
-  if (game && game.autoModeOwned) bar.appendChild(makeAutoModeButton(game));
+  // 신화 등급 "오토모드" — 예전엔 held-items-bar(세로로 쌓이는 좁은 칸)에 무기
+  // 버튼들과 같이 넣었는데, 무기를 여러 개 들고 있으면 칸이 꽉 차서 아래쪽
+  // 아이템이 가려져 탭할 수 없는 문제가 있었다. 그래서 반대편(왼쪽, dpad-spacer)의
+  // 전용 슬롯으로 옮겨 무기 슬롯과 완전히 분리했다.
+  const autoSlot = $('automode-slot');
+  autoSlot.innerHTML = '';
+  if (game && game.autoModeOwned) autoSlot.appendChild(makeAutoModeButton(game));
   // 이 함수는 무기 선택/오토모드 토글이 바뀔 때마다(그리고 매 HUD tick마다) 호출되므로,
   // 다음 스테이지 시작 시 복원할 수 있도록 최신 상태를 계속 기록해둔다.
   if (game) { _lastActiveWeapon = game.activeWeapon; _lastAutoModeActive = game.autoModeActive; }
@@ -252,7 +257,7 @@ async function startGame(stage, rating, resumeState = null) {
     { gunLevel: pb?.gunLevel||0, swordLevel: pb?.swordLevel||0, bulletLevel: pb?.bulletLevel||0,
       guardianOrb: !!pb?.guardianOrb, phoenixHeart: !!pb?.phoenixHeart, midasTouch: !!pb?.midasTouch,
       petCount: pb?.petCount||0, petLevel: pb?.petLevel||0, autoModeOwned: !!pb?.autoModeOwned,
-      autoModeUpgraded: !!pb?.autoModeUpgraded,
+      autoModeUpgradeLevel: getAutoModeUpgradeLevel(pb),
       repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0,
       gatherSeconds: useGather ? 15 : 0, shieldSeconds });
   if (!resumeState) {
@@ -1189,7 +1194,7 @@ $('btn-reset-confirm').onclick = () => {
   save.totalScore = 0; save.bonusLives = 0; save.mythicUnlockShown = false;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgraded: false };
+    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgradeLevel: 0 };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1218,7 +1223,7 @@ $('btn-complete-no').onclick = () => {
   save.mythicUnlockShown = false;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgraded: false };
+    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgradeLevel: 0 };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1233,6 +1238,15 @@ $('btn-alert-ok').onclick = () => $('modal-alert').classList.remove('active');
 $('modal-alert').addEventListener('pointerdown', e => {
   if (e.target === $('modal-alert')) $('modal-alert').classList.remove('active');
 });
+
+// 오토모드 강화 단계 — 0(기본, 초당 2발) → 1(5,000,000pt, 초당 4발) → 2(10,000,000pt,
+// 초당 6발). pb.autoModeUpgraded는 2단계 도입 전 1단계만 있던 시절의 boolean
+// 필드라 하위 호환을 위해 그대로 둔다 — autoModeUpgradeLevel이 없는 예전 세이브도
+// autoModeUpgraded:true면 1단계로 취급한다.
+function getAutoModeUpgradeLevel(pb) {
+  if (!pb) return 0;
+  return pb.autoModeUpgradeLevel || (pb.autoModeUpgraded ? 1 : 0);
+}
 
 // ── Market ───────────────────────────────────────────────────
 // 무기 강화(총/총탄/칼/펫) 상한 — 1회차(1~300단계) 기준치. 300단계를 한 바퀴 돌 때마다
@@ -1338,14 +1352,20 @@ function getMarketItems() {
     );
     // 오토모드 — 게임 중 토글해서 선택된 총/칼을 자동 발사 (game.js의
     // toggleAutoMode/_update 참고). 구매 자체는 1회성 영구, 발동은 게임 내 토글.
-    // 기본 발사 속도는 초당 2발이며, 아래 "오토모드 강화"를 추가로 사면 초당 4발이 된다.
+    // 기본 발사 속도는 초당 2발이며, 아래 "오토모드 강화"를 단계별로 사면
+    // 1단계(500만pt) 초당 4발 → 2단계(1000만pt) 초당 6발까지 오른다.
     if (!pb.autoModeOwned) items.push(
       { id:'autoMode', tier:'mythic', cost:50000000, icon:'🤖',
         name:t('market.item.autoMode.name'), desc:t('market.item.autoMode.desc') }
     );
-    if (pb.autoModeOwned && !pb.autoModeUpgraded) items.push(
+    const autoUpgLv = getAutoModeUpgradeLevel(pb);
+    if (pb.autoModeOwned && autoUpgLv < 1) items.push(
       { id:'autoModeUpgrade', tier:'mythic', cost:5000000, icon:'🎯',
         name:t('market.item.autoModeUpgrade.name'), desc:t('market.item.autoModeUpgrade.desc') }
+    );
+    if (pb.autoModeOwned && autoUpgLv === 1) items.push(
+      { id:'autoModeUpgrade2', tier:'mythic', cost:10000000, icon:'🎯',
+        name:t('market.item.autoModeUpgrade2.name'), desc:t('market.item.autoModeUpgrade2.desc') }
     );
     // 방패 — 스테이지 시작 시 무적 시간 +1초(최대 5초), 살 때마다 50만씩 비싸짐.
     const shieldLv = pb.mythicShieldLevel || 0;
@@ -1589,7 +1609,10 @@ function showMarket() {
   if (pb.repelChance > 0)  pbParts.push(t('market.pbRepelChance',  { n: Math.min(pb.repelChance,  REPEL_FREEZE_CHANCE_MAX) }));
   if (pb.freezeChance > 0) pbParts.push(t('market.pbFreezeChance', { n: Math.min(pb.freezeChance, REPEL_FREEZE_CHANCE_MAX) }));
   if (pb.gatherChance > 0) pbParts.push(t('market.pbGatherChance', { n: Math.min(pb.gatherChance, REPEL_FREEZE_CHANCE_MAX) }));
-  if (pb.autoModeOwned)   pbParts.push(t(pb.autoModeUpgraded ? 'market.pbAutoModeUpgraded' : 'market.pbAutoMode'));
+  if (pb.autoModeOwned) {
+    const autoUpgLv = getAutoModeUpgradeLevel(pb);
+    pbParts.push(t(autoUpgLv >= 2 ? 'market.pbAutoModeUpgraded2' : autoUpgLv >= 1 ? 'market.pbAutoModeUpgraded' : 'market.pbAutoMode'));
+  }
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
     ? `<b>${t('market.pbTitle')}</b><br>${pbParts.join(' · ')}` : '';
@@ -1658,8 +1681,12 @@ function showMarket() {
         save.persistentBonus.autoModeOwned = true;
       } else if (mi.id === 'autoModeUpgrade') {
         // 신화 등급 영구템: 오토모드 발사 속도를 초당 2발 → 4발로 올린다 — game.js _update()의
-        // autoModeUpgraded 참고.
-        save.persistentBonus.autoModeUpgraded = true;
+        // autoModeUpgradeLevel 참고.
+        save.persistentBonus.autoModeUpgradeLevel = Math.max(1, getAutoModeUpgradeLevel(save.persistentBonus));
+      } else if (mi.id === 'autoModeUpgrade2') {
+        // 신화 등급 영구템: 오토모드 발사 속도를 초당 4발 → 6발로 올린다 — game.js _update()의
+        // autoModeUpgradeLevel 참고.
+        save.persistentBonus.autoModeUpgradeLevel = 2;
       } else if (mi.id === 'mythicShield') {
         // 신화 등급 영구템: 스테이지 시작 시 무적 시간 +1초(최대 5초) — game.js init()의 shieldSeconds 참고.
         save.persistentBonus.mythicShieldLevel = Math.min(MYTHIC_SHIELD_MAX, (save.persistentBonus.mythicShieldLevel || 0) + 1);

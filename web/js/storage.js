@@ -11,7 +11,7 @@ function generateId() {
 
 export const Storage = {
   defaults() {
-    return { stage: 1, bestStage: 0, rating: 'g', gallery: [], heldItems: [], collection: [], rewardImages: [], continuousMove: false, userId: generateId(), totalScore: 0, bonusLives: 0, pendingCollectionStage: 0, pendingRewardStage: 0, pendingGameComplete: false, lastAdReward: 0, adWatchCount: 0, splitBuyStage: 0, splitBuysCount: 0, mythicUnlockShown: false, persistentBonus: { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false, phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0, repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgraded: false } };
+    return { stage: 1, bestStage: 0, rating: 'g', gallery: [], heldItems: [], collection: [], rewardImages: [], continuousMove: false, userId: generateId(), totalScore: 0, bonusLives: 0, pendingCollectionStage: 0, pendingRewardStage: 0, pendingGameComplete: false, lastAdReward: 0, adWatchCount: 0, splitBuyStage: 0, splitBuysCount: 0, mythicUnlockShown: false, persistentBonus: { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false, phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0, repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgradeLevel: 0 } };
   },
   load() {
     try { return { ...this.defaults(), ...JSON.parse(localStorage.getItem(KEY)) }; }

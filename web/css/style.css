@@ -206,7 +206,12 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   border-top: 1px solid rgba(200,80,192,0.2);
   user-select: none; -webkit-user-select: none;
 }
-#dpad-spacer { flex: 1; display: flex; align-items: center; justify-content: center; }
+#dpad-spacer { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; }
+/* 오토모드 토글 — 예전엔 무기 슬롯(held-items-bar)에 같이 있어서 무기를 여러 개
+   들면 칸이 꽉 차 다른 아이템을 못 누르는 문제가 있었다. 반대편(왼쪽)으로
+   옮겨 완전히 분리해뒀다. 버튼이 없을 땐(오토모드 미보유) 빈 채로 접혀
+   레이아웃에 자리를 차지하지 않는다. */
+#automode-slot:empty { display: none; }
 #continuous-move-label {
   display: flex; flex-direction: column; align-items: center; gap: 5px;
   cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
