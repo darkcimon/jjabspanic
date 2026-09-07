@@ -15,7 +15,7 @@ export const SWORD_BASE_CAP = 100;
 export const PET_BASE_CAP = 200;
 // 분열 아이템 연쇄 사용 등으로 몹 수가 걷잡을 수 없이 늘어나
 // (충돌 판정이 몹 수에 비례/제곱으로 늘어나) 버벅거리는 것을 막기 위한 상한.
-export const MAX_MONSTERS = 60;
+export const MAX_MONSTERS = 100;
 
 export const getStageHP = (n) => n <= 10 ? 1 : Math.max(1, Math.ceil(Math.pow(n / 10, 1.5)));
 

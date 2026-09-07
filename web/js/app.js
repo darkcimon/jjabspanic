@@ -206,10 +206,11 @@ async function startGame(stage, rating, resumeState = null) {
   const ms = getMonsterSpeed(stage);
   const tl = getTimeLimit(stage);
   const heldItems = save.heldItems || [];
-  // 신화 소모템(회피/동결 부적) — resumeState가 있으면(앱이 스테이지 도중 재시작된
-  // 경우) 직전 스테이지 시작 때 이미 소모됐어야 하므로 다시 소모하지 않는다.
-  const useRepel  = !resumeState && (save.pendingRepelCharm  || 0) > 0;
-  const useFreeze = !resumeState && (save.pendingFreezeCharm || 0) > 0;
+  // 신화 등급 회피/동결 부적 — 영구 확률 스탯(repelChance/freezeChance, %)이라 매
+  // 스테이지 시작마다 그 확률로 새로 추첨한다. 방패와 동일한 이유로 이어하기
+  // (resumeState)에는 다시 추첨하지 않는다 — 이미 그 스테이지 시작 때 한 번 정해졌어야 함.
+  const useRepel  = !resumeState && Math.random() * 100 < (pb?.repelChance  || 0);
+  const useFreeze = !resumeState && Math.random() * 100 < (pb?.freezeChance || 0);
   // 신화 등급 "방패"는 스테이지 시작 순간의 연출이라 이어하기(resumeState)에는 재적용하지 않는다
   // (회피/동결 부적과 동일한 이유 — 이미 그 스테이지 시작 때 한 번 소진됐어야 함).
   const shieldSeconds = !resumeState ? Math.min(pb?.mythicShieldLevel || 0, MYTHIC_SHIELD_MAX) : 0;
@@ -219,8 +220,6 @@ async function startGame(stage, rating, resumeState = null) {
       petCount: pb?.petCount||0, petLevel: pb?.petLevel||0,
       repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0, shieldSeconds });
   if (!resumeState) {
-    if (useRepel)  save.pendingRepelCharm  -= 1;
-    if (useFreeze) save.pendingFreezeCharm -= 1;
     if (save.bonusLives > 0) {
       game.lives += save.bonusLives;
       save.bonusLives = 0;
@@ -1075,9 +1074,9 @@ $('btn-reset-confirm').onclick = () => {
   save = Storage.load();
   save.stage = 1; save.bestStage = 0; save.gallery = []; save.heldItems = []; save.collection = [];
   save.totalScore = 0; save.bonusLives = 0; save.mythicUnlockShown = false;
-  save.pendingRepelCharm = 0; save.pendingFreezeCharm = 0;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
-    phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0 };
+    phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
+    repelChance: 0, freezeChance: 0 };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1104,9 +1103,9 @@ $('btn-complete-no').onclick = () => {
   save.rewardImages = [];
   save.heldItems = [];
   save.mythicUnlockShown = false;
-  save.pendingRepelCharm = 0; save.pendingFreezeCharm = 0;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
-    phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0 };
+    phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
+    repelChance: 0, freezeChance: 0 };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1134,15 +1133,21 @@ function getUpgradeCaps() {
 // 신화 등급 "방패" — 스테이지 시작 시 무적 시간을 1초씩 늘려주는 영구템. 최대 5초(5회)까지
 // 누적 구매 가능하고, 살 때마다 다음 구매 가격이 50만씩 비싸진다.
 const MYTHIC_SHIELD_MAX = 5;
+
+// 신화 등급 "몬스터 회피/시간 동결 부적" — 구매마다 다음 스테이지에 발동할 확률이
+// +1%p씩 쌓이는 영구 스탯. 100개 사면 100% 확정 발동, 그 이상은 구매 불가.
+const REPEL_FREEZE_CHANCE_MAX = 100;
 function getMythicShieldCost(currentLevel) {
   return 500000 * (currentLevel + 1);
 }
 
-// 신화 등급 "펫강화" 비용 — 1강화(1,000,000pt)에서 최대강화(cap, 100,000,000pt)까지
+// 신화 등급 "펫강화" 비용 — 1강화(100,000pt)에서 최대강화(cap, 10,000,000pt)까지
 // 지수적으로 증가한다 (강화로 쌓인 포인트를 소진시키기 위한 의도적인 포인트 싱크).
+// 최초 배포 값(100만→1억)이 체감상 밸런스 붕괴 수준으로 비쌌다는 피드백에 따라
+// 1/10로 낮췄다.
 function getPetUpgradeCost(nextLevel, cap) {
   const p = cap > 1 ? (nextLevel - 1) / (cap - 1) : 1;
-  return Math.round(1000000 * Math.pow(100, p) / 10000) * 10000;
+  return Math.round(100000 * Math.pow(100, p) / 1000) * 1000;
 }
 
 // 51단계부터 레어 등급 상점이 마감되고 신화 등급이 해금된다 (오래 플레이해서
@@ -1222,25 +1227,32 @@ function getMarketItems() {
       { id:'pet', tier:'mythic', cost:5000000, icon:'🐿️',
         name:t('market.item.pet.name'), desc:t('market.item.pet.desc', { count: petCount, max: 2 }) }
     );
-    // 펫강화 — 펫을 1마리 이상 보유해야 표시, 100만→최대 1억pt.
+    // 펫강화 — 펫을 1마리 이상 보유해야 표시, 10만→최대 1000만pt.
     const petLv = pb.petLevel || 0, petCap = caps.pet;
     if (petCount > 0 && petLv < petCap) items.push(
       { id:'petUpgrade', tier:'mythic', cost:getPetUpgradeCost(petLv + 1, petCap), icon:'🔧',
         name:t('market.item.petUpgrade.name', { from: t('market.unitLevel', { n: petLv }), to: t('market.unitLevel', { n: petLv + 1 }) }),
         desc:t('market.item.petUpgrade.desc', { to: petLv + 1, max: petCap }) }
     );
-    // 소모템 3종 — 구매 즉시(주사위) 또는 다음 스테이지 시작 시(회피/동결 부적) 적용되고,
-    // 몇 개를 갖고 있는지 설명에 보여줘 계속 사도 되는 소모품임을 알 수 있게 한다.
-    const repelCount  = save.pendingRepelCharm  || 0;
-    const freezeCount = save.pendingFreezeCharm || 0;
-    items.push(
-      { id:'repelCharm', tier:'mythic', cost:12000, icon:'🧲',
+    // 회피/동결 부적 — 예전엔 "구매 개수만큼 다음 스테이지부터 순서대로 소모"되는
+    // 소모품이었는데, 한 스테이지 안에서는 몇 개를 갖고 있든 효과(15초/5초 고정)가
+    // 똑같아 "여러 개 보유"가 사실상 미래 스테이지 몫을 미리 사두는 것 이상의 의미가
+    // 없었다. 그래서 영구 스탯으로 바꿔, 매 구매마다 "다음 스테이지에 발동할 확률"이
+    // +1%p씩 쌓이는 방식으로 변경 (100개 사면 100% 확정 발동, 그 이상은 못 삼).
+    const repelChance  = Math.min(REPEL_FREEZE_CHANCE_MAX, pb.repelChance  || 0);
+    const freezeChance = Math.min(REPEL_FREEZE_CHANCE_MAX, pb.freezeChance || 0);
+    if (repelChance < REPEL_FREEZE_CHANCE_MAX) items.push(
+      { id:'repelCharm', tier:'mythic', cost:120000, icon:'🧲',
         name:t('market.item.repelCharm.name'),
-        desc:t('market.item.repelCharm.desc', { count: repelCount }) },
-      { id:'freezeCharm', tier:'mythic', cost:10000, icon:'⏳',
+        desc:t('market.item.repelCharm.desc', { pct: repelChance + 1, max: REPEL_FREEZE_CHANCE_MAX }) }
+    );
+    if (freezeChance < REPEL_FREEZE_CHANCE_MAX) items.push(
+      { id:'freezeCharm', tier:'mythic', cost:100000, icon:'⏳',
         name:t('market.item.freezeCharm.name'),
-        desc:t('market.item.freezeCharm.desc', { count: freezeCount }) },
-      { id:'diceOfFate', tier:'mythic', cost:6000, icon:'🎲',
+        desc:t('market.item.freezeCharm.desc', { pct: freezeChance + 1, max: REPEL_FREEZE_CHANCE_MAX }) }
+    );
+    items.push(
+      { id:'diceOfFate', tier:'mythic', cost:60000, icon:'🎲',
         name:t('market.item.diceOfFate.name'), desc:t('market.item.diceOfFate.desc') },
     );
   }
@@ -1422,6 +1434,8 @@ function showMarket() {
   if (pb.territoryMark)   pbParts.push(t('market.pbTerritoryMark'));
   if (pb.mythicShieldLevel > 0) pbParts.push(t('market.pbMythicShield', { n: Math.min(pb.mythicShieldLevel, MYTHIC_SHIELD_MAX) }));
   if (pb.petCount > 0)    pbParts.push(t('market.pbPet', { n: pb.petCount, lv: pb.petLevel || 0 }));
+  if (pb.repelChance > 0)  pbParts.push(t('market.pbRepelChance',  { n: Math.min(pb.repelChance,  REPEL_FREEZE_CHANCE_MAX) }));
+  if (pb.freezeChance > 0) pbParts.push(t('market.pbFreezeChance', { n: Math.min(pb.freezeChance, REPEL_FREEZE_CHANCE_MAX) }));
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
     ? `<b>${t('market.pbTitle')}</b><br>${pbParts.join(' · ')}` : '';
@@ -1494,11 +1508,11 @@ function showMarket() {
         // 신화 등급 영구템: 펫강화 레벨 +1 — game.js의 _getPetPattern 참고.
         save.persistentBonus.petLevel = Math.min(getUpgradeCaps().pet, (save.persistentBonus.petLevel || 0) + 1);
       } else if (mi.id === 'repelCharm') {
-        // 소모템: 다음 스테이지 시작 시 15초간 몬스터가 플레이어를 피해다닌다. 개수 누적.
-        save.pendingRepelCharm = (save.pendingRepelCharm || 0) + 1;
+        // 신화 등급 영구템: 다음 스테이지 발동 확률 +1%p(최대 100%) — startGame()의 repelChance 참고.
+        save.persistentBonus.repelChance = Math.min(REPEL_FREEZE_CHANCE_MAX, (save.persistentBonus.repelChance || 0) + 1);
       } else if (mi.id === 'freezeCharm') {
-        // 소모템: 다음 스테이지 시작 시 5초간 몬스터가 완전히 멈춘다. 개수 누적.
-        save.pendingFreezeCharm = (save.pendingFreezeCharm || 0) + 1;
+        // 신화 등급 영구템: 다음 스테이지 발동 확률 +1%p(최대 100%) — startGame()의 freezeChance 참고.
+        save.persistentBonus.freezeChance = Math.min(REPEL_FREEZE_CHANCE_MAX, (save.persistentBonus.freezeChance || 0) + 1);
       } else if (mi.id === 'diceOfFate') {
         // 소모템: 구매 즉시 결과가 나오는 도박성 아이템 — 별도 토스트로 결과를 안내한다.
         diceToastMsg = _rollDiceOfFate();
