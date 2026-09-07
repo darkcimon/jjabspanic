@@ -247,6 +247,10 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 .timer-pill.slow   { color: #4af; border-color: #4af; }
 .timer-pill.shield { color: #f4a; border-color: #f4a; }
 .timer-pill.bubble { color: #8ef; border-color: #8ef; }
+.timer-pill.confuse    { color: #cfa6ff; border-color: #cfa6ff; }
+.timer-pill.playerslow { color: #7ddc7d; border-color: #7ddc7d; }
+.timer-pill.repel      { color: #ff9fd6; border-color: #ff9fd6; }
+.timer-pill.freeze     { color: #9fe6ff; border-color: #9fe6ff; }
 
 /* ── Held items bar ─────────────────────────────────────── */
 #held-items-bar {
@@ -848,6 +852,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 .market-tier-label.normal { background: #1a3a6a; color: #8ec6ff; }
 .market-tier-label.rare   { background: #2a0a5a; color: #c8a0ff; }
 .market-tier-label.legend { background: #3a1a0a; color: #ffb347; }
+.market-tier-label.mythic { background: #3a0a20; color: #ff8fc0; }
 
 .market-item-list {
   display: flex; flex-direction: column; gap: 10px;
@@ -867,6 +872,10 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   border-color: rgba(255, 179, 71, 0.35);
   background: linear-gradient(135deg, #2a1505, var(--card));
 }
+.market-card.market-mythic {
+  border-color: rgba(255, 90, 160, 0.5);
+  background: linear-gradient(135deg, #2a0a1a, var(--card));
+}
 .market-icon { font-size: 1.8rem; line-height: 1; flex-shrink: 0; }
 .market-info {
   display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;
@@ -880,6 +889,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 .market-card.market-normal .market-tier-badge { background: #1a3a6a; color: #8ec6ff; }
 .market-card.market-rare   .market-tier-badge { background: #2a0a5a; color: #c8a0ff; }
 .market-card.market-legend .market-tier-badge { background: #3a1a0a; color: #ffb347; }
+.market-card.market-mythic .market-tier-badge { background: #3a0a20; color: #ff8fc0; }
 .market-pb-summary {
   margin: 0 16px 10px;
   padding: 8px 12px;

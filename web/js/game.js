@@ -296,6 +296,7 @@ class Monster {
     this.color='#ff6b35'; this.glowColor='rgba(255,107,53,0.4)';
     this.wobble=rnd(0,PI2); this.wobbleSpd=rnd(3,7);
     this.pendingSpawns=[];
+    this.pendingDebuff=null; // 상태이상 몹(GhostMonster/SlimeMonster)이 Game에 전달하는 디버프 요청
   }
   get gx() { return Math.floor(this.px/this.cs); }
   get gy() { return Math.floor(this.py/this.cs); }
@@ -383,6 +384,166 @@ class ShooterMonster extends Monster {
       if (this.rndTimer<=0) { const a=rnd(0,PI2); this.vx=Math.cos(a)*this.spd; this.vy=Math.sin(a)*this.spd; this.rndTimer=rnd(0.8,2.5); }
     }
     this._bounce(dt,grid,slow);
+  }
+}
+
+// ── ZigzagMonster (하늘색, 지그재그 이동) ────────────────────
+// 15단계부터 등장 — 일정 주기로 진행 방향을 90도씩 꺾어 직선 이동만 하는
+// NormalMonster보다 예측하기 어렵게 움직인다.
+class ZigzagMonster extends Monster {
+  constructor(gx, gy, cs, speed, stage) {
+    super(gx,gy,cs,speed,stage);
+    this.color='#33ccff'; this.glowColor='rgba(51,204,255,0.4)';
+    this.zigTimer=rnd(0.4,0.8);
+    const a=rnd(0,PI2); this.vx=Math.cos(a)*this.spd; this.vy=Math.sin(a)*this.spd;
+  }
+  update(dt, grid, plx, ply, drawing, bullets, slow=1.0) {
+    super.update(dt,grid,plx,ply,drawing,bullets,slow);
+    this.zigTimer-=dt*slow;
+    if (this.zigTimer<=0) {
+      this.zigTimer=rnd(0.4,0.8);
+      const turn=Math.random()<0.5?Math.PI/2:-Math.PI/2;
+      const nvx=this.vx*Math.cos(turn)-this.vy*Math.sin(turn);
+      const nvy=this.vx*Math.sin(turn)+this.vy*Math.cos(turn);
+      this.vx=nvx; this.vy=nvy;
+    }
+    this._bounce(dt,grid,slow);
+  }
+}
+
+// ── TrackerMonster (보라, 상시 추적) ─────────────────────────
+// 30단계부터 등장 — ShooterMonster는 선을 긋는 중에만 추적하지만, 이 몹은
+// 항상 플레이어를 추적한다. 대신 총은 쏘지 않고 이동 속도도 다소 느리다.
+class TrackerMonster extends Monster {
+  constructor(gx, gy, cs, speed, stage) {
+    super(gx,gy,cs,speed*0.6,stage);
+    this.color='#9b59ff'; this.glowColor='rgba(155,89,255,0.4)';
+  }
+  update(dt, grid, plx, ply, drawing, bullets, slow=1.0) {
+    super.update(dt,grid,plx,ply,drawing,bullets,slow);
+    const dx=plx-this.px,dy=ply-this.py,d=Math.sqrt(dx*dx+dy*dy)||1;
+    this.vx=(dx/d)*this.spd; this.vy=(dy/d)*this.spd;
+    this._bounce(dt,grid,slow);
+  }
+}
+
+// ── SpreadShooterMonster (진한 주황, 산탄 발사) ──────────────
+// 40단계부터 등장 — ShooterMonster의 이동 패턴은 그대로 물려받고, 총알 1발
+// 대신 부채꼴 3방향으로 동시에 발사한다 (그만큼 발사 주기는 더 길게 잡음).
+class SpreadShooterMonster extends ShooterMonster {
+  constructor(gx, gy, cs, speed, stage) {
+    super(gx,gy,cs,speed,stage);
+    this.color='#ff3d00'; this.glowColor='rgba(255,61,0,0.45)';
+    const lo=Math.max(1.8,5.5-stage*0.01), hi=Math.max(2.6,7.5-stage*0.012);
+    this.shootInterval=rnd(lo,hi);
+  }
+  _tryShoot(dt, plx, ply, bullets) {
+    if (!this.canShoot) return;
+    this.shootTimer-=dt;
+    if (this.shootTimer>0) return;
+    this.shootTimer=this.shootInterval+rnd(-0.5,0.5);
+    const dx=plx-this.px,dy=ply-this.py,d=Math.sqrt(dx*dx+dy*dy)||1;
+    const baseAng=Math.atan2(dy,dx);
+    const sp=Math.min(100+this._stage*0.5,280);
+    for (const off of [-0.35,0,0.35]) {
+      const a=baseAng+off;
+      bullets.push(new Bullet(this.px,this.py,Math.cos(a)*sp,Math.sin(a)*sp,this.color));
+    }
+  }
+}
+
+// ── SniperMonster (자주색, 조준 저격) ────────────────────────
+// 60단계부터 등장 — 거의 제자리에 머물다가 플레이어가 사정거리에 들어오면
+// 0.8초간 조준선을 표시한 뒤 고속 직선탄을 한 발 쏜다. 미리 조준선이 보이므로
+// 위협적이지만 그 사이 피할 여지는 있다.
+class SniperMonster extends Monster {
+  constructor(gx, gy, cs, speed, stage) {
+    super(gx,gy,cs,speed*0.15,stage);
+    this.color='#aa22aa'; this.glowColor='rgba(170,34,170,0.45)';
+    this.canShoot=false; // 커스텀 조준 로직을 쓰므로 부모의 자동발사(_tryShoot)는 사용하지 않음
+    this.aiming=false; this.aimTimer=0; this.aimDx=0; this.aimDy=1;
+    this.cooldown=rnd(1.5,3);
+    this.range=cs*9;
+    const a=rnd(0,PI2); this.vx=Math.cos(a)*this.spd; this.vy=Math.sin(a)*this.spd;
+  }
+  update(dt, grid, plx, ply, drawing, bullets, slow=1.0) {
+    super.update(dt,grid,plx,ply,drawing,bullets,slow);
+    this._bounce(dt,grid,slow);
+    if (this.aiming) {
+      this.aimTimer-=dt*slow;
+      if (this.aimTimer<=0) {
+        this.aiming=false;
+        const sp=420;
+        bullets.push(new Bullet(this.px,this.py,this.aimDx*sp,this.aimDy*sp,'#ff44ff'));
+        this.cooldown=rnd(2,3.5);
+      }
+      return;
+    }
+    this.cooldown-=dt*slow;
+    const dx=plx-this.px,dy=ply-this.py,dist=Math.sqrt(dx*dx+dy*dy);
+    if (this.cooldown<=0 && dist>0 && dist<this.range) {
+      this.aiming=true; this.aimTimer=0.8;
+      this.aimDx=dx/dist; this.aimDy=dy/dist;
+    }
+  }
+  draw(ctx) {
+    super.draw(ctx);
+    if (this.aiming) {
+      const a=0.5+0.3*Math.sin(this.wobble*3);
+      ctx.save();
+      ctx.strokeStyle=`rgba(255,60,255,${a})`;
+      ctx.lineWidth=2; ctx.setLineDash([6,5]);
+      ctx.beginPath();
+      ctx.moveTo(this.px,this.py);
+      ctx.lineTo(this.px+this.aimDx*3000,this.py+this.aimDy*3000);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+// ── GhostMonster (연보라 반투명, 혼란 유발) ──────────────────
+// 50단계부터 등장 — 평소엔 배회만 하다가 플레이어와 가까워지면 3초간
+// "혼란"(방향키 반전) 디버프를 건다. 재발동 쿨다운이 있어 근처에 계속
+// 머물러도 디버프가 끊임없이 갱신되진 않는다.
+class GhostMonster extends Monster {
+  constructor(gx, gy, cs, speed, stage) {
+    super(gx,gy,cs,speed*0.7,stage);
+    this.color='#cfd8ff'; this.glowColor='rgba(200,210,255,0.35)';
+    this._debuffCooldown=0;
+    const a=rnd(0,PI2); this.vx=Math.cos(a)*this.spd; this.vy=Math.sin(a)*this.spd;
+  }
+  update(dt, grid, plx, ply, drawing, bullets, slow=1.0) {
+    super.update(dt,grid,plx,ply,drawing,bullets,slow);
+    this._bounce(dt,grid,slow);
+    if (this._debuffCooldown>0) { this._debuffCooldown-=dt; return; }
+    const dx=plx-this.px,dy=ply-this.py;
+    if (dx*dx+dy*dy<(this.cs*3)**2) {
+      this.pendingDebuff={ type:'confuse', duration:3 };
+      this._debuffCooldown=6;
+    }
+  }
+  draw(ctx) {
+    ctx.save(); ctx.globalAlpha=0.6; super.draw(ctx); ctx.restore();
+  }
+}
+
+// ── SlimeMonster (초록, 슬로우 유발) ─────────────────────────
+// 70단계부터 등장 — 선을 긋는 몹은 아니고, 근접해 있는 동안 플레이어 이동
+// 속도를 계속 늦춘다 (거리가 멀어지면 몇 초 뒤 자연히 풀린다).
+class SlimeMonster extends Monster {
+  constructor(gx, gy, cs, speed, stage) {
+    super(gx,gy,cs,speed*0.5,stage);
+    this.color='#33cc55'; this.glowColor='rgba(51,204,85,0.4)';
+    const a=rnd(0,PI2); this.vx=Math.cos(a)*this.spd; this.vy=Math.sin(a)*this.spd;
+  }
+  update(dt, grid, plx, ply, drawing, bullets, slow=1.0) {
+    super.update(dt,grid,plx,ply,drawing,bullets,slow);
+    this._bounce(dt,grid,slow);
+    const dx=plx-this.px,dy=ply-this.py;
+    if (dx*dx+dy*dy<(this.cs*1.6)**2) {
+      this.pendingDebuff={ type:'slow', duration:1.2 };
+    }
   }
 }
 
@@ -580,12 +741,12 @@ class Player {
     this.invincible=false; this.invTimer=0; this.trail=[];
   }
   setDir(dx, dy) { this.dx=dx; this.dy=dy; }
-  update(dt, grid) {
+  update(dt, grid, speedMult=1) {
     if (this.dx===0&&this.dy===0) return null;
     const ngx=this.gx+this.dx, ngy=this.gy+this.dy;
     if (ngx<0||ngx>=grid.cols||ngy<0||ngy>=grid.rows) { this.dx=0;this.dy=0;this.progress=0; return null; }
     if (grid.get(ngx,ngy)===LINE) { this.dx=0;this.dy=0;this.progress=0; return null; }
-    this.progress+=this.speed*dt;
+    this.progress+=this.speed*dt*speedMult;
     if (this.progress>=1) {
       this.progress=0; this.gx=ngx; this.gy=ngy;
       this.px=this.gx*this.cs+this.cs*0.5; this.py=this.gy*this.cs+this.cs*0.5;
@@ -605,7 +766,15 @@ class Player {
 function _killScore(m) {
   if (m instanceof BossMonster)     return 2000;
   if (m instanceof MidBossMonster)  return 1400;
+  if (m instanceof SniperMonster)   return 700;
+  // SpreadShooterMonster는 ShooterMonster의 하위 클래스라 아래 instanceof
+  // ShooterMonster 체크에도 걸리므로, 더 구체적인 체크를 먼저 둔다.
+  if (m instanceof SpreadShooterMonster) return 650;
   if (m instanceof ShooterMonster)  return 600;
+  if (m instanceof TrackerMonster)  return 350;
+  if (m instanceof GhostMonster)    return 300;
+  if (m instanceof SlimeMonster)    return 300;
+  if (m instanceof ZigzagMonster)   return 250;
   return 200;
 }
 
@@ -692,6 +861,10 @@ export class Game extends EventTarget {
     this._time=0; this.score=0;
     // Item & effect state
     this.slowTimer=0; this.shieldTimer=0; this.bubbleActive=false;
+    // GhostMonster/SlimeMonster가 거는 상태이상: confuseTimer(조작 반전), playerSlowTimer(이동속도 감소)
+    this.confuseTimer=0; this.playerSlowTimer=0;
+    // 신화 등급 소모템(회피/동결 부적)이 스테이지 시작 시 거는 효과
+    this.repelTimer=0; this.freezeTimer=0;
     this.speedActive=false; this.heldItems=[];
     this.swordActive=false; this.swordTimer=0; this.swordDx=1; this.swordDy=0; this.swordReach=2; this.swordArcHalf=0;
     this.lightningMode=false; this.activeWeapon=null;
@@ -712,6 +885,8 @@ export class Game extends EventTarget {
     this.bullets=[]; this.particles=[]; this.playerBullets=[]; this.items=[];
     this.laserBeams=[];
     this.slowTimer=0; this.shieldTimer=0; this.bubbleActive=false;
+    this.confuseTimer=0; this.playerSlowTimer=0;
+    this.repelTimer=weaponLevels.repelSeconds||0; this.freezeTimer=weaponLevels.freezeSeconds||0;
     this.swordActive=false; this.swordTimer=0; this.lightningMode=false;
     this.heldItems=JSON.parse(JSON.stringify(resumeState?resumeState.heldItems:heldItems));
     this.speedActive=false;
@@ -721,6 +896,13 @@ export class Game extends EventTarget {
     this._gunLevel=weaponLevels.gunLevel||0;
     this._swordLevel=weaponLevels.swordLevel||0;
     this._bulletLevel=weaponLevels.bulletLevel||0;
+    // 신화 등급 영구 아이템 "수호의 구슬" — 보유 시 _onLoseLife()에서 원위치 복귀 없이
+    // 목숨만 깎고 계속 진행할 수 있다.
+    this.guardianOrb=!!weaponLevels.guardianOrb;
+    // 신화 등급 영구 아이템 "불사조의 심장" — 스테이지당 1회, 목숨이 0이 돼도 부활한다.
+    this.phoenixHeart=!!weaponLevels.phoenixHeart; this._phoenixUsed=false;
+    // 신화 등급 영구 아이템 "미다스의 손" — 스테이지 클리어 보너스 +30% (_onStageClear 참고).
+    this.midasTouch=!!weaponLevels.midasTouch;
     const sp=this.heldItems.find(h=>h.type==='speed');
     if (sp) { this.speedActive=true; }
 
@@ -819,7 +1001,11 @@ export class Game extends EventTarget {
 
   start() { if (this.running) return; this.running=true; this._lastTime=performance.now(); this._raf=requestAnimationFrame(t=>this._loop(t)); }
   stop()  { this.running=false; if (this._raf) { cancelAnimationFrame(this._raf); this._raf=null; } }
-  setDirection(dx, dy) { this.pendingDir={dx,dy}; }
+  setDirection(dx, dy) {
+    // GhostMonster의 "혼란" 디버프: 방향키 입력이 좌우/상하로 반전된다.
+    if (this.confuseTimer>0) { dx=-dx; dy=-dy; }
+    this.pendingDir={dx,dy};
+  }
 
   useSword() {
     const sw=this.heldItems.find(h=>h.type==='sword');
@@ -986,8 +1172,19 @@ export class Game extends EventTarget {
     const mNormals=Math.max(1,Math.round(normals*weaponMult*ammoReduct));
     const mShooters=Math.max(0,Math.round(shooters*weaponMult*ammoReduct));
     const mMidBosses=Math.max(0,Math.round(midBosses*weaponMult*ammoReduct));
-    for(let i=0;i<mNormals;i++)   this.monsters.push(spawnRnd(NormalMonster));
-    for(let i=0;i<mShooters;i++)  this.monsters.push(spawnRnd(ShooterMonster));
+    // ── 몹 다양성 ──────────────────────────────────────────────
+    // 마리수(mNormals/mShooters) 자체는 그대로 두고, 스테이지가 오를수록
+    // "일반"/"사격형" 슬롯 안에서 뽑힐 수 있는 몹 종류만 늘려 다양성을 준다.
+    const normalPool=[NormalMonster];
+    if (s>=15) normalPool.push(ZigzagMonster);
+    if (s>=30) normalPool.push(TrackerMonster);
+    if (s>=50) normalPool.push(GhostMonster);
+    if (s>=70) normalPool.push(SlimeMonster);
+    const shooterPool=[ShooterMonster];
+    if (s>=40) shooterPool.push(SpreadShooterMonster);
+    if (s>=60) shooterPool.push(SniperMonster);
+    for(let i=0;i<mNormals;i++)   this.monsters.push(spawnRnd(normalPool[rndI(0,normalPool.length)]));
+    for(let i=0;i<mShooters;i++)  this.monsters.push(spawnRnd(shooterPool[rndI(0,shooterPool.length)]));
     for(let i=0;i<mMidBosses;i++) this.monsters.push(spawnRnd(MidBossMonster));
     if(this.monsters.length>30) this.monsters.length=30;
     if(s%10===0){
@@ -1127,7 +1324,7 @@ export class Game extends EventTarget {
       if (dx!==0||dy!==0) { this._lastDx=dx; this._lastDy=dy; }
       this.pendingDir=null;
     }
-    const result=this.player.update(dt,this.grid);
+    const result=this.player.update(dt,this.grid,this.playerSlowTimer>0?0.6:1.0);
     if (this.pendingDir&&this.player.progress===0) {
       const {dx,dy}=this.pendingDir;
       this.player.setDir(dx,dy);
@@ -1144,14 +1341,30 @@ export class Game extends EventTarget {
     if (this.shieldTimer>0) { this.shieldTimer-=dt; if (this.shieldTimer<=0) { this.shieldTimer=0; this.player.invincible=false; } else { this.player.invincible=true; } }
     if (this.slowTimer>0) this.slowTimer-=dt;
     const slow=this.slowTimer>0?0.35:1.0;
+    if (this.confuseTimer>0) this.confuseTimer-=dt;
+    if (this.playerSlowTimer>0) this.playerSlowTimer-=dt;
+    if (this.repelTimer>0) this.repelTimer-=dt;
+    if (this.freezeTimer>0) this.freezeTimer-=dt;
 
-    // Monsters
+    // Monsters — 신화 등급 "동결 부적" 효과 중엔 이동/발사/디버프를 포함해 몹 업데이트를
+    // 통째로 건너뛰어 완전히 멈춰있는 것처럼 보이게 한다.
     const toAdd=[];
-    for (const m of this.monsters) {
-      m.update(dt,this.grid,this.player.px,this.player.py,this.player.isDrawing,this.bullets,slow);
-      if (m.pendingSpawns.length>0) {
-        for (const s of m.pendingSpawns) toAdd.push(new NormalMonster(s.gx,s.gy,this.cs,s.speed,this.stage));
-        m.pendingSpawns=[];
+    if (this.freezeTimer<=0) {
+      for (const m of this.monsters) {
+        m.update(dt,this.grid,this.player.px,this.player.py,this.player.isDrawing,this.bullets,slow);
+        if (m.pendingSpawns.length>0) {
+          for (const s of m.pendingSpawns) toAdd.push(new NormalMonster(s.gx,s.gy,this.cs,s.speed,this.stage));
+          m.pendingSpawns=[];
+        }
+        if (m.pendingDebuff) { this._applyDebuff(m.pendingDebuff); m.pendingDebuff=null; }
+      }
+      // 신화 등급 "회피 부적": 몹 종류와 무관하게 플레이어에게서 멀어지는 방향으로
+      // 다음 프레임 이동 방향을 덮어쓴다 (추적형 몹의 추적도 함께 무효화됨).
+      if (this.repelTimer>0) {
+        for (const m of this.monsters) {
+          const dx=m.px-this.player.px, dy=m.py-this.player.py, d=Math.sqrt(dx*dx+dy*dy)||1;
+          m.vx=(dx/d)*m.spd; m.vy=(dy/d)*m.spd;
+        }
       }
     }
     this.monsters.push(...toAdd);
@@ -1317,6 +1530,10 @@ export class Game extends EventTarget {
         shieldTimer:Math.ceil(Math.max(0,this.shieldTimer)),
         heldItems:this.heldItems, bubbleActive:this.bubbleActive,
         rareBubbleActive:!!this.heldItems.find(h=>h.type==='rareBubble'),
+        confuseTimer:Math.ceil(Math.max(0,this.confuseTimer)),
+        playerSlowTimer:Math.ceil(Math.max(0,this.playerSlowTimer)),
+        repelTimer:Math.ceil(Math.max(0,this.repelTimer)),
+        freezeTimer:Math.ceil(Math.max(0,this.freezeTimer)),
       }}));
     }
   }
@@ -1340,6 +1557,13 @@ export class Game extends EventTarget {
     if (this.fillPct>=this.CLEAR_THRESHOLD) this._onStageClear();
   }
 
+  // GhostMonster/SlimeMonster가 근접 시 요청하는 상태이상을 실제로 적용한다.
+  // 이미 걸려있는 동안 다시 걸리면 남은 시간을 갱신(연장)한다.
+  _applyDebuff(effect) {
+    if (effect.type==='confuse') this.confuseTimer=Math.max(this.confuseTimer||0,effect.duration);
+    else if (effect.type==='slow') this.playerSlowTimer=Math.max(this.playerSlowTimer||0,effect.duration);
+  }
+
   _onLoseLife() {
     if (this.bubbleActive) {
       this.bubbleActive=false; this.player.invincible=true; this.player.invTimer=2;
@@ -1356,31 +1580,45 @@ export class Game extends EventTarget {
     if (this.speedActive && this._persistentSpeedLevel < 2) { this.speedActive=false; this.player.speed=this.PLAYER_SPEED; this.heldItems=this.heldItems.filter(h=>h.type!=='speed'); }
     // 칼은 목숨 1 이하일 때 삭제하지 않고 useSword()에서 사용만 막는다 —
     // 총과 동일하게 한 번 구입하면 목숨과 무관하게 보유·강화가 유지되도록.
-    this.grid.clearLine();
-    this.player.isDrawing=false; this.player.path=[]; this.player.trail=[];
-    this.player.gx=Math.floor(this.COLS/2); this.player.gy=0;
-    this.player.px=this.player.gx*this.cs+this.cs*0.5; this.player.py=this.cs*0.5;
-    this.player.dx=0; this.player.dy=0; this.player.progress=0;
+    // 수호의 구슬 보유 시: 원위치 복귀·그리던 선 초기화를 건너뛰어 목숨만 깎이고
+    // 계속 같은 자리에서 땅따먹기를 이어갈 수 있다.
+    if (!this.guardianOrb) {
+      this.grid.clearLine();
+      this.player.isDrawing=false; this.player.path=[]; this.player.trail=[];
+      this.player.gx=Math.floor(this.COLS/2); this.player.gy=0;
+      this.player.px=this.player.gx*this.cs+this.cs*0.5; this.player.py=this.cs*0.5;
+      this.player.dx=0; this.player.dy=0; this.player.progress=0;
+    }
     this.player.invincible=true; this.player.invTimer=1.5;
     this.shakeTimer=0.45; this.shakeAmt=10; this.flashTimer=0.4; this.flashColor='rgba(255,50,50,0.5)';
     this.bullets=[];
-    if (this.lives<=0) this._onGameOver('lives');
+    if (this.lives<=0 && this.phoenixHeart && !this._phoenixUsed) {
+      // 불사조의 심장: 스테이지당 1회, 게임오버 대신 목숨 1로 즉시 부활.
+      this._phoenixUsed=true;
+      this.lives=1;
+      this.player.invTimer=2.5;
+      this.flashTimer=0.6; this.flashColor='rgba(255,150,0,0.65)';
+    } else if (this.lives<=0) {
+      this._onGameOver('lives');
+    }
   }
 
   _onStageClear() {
     // 스테이지 비례 보너스 배율 (10스테이지마다 +30%) — 포인트 획득 난이도 완화를 위해 2배 지급
     const bonusMult=(1+Math.floor(this.stage/10)*0.3)*2;
+    // 신화 등급 영구 아이템 "미다스의 손" — 아래 스테이지 클리어 보너스 전체에 +30%.
+    const midasMult=this.midasTouch?1.3:1;
     // 시간/스테이지 보너스: 광고 리워드 포인트 도입 후 이 둘까지 과하게 얹으면
     // 광고를 볼 유인이 사라진다는 피드백에 따라 예전 배율(추가 배율 없음)로 되돌림
-    const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult);
+    const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult*midasMult);
     const _pos=((this.stage-1)%10)+1, _cyc=Math.floor((this.stage-1)/10);
-    const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult);
+    const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult*midasMult);
     const fillPct100=Math.floor(this.fillPct*100);
-    const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*100*bonusMult):0;
-    const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*1000*bonusMult):0;
+    const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*100*bonusMult*midasMult):0;
+    const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*1000*bonusMult*midasMult):0;
     const fillBonus=fillBonus75+fillBonus94;
     // 전멸 보너스: 클리어 시 살아있는 적이 없으면 추가 지급 (예전 배율에서 1.3배로 조정)
-    const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult*1.3):0;
+    const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult*1.3*midasMult):0;
     this.score+=timeBonus+stageBonus+fillBonus+allClearBonus; this.stop();
     this.dispatchEvent(new CustomEvent('stageClear', { detail: {
       stage:this.stage, fill:this.fillPct, timeLeft:Math.ceil(this.timeLeft),
@@ -1435,6 +1673,15 @@ export class Game extends EventTarget {
       ctx.fillStyle='rgba(255,255,100,0.08)'; ctx.fillRect(0,0,w,h);
       ctx.strokeStyle='rgba(255,255,100,0.5)'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
       ctx.strokeRect(2,2,w-4,h-4); ctx.setLineDash([]);
+    }
+
+    // 3b. Confuse debuff overlay (GhostMonster) — 방향키가 반전됐음을 알리는 경고 테두리
+    if (this.confuseTimer>0) {
+      ctx.save();
+      ctx.globalAlpha=0.5+0.15*Math.sin(this._time*10);
+      ctx.strokeStyle='#cfa6ff'; ctx.lineWidth=8;
+      ctx.strokeRect(4,4,w-8,h-8);
+      ctx.restore();
     }
 
     // 4. Danger vignette

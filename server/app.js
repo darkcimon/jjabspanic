@@ -257,10 +257,14 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
         return res.status(429).json({ error: i18n.t(req, 'rewardGlobalCap') });
     }
 
-    rewardTokens.delete(token); // 일회용: 생성 시도 시 소모
+    // 토큰은 "생성 성공" 시에만 소모한다. 실패(금지 키워드, API 차단 등) 후에도
+    // 토큰을 미리 지워버리면, 사용자가 문제 있는 요청을 다른 키워드로 고쳐서
+    // 다시 보내려 해도 "유효하지 않거나 만료된 요청입니다"만 뜨고 막혀버린다
+    // (성공할 때까지 같은 토큰으로 재시도할 수 있어야 함).
     try {
         rewardCooldown.set(userId, Date.now());
         await generator.generateRewardImage(userId, keywords.trim());
+        rewardTokens.delete(token); // 일회용: 생성 "성공" 시에만 소모
         const imageUrl = store.getRewardImageUrl(userId);
         res.json({ status: 'ready', imageUrl });
     } catch (err) {

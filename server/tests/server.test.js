@@ -382,4 +382,42 @@ describe('POST /api/reward/generate', () => {
 
         expect(res.status).toBe(500);
     });
+
+    // ── 회귀 테스트: 실패 후 같은 토큰으로 재시도 가능해야 함 ──────────
+    // (금지 키워드 등으로 생성에 실패했다고 토큰을 소모해버리면, 사용자가
+    // 키워드를 고쳐 다시 보내도 "유효하지 않거나 만료된 요청입니다"만 뜨고
+    // 막혀버렸던 버그의 회귀 방지.)
+    test('생성 실패 후에도 토큰이 유지되어 같은 토큰으로 재시도 가능', async () => {
+        store.getRewardImageUrl.mockReturnValue(null);
+
+        const tokenRes = await request(app)
+            .post('/api/reward/token')
+            .send({ userId: 'user-retry', stage: 100 });
+        expect(tokenRes.status).toBe(200);
+        const { token } = tokenRes.body;
+
+        generator.generateRewardImage.mockRejectedValueOnce(
+            Object.assign(new Error('허용되지 않는 키워드가 포함되어 있습니다.'), { code: 'BLOCKED_KEYWORD' })
+        );
+        const failRes = await request(app)
+            .post('/api/reward/generate')
+            .send({ userId: 'user-retry', keywords: 'bad content', token });
+        expect(failRes.status).toBe(500);
+
+        // 실패 이후 "정상" 요청을 같은 토큰으로 다시 보내면 성공해야 한다.
+        generator.generateRewardImage.mockResolvedValueOnce('reward_user-retry_1.jpg');
+        store.getRewardImageUrl.mockReturnValueOnce(null).mockReturnValue('http://x/reward_user-retry_1.jpg');
+        const retryRes = await request(app)
+            .post('/api/reward/generate')
+            .send({ userId: 'user-retry', keywords: 'magical girl', token });
+
+        expect(retryRes.status).toBe(200);
+        expect(retryRes.body.status).toBe('ready');
+
+        // 성공했으니 토큰은 이제 소모되어 재사용은 거부되어야 한다.
+        const reuseRes = await request(app)
+            .post('/api/reward/generate')
+            .send({ userId: 'user-retry', keywords: 'magical girl again', token });
+        expect(reuseRes.status).toBe(403);
+    });
 });

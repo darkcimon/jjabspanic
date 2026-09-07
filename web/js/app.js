@@ -77,8 +77,13 @@ function makeHeldItemButton(item, game) {
       game.lightningMode = !game.lightningMode;
     } else if (item.type === 'sword') {
       game.useSword();
+      // 버튼을 탭하면 즉시 한 번 휘두르는 것과 별개로, "선택된 무기"로도 표시해둔다 —
+      // 이후엔 무기 버튼을 다시 탭하지 않고 화면(캔버스)을 탭하기만 해도
+      // useActiveWeapon()으로 같은 무기가 계속 발동된다 (onCanvasClick/TouchEnd 참고).
+      game.activeWeapon = 'sword';
     } else if (item.type === 'gun') {
       game.useGun();
+      game.activeWeapon = 'gun';
     } else if (item.type === 'split') {
       game.triggerSplit();
     } else if (item.type === 'rareBubble') {
@@ -110,7 +115,9 @@ function updateHeldItemsBar(heldItems) {
 // ── HUD ──────────────────────────────────────────────────────
 function updateHUD({ fill, lives, time, stage, score = 0,
                      slowTimer = 0, shieldTimer = 0, bubbleActive = false,
-                     rareBubbleActive = false, heldItems = [] }) {
+                     rareBubbleActive = false, heldItems = [],
+                     confuseTimer = 0, playerSlowTimer = 0,
+                     repelTimer = 0, freezeTimer = 0 }) {
   $('hud-stage').textContent = stage;
   $('hud-score').textContent = score;
   if (time >= 60) {
@@ -148,6 +155,30 @@ function updateHUD({ fill, lives, time, stage, score = 0,
     p.textContent = t('game.rareBubbleTag');
     timersEl.appendChild(p);
   }
+  if (confuseTimer > 0) {
+    const p = document.createElement('span');
+    p.className = 'timer-pill confuse';
+    p.textContent = `🌀 ${confuseTimer}s`;
+    timersEl.appendChild(p);
+  }
+  if (playerSlowTimer > 0) {
+    const p = document.createElement('span');
+    p.className = 'timer-pill playerslow';
+    p.textContent = `🐢 ${playerSlowTimer}s`;
+    timersEl.appendChild(p);
+  }
+  if (repelTimer > 0) {
+    const p = document.createElement('span');
+    p.className = 'timer-pill repel';
+    p.textContent = `🧲 ${repelTimer}s`;
+    timersEl.appendChild(p);
+  }
+  if (freezeTimer > 0) {
+    const p = document.createElement('span');
+    p.className = 'timer-pill freeze';
+    p.textContent = `⏳ ${freezeTimer}s`;
+    timersEl.appendChild(p);
+  }
 
   // Held items (only re-render if counts changed — simple approach: always rebuild)
   updateHeldItemsBar(heldItems);
@@ -160,8 +191,11 @@ async function startGame(stage, rating, resumeState = null) {
   resizeCanvas();
 
   const canvas = $('game-canvas');
+  const pb = save.persistentBonus;
+  // 신화 등급 "영역의 각인": 클리어 판정 기준선을 75%→70%로 영구 하향.
+  const clearThreshold = pb?.territoryMark ? CLEAR_THRESHOLD - 0.05 : CLEAR_THRESHOLD;
   game = new Game(canvas, { cols: COLS, rows: ROWS, playerSpeed: PLAYER_SPEED,
-                             clearThreshold: CLEAR_THRESHOLD, serverUrl: '' });
+                             clearThreshold, serverUrl: '' });
 
   game.addEventListener('hud',        e => updateHUD(e.detail));
   game.addEventListener('stageClear', e => onStageClear(e.detail));
@@ -171,10 +205,17 @@ async function startGame(stage, rating, resumeState = null) {
   const ms = getMonsterSpeed(stage);
   const tl = getTimeLimit(stage);
   const heldItems = save.heldItems || [];
-  const pb = save.persistentBonus;
+  // 신화 소모템(회피/동결 부적) — resumeState가 있으면(앱이 스테이지 도중 재시작된
+  // 경우) 직전 스테이지 시작 때 이미 소모됐어야 하므로 다시 소모하지 않는다.
+  const useRepel  = !resumeState && (save.pendingRepelCharm  || 0) > 0;
+  const useFreeze = !resumeState && (save.pendingFreezeCharm || 0) > 0;
   await game.init(stage, rating, mc, ms, tl, heldItems, resumeState,
-    { gunLevel: pb?.gunLevel||0, swordLevel: pb?.swordLevel||0, bulletLevel: pb?.bulletLevel||0 });
+    { gunLevel: pb?.gunLevel||0, swordLevel: pb?.swordLevel||0, bulletLevel: pb?.bulletLevel||0,
+      guardianOrb: !!pb?.guardianOrb, phoenixHeart: !!pb?.phoenixHeart, midasTouch: !!pb?.midasTouch,
+      repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0 });
   if (!resumeState) {
+    if (useRepel)  save.pendingRepelCharm  -= 1;
+    if (useFreeze) save.pendingFreezeCharm -= 1;
     if (save.bonusLives > 0) {
       game.lives += save.bonusLives;
       save.bonusLives = 0;
@@ -360,23 +401,28 @@ function setupInput(canvas, g) {
     dpad('dpad-left', -1,  0), dpad('dpad-right', 1,  0),
   ];
 
-  // Canvas click/touch for lightning mode
+  // Canvas click/touch: 번개 조준 발사 + 선택된 총/칼 발사
   const _lightningFire = (clientX, clientY) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width  / rect.width;
     const scaleY = canvas.height / rect.height;
     g.triggerLightning((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY);
   };
+  // 총/칼이 "선택된 무기"(activeWeapon)로 표시돼 있으면, 무기 버튼을 다시 탭하지
+  // 않고 화면 아무 곳이나 탭해도 같은 무기가 발동한다 (번개의 탭-발사 방식과 통일).
+  const _isFireableWeaponActive = () => g.activeWeapon === 'gun' || g.activeWeapon === 'sword';
   const onCanvasClick = e => {
-    if (!g.lightningMode) return;
-    e.preventDefault();
-    _lightningFire(e.clientX, e.clientY);
+    if (g.lightningMode) { e.preventDefault(); _lightningFire(e.clientX, e.clientY); return; }
+    if (_isFireableWeaponActive()) { e.preventDefault(); g.useActiveWeapon(); }
   };
   const onCanvasTouchEnd = e => {
-    if (!g.lightningMode) return;
-    e.preventDefault();
-    const t = e.changedTouches[0];
-    _lightningFire(t.clientX, t.clientY);
+    if (g.lightningMode) {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      _lightningFire(t.clientX, t.clientY);
+      return;
+    }
+    if (_isFireableWeaponActive()) { e.preventDefault(); g.useActiveWeapon(); }
   };
   canvas.addEventListener('click',    onCanvasClick);
   canvas.addEventListener('touchend', onCanvasTouchEnd, { passive: false });
@@ -394,7 +440,7 @@ function setupInput(canvas, g) {
     }
   };
   const onTE = e => {
-    if (g.lightningMode) return; // lightning touchend는 onCanvasTouchEnd가 처리
+    if (g.lightningMode || _isFireableWeaponActive()) return; // 발사는 onCanvasTouchEnd가 처리
     if (!isContinuous()) g.setDirection(0, 0);
   };
   canvas.addEventListener('touchstart', onTS, { passive: false });
@@ -589,6 +635,9 @@ async function showCollectionPick(completedStage) {
       if (isFull) save.collection.shift();
       save.collection.push(selectedStage);
     }
+    // 소장품 화면을 실제로 완료한 시점에만 pending 플래그를 지운다 (특전 화면과
+    // 동일한 이유 — 진입 시점에 지우면 화면에 머무는 동안 새로고침 시 스킵됨).
+    save.pendingCollectionStage = 0;
     Storage.save(save);
     advanceAfterClear();
   };
@@ -823,12 +872,15 @@ async function onPackBuy(packId) {
 })();
 
 // ── Reward Screen ────────────────────────────────────────────
+// 특전 화면을 실제로 다 거친(계속하기/건너뛰기를 누른) 시점에야 pendingRewardStage를
+// save에서 지운다 — 화면에 진입만 한 시점에 지워버리면, 특전 이미지 생성이 실패해
+// 화면에 머물러 있는 동안 새로고침했을 때 특전 기회 자체가 조용히 날아가 버린다.
 function proceedAfterReward() {
+  save.pendingRewardStage = 0;
+  Storage.save(save);
   if (pendingCollectionStage > 0) {
     const s = pendingCollectionStage;
     pendingCollectionStage = 0;
-    save.pendingCollectionStage = 0;
-    Storage.save(save);
     showCollectionPick(s);
   } else {
     advanceAfterClear();
@@ -839,9 +891,10 @@ function proceedAfterReward() {
 // 300단계 클리어 직후라면 다음 스테이지를 시작하는 대신 게임 클리어 안내를 띄운다.
 function advanceAfterClear() {
   if (pendingGameComplete) {
+    // save.pendingGameComplete는 모달을 실제로 닫을 때(btn-complete-yes/no)
+    // 지운다 — 여기서 미리 지우면 모달이 떠 있는 동안 새로고침 시 안내 없이
+    // 스킵된다 (특전/소장품 화면과 동일한 이유).
     pendingGameComplete = false;
-    save.pendingGameComplete = false;
-    Storage.save(save);
     showGameCompleteModal();
     return;
   }
@@ -983,17 +1036,16 @@ $('btn-back-gallery').onclick = () => show('main');
 // $('btn-pack-all').onclick = () => onPackBuy('pack_all');
 
 $('btn-next-stage').onclick = () => {
+  // save.pendingRewardStage/pendingCollectionStage는 여기서 지우지 않는다 — 해당
+  // 화면을 실제로 완료했을 때(proceedAfterReward/confirmBtn.onclick)만 지워야,
+  // 화면에 머무는 동안 새로고침해도 boot()에서 같은 화면으로 복귀할 수 있다.
   if (pendingRewardStage > 0) {
     const s = pendingRewardStage;
     pendingRewardStage = 0;
-    save.pendingRewardStage = 0;
-    Storage.save(save);
     showRewardScreen(s);
   } else if (pendingCollectionStage > 0) {
     const s = pendingCollectionStage;
     pendingCollectionStage = 0;
-    save.pendingCollectionStage = 0;
-    Storage.save(save);
     showCollectionPick(s);
   } else {
     advanceAfterClear();
@@ -1017,8 +1069,10 @@ $('btn-reset-confirm').onclick = () => {
   $('modal-reset').classList.remove('active');
   save = Storage.load();
   save.stage = 1; save.bestStage = 0; save.gallery = []; save.heldItems = []; save.collection = [];
-  save.totalScore = 0; save.bonusLives = 0;
-  save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0 };
+  save.totalScore = 0; save.bonusLives = 0; save.mythicUnlockShown = false;
+  save.pendingRepelCharm = 0; save.pendingFreezeCharm = 0;
+  save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, guardianOrb: false,
+    phoenixHeart: false, midasTouch: false, territoryMark: false };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1031,17 +1085,23 @@ $('btn-reset-confirm').onclick = () => {
 // 아니오: 스테이지 1부터 새로 시작 — 갤러리·소장품·특전 이미지·무기 정보를 비우되, 누적 점수는 유지.
 $('btn-complete-yes').onclick = () => {
   $('modal-game-complete').classList.remove('active');
+  save.pendingGameComplete = false;
+  Storage.save(save);
   // save.stage는 onStageClear에서 이미 301로 증가해둔 상태 — 그대로 이어서 시작.
   startGame(save.stage, save.rating);
 };
 $('btn-complete-no').onclick = () => {
   $('modal-game-complete').classList.remove('active');
+  save.pendingGameComplete = false;
   save.stage = 1;
   save.gallery = [];
   save.collection = [];
   save.rewardImages = [];
   save.heldItems = [];
-  save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0 };
+  save.mythicUnlockShown = false;
+  save.pendingRepelCharm = 0; save.pendingFreezeCharm = 0;
+  save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
+    phoenixHeart: false, midasTouch: false, territoryMark: false };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1067,6 +1127,10 @@ function getUpgradeCaps() {
   return { gun: GUN_BASE_CAP * mult, bullet: BULLET_BASE_CAP * mult, sword: SWORD_BASE_CAP * mult };
 }
 
+// 51단계부터 레어 등급 상점이 마감되고 신화 등급이 해금된다 (오래 플레이해서
+// 포인트가 넉넉히 쌓인 유저에게 낯익은 레어템 대신 새로운 목표를 준다).
+const MYTHIC_UNLOCK_STAGE = 51;
+
 function getMarketItems() {
   const pb      = save.persistentBonus || {};
   const speedLv = pb.speedLevel || 0;
@@ -1076,6 +1140,7 @@ function getMarketItems() {
   // 넘기거나(스피드) 터지면(황금버블) 소모되므로, 이미 보유 중일 때만 목록에서 숨긴다.
   const hasSpeedItem  = save.heldItems.some(h => h.type === 'speed');
   const hasRareBubble = save.heldItems.some(h => h.type === 'rareBubble');
+  const mythicUnlocked = save.stage >= MYTHIC_UNLOCK_STAGE;
   const caps = getUpgradeCaps();
   // 분열 아이템은 스테이지당 최대 2개까지만 구매 가능 (무제한 파밍 방지).
   // save.splitBuyStage에 마지막으로 센 스테이지 번호를 저장해두고, 현재
@@ -1091,17 +1156,56 @@ function getMarketItems() {
     ...(splitBuyCount < SPLIT_BUY_LIMIT ? [{ id:'splitCharge', tier:'normal', cost:4000, icon:'💥',
       name:t('market.item.splitCharge.name'),
       desc:t('market.item.splitCharge.desc', { count: splitBuyCount, max: SPLIT_BUY_LIMIT }) }] : []),
-    // Rare
-    { id:'rareLife',       tier:'rare',   cost:12000, icon:'❤️‍🔥', name:t('market.item.rareLife.name'),  desc:t('market.item.rareLife.desc') },
-    { id:'rareClock',      tier:'rare',   cost:10000, icon:'🕰️', name:t('market.item.rareClock.name'),  desc:t('market.item.rareClock.desc') },
   ];
-  if (speedLv < 1) items.push(
-    { id:'endureSpeed',    tier:'rare',   cost:15000, icon:'💫', name:t('market.item.endureSpeed.name'), desc:t('market.item.endureSpeed.desc') }
-  );
-  if (speedLv < 2) items.push(
-    { id:'transcendSpeed', tier:'rare',   cost:20000, icon:'🌀', name:t('market.item.transcendSpeed.name'),
-      desc:t('market.item.transcendSpeed.desc') + (speedLv===1 ? t('market.item.transcendSpeed.replaceNote') : '') }
-  );
+  // Rare — 51단계(MYTHIC_UNLOCK_STAGE) 이후로는 상점에서 완전히 사라진다.
+  if (!mythicUnlocked) {
+    items.push(
+      { id:'rareLife',       tier:'rare',   cost:12000, icon:'❤️‍🔥', name:t('market.item.rareLife.name'),  desc:t('market.item.rareLife.desc') },
+      { id:'rareClock',      tier:'rare',   cost:10000, icon:'🕰️', name:t('market.item.rareClock.name'),  desc:t('market.item.rareClock.desc') },
+    );
+    if (speedLv < 1) items.push(
+      { id:'endureSpeed',    tier:'rare',   cost:15000, icon:'💫', name:t('market.item.endureSpeed.name'), desc:t('market.item.endureSpeed.desc') }
+    );
+    if (speedLv < 2) items.push(
+      { id:'transcendSpeed', tier:'rare',   cost:20000, icon:'🌀', name:t('market.item.transcendSpeed.name'),
+        desc:t('market.item.transcendSpeed.desc') + (speedLv===1 ? t('market.item.transcendSpeed.replaceNote') : '') }
+    );
+  }
+  // Mythic — 51단계부터 해금. 레어 상점이 마감된 자리를 채운다.
+  // 영구템(1회 구매, 이미 보유 중이면 목록에서 빠짐)은 전부 500,000pt 이상으로 책정,
+  // 소모템(구매할 때마다 개수가 쌓여 계속 다시 살 수 있음)은 적당히 저렴하게 책정했다.
+  if (mythicUnlocked) {
+    if (!pb.guardianOrb) items.push(
+      { id:'guardianOrb', tier:'mythic', cost:1000000, icon:'🔮',
+        name:t('market.item.guardianOrb.name'), desc:t('market.item.guardianOrb.desc') }
+    );
+    if (!pb.phoenixHeart) items.push(
+      { id:'phoenixHeart', tier:'mythic', cost:700000, icon:'🔥',
+        name:t('market.item.phoenixHeart.name'), desc:t('market.item.phoenixHeart.desc') }
+    );
+    if (!pb.midasTouch) items.push(
+      { id:'midasTouch', tier:'mythic', cost:800000, icon:'💰',
+        name:t('market.item.midasTouch.name'), desc:t('market.item.midasTouch.desc') }
+    );
+    if (!pb.territoryMark) items.push(
+      { id:'territoryMark', tier:'mythic', cost:900000, icon:'🗺️',
+        name:t('market.item.territoryMark.name'), desc:t('market.item.territoryMark.desc') }
+    );
+    // 소모템 3종 — 구매 즉시(주사위) 또는 다음 스테이지 시작 시(회피/동결 부적) 적용되고,
+    // 몇 개를 갖고 있는지 설명에 보여줘 계속 사도 되는 소모품임을 알 수 있게 한다.
+    const repelCount  = save.pendingRepelCharm  || 0;
+    const freezeCount = save.pendingFreezeCharm || 0;
+    items.push(
+      { id:'repelCharm', tier:'mythic', cost:12000, icon:'🧲',
+        name:t('market.item.repelCharm.name'),
+        desc:t('market.item.repelCharm.desc', { count: repelCount }) },
+      { id:'freezeCharm', tier:'mythic', cost:10000, icon:'⏳',
+        name:t('market.item.freezeCharm.name'),
+        desc:t('market.item.freezeCharm.desc', { count: freezeCount }) },
+      { id:'diceOfFate', tier:'mythic', cost:6000, icon:'🎲',
+        name:t('market.item.diceOfFate.name'), desc:t('market.item.diceOfFate.desc') },
+    );
+  }
   // Legend — conditional
   if (!hasSword) items.push(
     { id:'sword',          tier:'legend', cost:30000, icon:'⚔️', name:t('market.item.sword.name'), desc:t('market.item.sword.desc') }
@@ -1213,13 +1317,40 @@ function _mergeHeldItem(heldItems, item) {
 }
 
 function tierLabel(tier) {
-  return { normal: t('market.tierNormal'), rare: t('market.tierRare'), legend: t('market.tierLegend') }[tier] || tier;
+  return { normal: t('market.tierNormal'), rare: t('market.tierRare'), legend: t('market.tierLegend'), mythic: t('market.tierMythic') }[tier] || tier;
+}
+
+// 운명의 주사위 — 구매 즉시 결과가 나오는 도박성 소모템. 가중치 순서대로 굴려 첫 당첨
+// 구간에 해당하는 효과를 save에 바로 적용하고, 결과 안내 토스트 문구를 반환한다.
+function _rollDiceOfFate() {
+  const roll = Math.random() * 100;
+  let acc = 0;
+  const table = [
+    { weight: 40, apply: () => t('market.dice.bust') },
+    { weight: 25, apply: () => { save.totalScore += 10000; return t('market.dice.small', { n: '10,000' }); } },
+    { weight: 15, apply: () => { save.totalScore += 30000; return t('market.dice.small', { n: '30,000' }); } },
+    { weight: 10, apply: () => { save.bonusLives = (save.bonusLives || 0) + 1; return t('market.dice.life'); } },
+    { weight: 7,  apply: () => { save.totalScore += 100000; return t('market.dice.big', { n: '100,000' }); } },
+    { weight: 3,  apply: () => { save.totalScore += 300000; return t('market.dice.jackpot', { n: '300,000' }); } },
+  ];
+  for (const entry of table) {
+    acc += entry.weight;
+    if (roll < acc) return entry.apply();
+  }
+  return table[0].apply(); // 안전망 — 가중치 합이 100 미만으로 남는 실수를 방지
 }
 
 function showMarket() {
   if (!save.totalScore) save.totalScore = 0;
   if (!save.persistentBonus) save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0 };
   $('market-total-score').textContent = save.totalScore.toLocaleString();
+
+  // 51단계 진입 후 처음 상점을 열었을 때 한 번만: 레어 상점 마감 · 신화 등급 해금 안내.
+  if (save.stage >= MYTHIC_UNLOCK_STAGE && !save.mythicUnlockShown) {
+    save.mythicUnlockShown = true;
+    Storage.save(save);
+    _showMarketToast(t('market.mythicUnlockToast'));
+  }
 
   // Show persistent bonus summary
   const pb = save.persistentBonus;
@@ -1238,6 +1369,10 @@ function showMarket() {
   if (pb.gunLevel    > 0) pbParts.push(t('market.pbGunLevel', { n: pb.gunLevel }));
   if (pb.bulletLevel > 0) pbParts.push(t('market.pbBulletLevel', { n: pb.bulletLevel }));
   if (pb.swordLevel  > 0) pbParts.push(t('market.pbSwordLevel', { n: pb.swordLevel }));
+  if (pb.guardianOrb)     pbParts.push(t('market.pbGuardianOrb'));
+  if (pb.phoenixHeart)    pbParts.push(t('market.pbPhoenixHeart'));
+  if (pb.midasTouch)      pbParts.push(t('market.pbMidasTouch'));
+  if (pb.territoryMark)   pbParts.push(t('market.pbTerritoryMark'));
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
     ? `<b>${t('market.pbTitle')}</b><br>${pbParts.join(' · ')}` : '';
@@ -1272,6 +1407,7 @@ function showMarket() {
       }
       save.totalScore -= mi.cost;
       if (!save.persistentBonus) save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0 };
+      let diceToastMsg = null; // 운명의 주사위 결과 — 있으면 구매 토스트 대신 이걸 보여준다
       if (mi.id === 'splitCharge') {
         if (save.splitBuyStage !== save.stage) { save.splitBuyStage = save.stage; save.splitBuysCount = 0; }
         save.splitBuysCount = (save.splitBuysCount || 0) + 1;
@@ -1286,6 +1422,28 @@ function showMarket() {
         save.persistentBonus.speedLevel = 1;
       } else if (mi.id === 'transcendSpeed') {
         save.persistentBonus.speedLevel = 2;
+      } else if (mi.id === 'guardianOrb') {
+        // 신화 등급 영구템: 적과 부딪혀도 원위치로 돌아가지 않고 그리던 선을 유지한 채
+        // 계속 땅따먹기할 수 있다 (목숨은 동일하게 1 깎임) — game.js _onLoseLife 참고.
+        save.persistentBonus.guardianOrb = true;
+      } else if (mi.id === 'phoenixHeart') {
+        // 신화 등급 영구템: 목숨이 0이 되어도 스테이지당 1회 즉시 부활 — game.js _onLoseLife 참고.
+        save.persistentBonus.phoenixHeart = true;
+      } else if (mi.id === 'midasTouch') {
+        // 신화 등급 영구템: 스테이지 클리어 보너스(시간/스테이지/영역/전멸) +30% — game.js _onStageClear 참고.
+        save.persistentBonus.midasTouch = true;
+      } else if (mi.id === 'territoryMark') {
+        // 신화 등급 영구템: 클리어 판정 기준선을 75%→70%로 영구 하향 — startGame()의 clearThreshold 참고.
+        save.persistentBonus.territoryMark = true;
+      } else if (mi.id === 'repelCharm') {
+        // 소모템: 다음 스테이지 시작 시 15초간 몬스터가 플레이어를 피해다닌다. 개수 누적.
+        save.pendingRepelCharm = (save.pendingRepelCharm || 0) + 1;
+      } else if (mi.id === 'freezeCharm') {
+        // 소모템: 다음 스테이지 시작 시 5초간 몬스터가 완전히 멈춘다. 개수 누적.
+        save.pendingFreezeCharm = (save.pendingFreezeCharm || 0) + 1;
+      } else if (mi.id === 'diceOfFate') {
+        // 소모템: 구매 즉시 결과가 나오는 도박성 아이템 — 별도 토스트로 결과를 안내한다.
+        diceToastMsg = _rollDiceOfFate();
       } else if (mi.id === 'swordUpgrade') {
         const ex = save.heldItems.find(h => h.type === 'sword');
         if (ex) ex.count = 2;
@@ -1310,7 +1468,7 @@ function showMarket() {
       Storage.save(save);
       updateMainStats();
       showMarket();
-      _showMarketToast(t('market.buyToast', { icon: mi.icon, name: mi.name }));
+      _showMarketToast(diceToastMsg || t('market.buyToast', { icon: mi.icon, name: mi.name }));
     });
     list.appendChild(card);
   }
@@ -1363,22 +1521,19 @@ async function boot() {
   api.getBatchStatus(0).catch(() => {});
 
   await new Promise(r => setTimeout(r, 800));
+  // save.pending*은 여기서 지우지 않는다 — 해당 화면을 실제로 완료했을 때만
+  // 지워야, 화면에 머무는 동안(예: 특전 이미지 생성 실패) 새로고침해도 같은
+  // 화면으로 복귀하며 진행 상황이 유실되지 않는다.
   if (pendingRewardStage > 0) {
     const s = pendingRewardStage;
     pendingRewardStage = 0;
-    save.pendingRewardStage = 0;
-    Storage.save(save);
     showRewardScreen(s);
   } else if (pendingCollectionStage > 0) {
     const s = pendingCollectionStage;
     pendingCollectionStage = 0;
-    save.pendingCollectionStage = 0;
-    Storage.save(save);
     showCollectionPick(s);
   } else if (pendingGameComplete) {
     pendingGameComplete = false;
-    save.pendingGameComplete = false;
-    Storage.save(save);
     show('main');
     showGameCompleteModal();
   } else {
