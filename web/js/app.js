@@ -8,6 +8,7 @@ import {
 import {
   COLS, ROWS, PLAYER_SPEED, CLEAR_THRESHOLD, MAX_STAGE,
   getMonsterCount, getMonsterSpeed, getTimeLimit, getBatchIndex, toImageStage, getLoopMultiplier,
+  GUN_BASE_CAP, BULLET_BASE_CAP, SWORD_BASE_CAP, PET_BASE_CAP,
 } from './config.js';
 import { t, onLangChange } from './i18n.js';
 import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds } from './ads.js';
@@ -209,10 +210,14 @@ async function startGame(stage, rating, resumeState = null) {
   // 경우) 직전 스테이지 시작 때 이미 소모됐어야 하므로 다시 소모하지 않는다.
   const useRepel  = !resumeState && (save.pendingRepelCharm  || 0) > 0;
   const useFreeze = !resumeState && (save.pendingFreezeCharm || 0) > 0;
+  // 신화 등급 "방패"는 스테이지 시작 순간의 연출이라 이어하기(resumeState)에는 재적용하지 않는다
+  // (회피/동결 부적과 동일한 이유 — 이미 그 스테이지 시작 때 한 번 소진됐어야 함).
+  const shieldSeconds = !resumeState ? Math.min(pb?.mythicShieldLevel || 0, MYTHIC_SHIELD_MAX) : 0;
   await game.init(stage, rating, mc, ms, tl, heldItems, resumeState,
     { gunLevel: pb?.gunLevel||0, swordLevel: pb?.swordLevel||0, bulletLevel: pb?.bulletLevel||0,
       guardianOrb: !!pb?.guardianOrb, phoenixHeart: !!pb?.phoenixHeart, midasTouch: !!pb?.midasTouch,
-      repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0 });
+      petCount: pb?.petCount||0, petLevel: pb?.petLevel||0,
+      repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0, shieldSeconds });
   if (!resumeState) {
     if (useRepel)  save.pendingRepelCharm  -= 1;
     if (useFreeze) save.pendingFreezeCharm -= 1;
@@ -1071,8 +1076,8 @@ $('btn-reset-confirm').onclick = () => {
   save.stage = 1; save.bestStage = 0; save.gallery = []; save.heldItems = []; save.collection = [];
   save.totalScore = 0; save.bonusLives = 0; save.mythicUnlockShown = false;
   save.pendingRepelCharm = 0; save.pendingFreezeCharm = 0;
-  save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, guardianOrb: false,
-    phoenixHeart: false, midasTouch: false, territoryMark: false };
+  save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
+    phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0 };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1101,7 +1106,7 @@ $('btn-complete-no').onclick = () => {
   save.mythicUnlockShown = false;
   save.pendingRepelCharm = 0; save.pendingFreezeCharm = 0;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
-    phoenixHeart: false, midasTouch: false, territoryMark: false };
+    phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0 };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1118,13 +1123,26 @@ $('modal-alert').addEventListener('pointerdown', e => {
 });
 
 // ── Market ───────────────────────────────────────────────────
-// 무기 강화(총/총탄/칼) 상한 — 1회차(1~300단계) 기준치. 300단계를 한 바퀴 돌 때마다
+// 무기 강화(총/총탄/칼/펫) 상한 — 1회차(1~300단계) 기준치. 300단계를 한 바퀴 돌 때마다
 // 몹 체력이 직전 루프보다 2배씩 강해지는 것과 밸런스를 맞추기 위해, 루프마다
-// (getLoopMultiplier) 2배씩 계속 풀린다.
-const GUN_BASE_CAP = 111, BULLET_BASE_CAP = 100, SWORD_BASE_CAP = 100;
+// (getLoopMultiplier) 2배씩 계속 풀린다. 실제 상수는 game.js와 공유하도록 config.js에 둔다.
 function getUpgradeCaps() {
   const mult = getLoopMultiplier(save.stage);
-  return { gun: GUN_BASE_CAP * mult, bullet: BULLET_BASE_CAP * mult, sword: SWORD_BASE_CAP * mult };
+  return { gun: GUN_BASE_CAP * mult, bullet: BULLET_BASE_CAP * mult, sword: SWORD_BASE_CAP * mult, pet: PET_BASE_CAP * mult };
+}
+
+// 신화 등급 "방패" — 스테이지 시작 시 무적 시간을 1초씩 늘려주는 영구템. 최대 5초(5회)까지
+// 누적 구매 가능하고, 살 때마다 다음 구매 가격이 50만씩 비싸진다.
+const MYTHIC_SHIELD_MAX = 5;
+function getMythicShieldCost(currentLevel) {
+  return 500000 * (currentLevel + 1);
+}
+
+// 신화 등급 "펫강화" 비용 — 1강화(1,000,000pt)에서 최대강화(cap, 100,000,000pt)까지
+// 지수적으로 증가한다 (강화로 쌓인 포인트를 소진시키기 위한 의도적인 포인트 싱크).
+function getPetUpgradeCost(nextLevel, cap) {
+  const p = cap > 1 ? (nextLevel - 1) / (cap - 1) : 1;
+  return Math.round(1000000 * Math.pow(100, p) / 10000) * 10000;
 }
 
 // 51단계부터 레어 등급 상점이 마감되고 신화 등급이 해금된다 (오래 플레이해서
@@ -1190,6 +1208,26 @@ function getMarketItems() {
     if (!pb.territoryMark) items.push(
       { id:'territoryMark', tier:'mythic', cost:900000, icon:'🗺️',
         name:t('market.item.territoryMark.name'), desc:t('market.item.territoryMark.desc') }
+    );
+    // 방패 — 스테이지 시작 시 무적 시간 +1초(최대 5초), 살 때마다 50만씩 비싸짐.
+    const shieldLv = pb.mythicShieldLevel || 0;
+    if (shieldLv < MYTHIC_SHIELD_MAX) items.push(
+      { id:'mythicShield', tier:'mythic', cost:getMythicShieldCost(shieldLv), icon:'🛡️',
+        name:t('market.item.mythicShield.name'),
+        desc:t('market.item.mythicShield.desc', { sec: shieldLv + 1, max: MYTHIC_SHIELD_MAX }) }
+    );
+    // 펫 — 최대 2마리, 마리당 500만pt 고정가.
+    const petCount = pb.petCount || 0;
+    if (petCount < 2) items.push(
+      { id:'pet', tier:'mythic', cost:5000000, icon:'🐿️',
+        name:t('market.item.pet.name'), desc:t('market.item.pet.desc', { count: petCount, max: 2 }) }
+    );
+    // 펫강화 — 펫을 1마리 이상 보유해야 표시, 100만→최대 1억pt.
+    const petLv = pb.petLevel || 0, petCap = caps.pet;
+    if (petCount > 0 && petLv < petCap) items.push(
+      { id:'petUpgrade', tier:'mythic', cost:getPetUpgradeCost(petLv + 1, petCap), icon:'🔧',
+        name:t('market.item.petUpgrade.name', { from: t('market.unitLevel', { n: petLv }), to: t('market.unitLevel', { n: petLv + 1 }) }),
+        desc:t('market.item.petUpgrade.desc', { to: petLv + 1, max: petCap }) }
     );
     // 소모템 3종 — 구매 즉시(주사위) 또는 다음 스테이지 시작 시(회피/동결 부적) 적용되고,
     // 몇 개를 갖고 있는지 설명에 보여줘 계속 사도 되는 소모품임을 알 수 있게 한다.
@@ -1326,12 +1364,21 @@ function _rollDiceOfFate() {
   const roll = Math.random() * 100;
   let acc = 0;
   const table = [
-    { weight: 40, apply: () => t('market.dice.bust') },
+    { weight: 39, apply: () => t('market.dice.bust') },
     { weight: 25, apply: () => { save.totalScore += 10000; return t('market.dice.small', { n: '10,000' }); } },
     { weight: 15, apply: () => { save.totalScore += 30000; return t('market.dice.small', { n: '30,000' }); } },
     { weight: 10, apply: () => { save.bonusLives = (save.bonusLives || 0) + 1; return t('market.dice.life'); } },
     { weight: 7,  apply: () => { save.totalScore += 100000; return t('market.dice.big', { n: '100,000' }); } },
     { weight: 3,  apply: () => { save.totalScore += 300000; return t('market.dice.jackpot', { n: '300,000' }); } },
+    // 1% 확률로 펫 1마리 — 500만pt짜리 신화템을 공짜로 얻는 초희귀 당첨. 이미 2마리를
+    // 다 보유해 지급할 수 없으면, 당첨이 헛되지 않도록 그만큼의 포인트로 대신 지급한다.
+    { weight: 1,  apply: () => {
+        if (!save.persistentBonus) save.persistentBonus = { extraLives:0, extraTime:0, speedLevel:0, gunLevel:0, swordLevel:0, bulletLevel:0 };
+        const pb = save.persistentBonus;
+        if ((pb.petCount || 0) < 2) { pb.petCount = (pb.petCount || 0) + 1; return t('market.dice.pet'); }
+        save.totalScore += 5000000;
+        return t('market.dice.petAlt', { n: '5,000,000' });
+      } },
   ];
   for (const entry of table) {
     acc += entry.weight;
@@ -1373,6 +1420,8 @@ function showMarket() {
   if (pb.phoenixHeart)    pbParts.push(t('market.pbPhoenixHeart'));
   if (pb.midasTouch)      pbParts.push(t('market.pbMidasTouch'));
   if (pb.territoryMark)   pbParts.push(t('market.pbTerritoryMark'));
+  if (pb.mythicShieldLevel > 0) pbParts.push(t('market.pbMythicShield', { n: Math.min(pb.mythicShieldLevel, MYTHIC_SHIELD_MAX) }));
+  if (pb.petCount > 0)    pbParts.push(t('market.pbPet', { n: pb.petCount, lv: pb.petLevel || 0 }));
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
     ? `<b>${t('market.pbTitle')}</b><br>${pbParts.join(' · ')}` : '';
@@ -1435,6 +1484,15 @@ function showMarket() {
       } else if (mi.id === 'territoryMark') {
         // 신화 등급 영구템: 클리어 판정 기준선을 75%→70%로 영구 하향 — startGame()의 clearThreshold 참고.
         save.persistentBonus.territoryMark = true;
+      } else if (mi.id === 'mythicShield') {
+        // 신화 등급 영구템: 스테이지 시작 시 무적 시간 +1초(최대 5초) — game.js init()의 shieldSeconds 참고.
+        save.persistentBonus.mythicShieldLevel = Math.min(MYTHIC_SHIELD_MAX, (save.persistentBonus.mythicShieldLevel || 0) + 1);
+      } else if (mi.id === 'pet') {
+        // 신화 등급 영구템: 펫 1마리 추가(최대 2마리) — game.js init()의 petCount 참고.
+        save.persistentBonus.petCount = Math.min(2, (save.persistentBonus.petCount || 0) + 1);
+      } else if (mi.id === 'petUpgrade') {
+        // 신화 등급 영구템: 펫강화 레벨 +1 — game.js의 _getPetPattern 참고.
+        save.persistentBonus.petLevel = Math.min(getUpgradeCaps().pet, (save.persistentBonus.petLevel || 0) + 1);
       } else if (mi.id === 'repelCharm') {
         // 소모템: 다음 스테이지 시작 시 15초간 몬스터가 플레이어를 피해다닌다. 개수 누적.
         save.pendingRepelCharm = (save.pendingRepelCharm || 0) + 1;

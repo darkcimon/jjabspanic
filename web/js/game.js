@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { MAX_STAGE, MAX_MONSTERS, toImageStage, getLoopMultiplier } from './config.js';
+import { MAX_STAGE, MAX_MONSTERS, toImageStage, getLoopMultiplier, GUN_BASE_CAP, BULLET_BASE_CAP, PET_BASE_CAP } from './config.js';
 
 // ── Cell states ──────────────────────────────────────────────
 const EMPTY    = 0;
@@ -18,7 +18,13 @@ const PI2  = Math.PI * 2;
 // 다시 같은 곡선으로 증가하도록, 루프 수만큼 (2×300단계 체력)을 거듭제곱해 곱한다.
 function _stageHPBase(s) {
   if (s <= 10) return 1;
-  return Math.max(1, Math.ceil(Math.pow(s / 10, 1.5)));
+  if (s <= 100) return Math.max(1, Math.ceil(Math.pow(s / 10, 1.5)));
+  // 100단계를 넘어서면 만렙 총(GUN_BASE_CAP, 데미지=강화 레벨)으로 한 발 맞혀도
+  // 두 방엔 못 죽도록, 체력을 "총 최고 데미지의 2배 남짓"만큼 한 번에 끌어올린 뒤
+  // 그 위에 기존 곡선을 그대로 얹는다 — 100단계를 넘어서는 순간 확 세지는
+  // 긴장감을 주면서도, 이 상수(tensionFloor)가 항상 2배 마진을 보장한다.
+  const tensionFloor = Math.ceil(GUN_BASE_CAP * 2.2);
+  return tensionFloor + Math.ceil(Math.pow(s / 10, 1.5));
 }
 function getStageHP(stage) {
   const loop = Math.floor((stage - 1) / MAX_STAGE);
@@ -841,6 +847,92 @@ function _getSwordAttrs(level, cs) {
   return {reach, arcHalf, bulletEvery, bulletDmg, bulletR, color:COLORS[Math.min(Math.floor(level/10),9)]};
 }
 
+// ── Pet ──────────────────────────────────────────────────────
+// 신화 등급 "펫" — 본체 주위를 도는 위성처럼 배치되며, 본캐가 칼/총을 쓸 때
+// 같은 공격을 자기 위치에서도 그대로 재현한다(useSword/useGun 참고). 펫강화를
+// 하면 이와 별개로 스스로 자동 발사도 시작한다(_getPetPattern/PetBullet 참고).
+class Pet {
+  constructor(index) {
+    this.index = index;
+    this.angle = index * Math.PI; // 두 마리면 서로 반대편에서 시작
+    this.px = 0; this.py = 0;
+    this.fireTimer = rnd(0.3, 0.8);
+  }
+}
+
+// 펫 자동발사 총알 — 일반 PlayerBullet과 달리 homing이면 매 프레임 가장 가까운
+// 몹 쪽으로 서서히 조향한다. 관통 없이 처음 맞힌 몹 하나에만 데미지를 주고 소멸.
+class PetBullet {
+  constructor(px, py, vx, vy, dmg, r, homing = false) {
+    this.px = px; this.py = py; this.vx = vx; this.vy = vy;
+    this.dmg = dmg; this.r = r; this.homing = homing;
+    this.life = 5; this.dead = false;
+  }
+  update(dt, grid, cs, monsters) {
+    this.life -= dt;
+    if (this.life <= 0) { this.dead = true; return; }
+    if (this.homing && monsters.length > 0) {
+      let nearest = null, bestD = Infinity;
+      for (const m of monsters) {
+        const dx = m.px - this.px, dy = m.py - this.py, d = dx * dx + dy * dy;
+        if (d < bestD) { bestD = d; nearest = m; }
+      }
+      if (nearest) {
+        const dx = nearest.px - this.px, dy = nearest.py - this.py, d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy) || 260;
+        const turn = Math.min(1, 6 * dt);
+        this.vx += ((dx / d) * speed - this.vx) * turn;
+        this.vy += ((dy / d) * speed - this.vy) * turn;
+      }
+    }
+    this.px += this.vx * dt; this.py += this.vy * dt;
+    const x = Math.floor(this.px / cs), y = Math.floor(this.py / cs);
+    if (x < 0 || x >= grid.cols || y < 0 || y >= grid.rows) this.dead = true;
+  }
+  hitsMonster(m) { const dx = this.px - m.px, dy = this.py - m.py; return dx * dx + dy * dy < (this.r + m.r) ** 2; }
+  draw(ctx) {
+    const g = ctx.createRadialGradient(this.px, this.py, 0, this.px, this.py, this.r * 2.2);
+    g.addColorStop(0, this.homing ? '#ff66ff' : '#66ffcc'); g.addColorStop(1, 'transparent');
+    ctx.beginPath(); ctx.arc(this.px, this.py, this.r * 2.2, 0, PI2); ctx.fillStyle = g; ctx.fill();
+    ctx.beginPath(); ctx.arc(this.px, this.py, this.r, 0, PI2); ctx.fillStyle = '#fff'; ctx.fill();
+  }
+}
+
+// 펫강화 레벨에 따른 자동발사 패턴. cap(=PET_BASE_CAP×루프배수)의 5/25/50/75/100%
+// 지점을 기준으로 10/50/100/150/200단(1회차 기준) 구간을 그대로 재현한다.
+//  - ~10단: 일직선 1발
+//  - ~50단: 중앙+양쪽 30도 부채꼴(구간 전반엔 2발, 후반엔 3발)
+//  - ~100단: 유도탄 1발
+//  - ~150단: 유도탄 + 발사 속도 점점 빨라짐
+//  - ~200단: 유도탄 + 최고 속도 + 총알 크기가 본캐 최대 총탄의 절반까지 커짐
+function _getPetPattern(lv, cap, cs, maxHalfR) {
+  if (lv <= 0) return null;
+  const t1 = Math.ceil(cap * 0.05), t2 = Math.ceil(cap * 0.25),
+        t3 = Math.ceil(cap * 0.5),  t4 = Math.ceil(cap * 0.75);
+  let bullets, homing = false;
+  if (lv <= t1) {
+    bullets = [{ angDeg: 0 }];
+  } else if (lv <= t2) {
+    const mid = Math.ceil((t1 + t2) / 2);
+    bullets = lv <= mid ? [{ angDeg: 30 }, { angDeg: -30 }] : [{ angDeg: 0 }, { angDeg: 30 }, { angDeg: -30 }];
+  } else {
+    bullets = [{ angDeg: 0 }];
+    homing = true;
+  }
+  let interval = 1.0;
+  if (lv > t3) {
+    const span = Math.max(1, t4 - t3);
+    interval = 1.0 - Math.min(1, (lv - t3) / span) * 0.6; // 1.0s → 0.4s
+  }
+  let r = cs * 0.22;
+  if (lv > t4) {
+    const span = Math.max(1, cap - t4);
+    r = cs * 0.22 + (maxHalfR - cs * 0.22) * Math.min(1, (lv - t4) / span);
+  }
+  const dmg = Math.max(1, Math.floor(lv / 5));
+  return { bullets, homing, interval, r, dmg };
+}
+
 // ── Game ─────────────────────────────────────────────────────
 export class Game extends EventTarget {
   constructor(canvas, opts={}) {
@@ -871,6 +963,7 @@ export class Game extends EventTarget {
     this._lastDx=0; this._lastDy=1;
     this._itemSchedule=[]; this._itemScheduleIdx=0; this._itemContinuousTimer=20;
     this._monsterSpeed=1;
+    this.pets=[]; this.petBullets=[]; this._petLevel=0; this._petCap=PET_BASE_CAP;
   }
 
   async init(stage, rating, _count, monsterSpeed, timeLimit, heldItems=[], resumeState=null, weaponLevels={}) {
@@ -903,6 +996,14 @@ export class Game extends EventTarget {
     this.phoenixHeart=!!weaponLevels.phoenixHeart; this._phoenixUsed=false;
     // 신화 등급 영구 아이템 "미다스의 손" — 스테이지 클리어 보너스 +30% (_onStageClear 참고).
     this.midasTouch=!!weaponLevels.midasTouch;
+    // 신화 등급 영구 아이템 "펫" — 최대 2마리, 본체 주위를 돌며 칼/총 사용 시 같은
+    // 공격을 자기 위치에서도 재현하고(useSword/useGun), 펫강화(petLevel)를 하면
+    // 별도로 자동 발사도 한다(_getPetPattern/PetBullet 참고).
+    this._petCap=PET_BASE_CAP*getLoopMultiplier(stage);
+    this._petLevel=Math.min(weaponLevels.petLevel||0,this._petCap);
+    this.pets=[];
+    for(let i=0;i<Math.min(2,weaponLevels.petCount||0);i++) this.pets.push(new Pet(i));
+    this.petBullets=[];
     const sp=this.heldItems.find(h=>h.type==='speed');
     if (sp) { this.speedActive=true; }
 
@@ -916,6 +1017,10 @@ export class Game extends EventTarget {
     const sp2=this.heldItems.find(h=>h.type==='speed');
     const spd=this.speedActive?(sp2?.level===2?this.PLAYER_SPEED*3:this.PLAYER_SPEED*2):this.PLAYER_SPEED;
     this.player=new Player(Math.floor(this.COLS/2),0,this.cs,spd);
+    // 신화 등급 영구 아이템 "방패" — 스테이지 시작 시 N초간 무적 (N=구매 횟수, 최대 5초).
+    // 기존 'shield' 습득 아이템과 동일한 shieldTimer를 재사용해 이펙트도 그대로 공유한다.
+    const startShield=weaponLevels.shieldSeconds||0;
+    if(startShield>0){ this.shieldTimer=startShield; this.player.invincible=true; this.player.invTimer=startShield; }
     this._spawnMonsters(monsterSpeed);
 
     // Item spawn schedule
@@ -949,7 +1054,7 @@ export class Game extends EventTarget {
     // 총알 크기: 총탄 업그레이드 레벨로 결정 (1단=블록 절반). 상한은 총탄 강화
     // 상한과 마찬가지로 300단계를 한 바퀴 돌 때마다 2배씩 계속 풀린다.
     const bLv = Math.max(1, this._bulletLevel || 1);
-    const bulletCap = 100 * getLoopMultiplier(this.stage);
+    const bulletCap = BULLET_BASE_CAP * getLoopMultiplier(this.stage);
     const sz  = Math.min(bLv, bulletCap);
     const r   = this.cs * (0.25 + (sz - 1) / 99 * 1.75);
 
@@ -1024,19 +1129,26 @@ export class Game extends EventTarget {
     const mainAngle=Math.atan2(dy,dx);
     const arcRad=arcHalf*Math.PI/180;
     const dmg=Math.max(1,Math.ceil(swordLv/10)+1);
+    // 펫 보유 시: 본캐와 동일한 칼질을 각 펫의 위치에서도 재현한다 (본캐 또는
+    // 어느 펫이든 한 곳이라도 닿으면 명중으로 처리).
+    const origins=[{x:this.player.px,y:this.player.py,gx:this.player.gx,gy:this.player.gy},
+      ...this.pets.map(p=>({x:p.px,y:p.py,gx:Math.floor(p.px/this.cs),gy:Math.floor(p.py/this.cs)}))];
     for(const m of this.monsters){
       let hit=false;
-      if(arcHalf>0){
-        const mdx=m.px-this.player.px,mdy=m.py-this.player.py;
-        const dist=Math.sqrt(mdx*mdx+mdy*mdy);
-        if(dist<=reach*this.cs+m.r){
-          let ad=Math.atan2(mdy,mdx)-mainAngle;
-          while(ad>Math.PI)ad-=2*Math.PI; while(ad<-Math.PI)ad+=2*Math.PI;
-          if(Math.abs(ad)<=arcRad) hit=true;
-        }
-      } else {
-        for(let i=1;i<=reach;i++){
-          if(m.gx===this.player.gx+dx*i&&m.gy===this.player.gy+dy*i){hit=true;break;}
+      for(const o of origins){
+        if(arcHalf>0){
+          const mdx=m.px-o.x,mdy=m.py-o.y;
+          const dist=Math.sqrt(mdx*mdx+mdy*mdy);
+          if(dist<=reach*this.cs+m.r){
+            let ad=Math.atan2(mdy,mdx)-mainAngle;
+            while(ad>Math.PI)ad-=2*Math.PI; while(ad<-Math.PI)ad+=2*Math.PI;
+            if(Math.abs(ad)<=arcRad){hit=true;break;}
+          }
+        } else {
+          for(let i=1;i<=reach;i++){
+            if(m.gx===o.gx+dx*i&&m.gy===o.gy+dy*i){hit=true;break;}
+          }
+          if(hit) break;
         }
       }
       if(hit) m.takeDamage(dmg);
@@ -1064,14 +1176,19 @@ export class Game extends EventTarget {
     const gunLv=this._gunLevel||0;
     const {dmg,r,bullets}=this._getGunPattern(gunLv);
     const speed=320;
-    for(const {angDeg,delay} of bullets){
-      const ang=mainAngle+angDeg*Math.PI/180;
-      const vx=Math.cos(ang)*speed,vy=Math.sin(ang)*speed;
-      const ox=this.player.px+Math.cos(mainAngle)*delay*this.cs;
-      const oy=this.player.py+Math.sin(mainAngle)*delay*this.cs;
-      const pb=new PlayerBullet(ox,oy,vx,vy,dmg,r);
-      pb.isGunBullet=true;
-      this.playerBullets.push(pb);
+    // 펫 보유 시: 본캐와 동일한 총알 패턴을 각 펫의 위치에서도 추가로 발사한다
+    // (탄약은 본캐 것 1회분만 소모 — 펫 몫을 별도로 깎지 않음).
+    const origins=[{x:this.player.px,y:this.player.py},...this.pets.map(p=>({x:p.px,y:p.py}))];
+    for(const o of origins){
+      for(const {angDeg,delay} of bullets){
+        const ang=mainAngle+angDeg*Math.PI/180;
+        const vx=Math.cos(ang)*speed,vy=Math.sin(ang)*speed;
+        const ox=o.x+Math.cos(mainAngle)*delay*this.cs;
+        const oy=o.y+Math.sin(mainAngle)*delay*this.cs;
+        const pb=new PlayerBullet(ox,oy,vx,vy,dmg,r);
+        pb.isGunBullet=true;
+        this.playerBullets.push(pb);
+      }
     }
     gun.ammo=Math.max(0,gun.ammo-1);
     if(gun.ammo<=0) this.heldItems=this.heldItems.filter(h=>h!==gun);
@@ -1444,6 +1561,40 @@ export class Game extends EventTarget {
       }
     }
     this.playerBullets=this.playerBullets.filter(pb=>!pb.dead);
+
+    // 펫 — 궤도 위치 갱신 + (강화돼 있으면) 자동 발사
+    if (this.pets.length>0) {
+      const orbitR=this.cs*1.4;
+      for (let i=0;i<this.pets.length;i++) {
+        const pet=this.pets[i];
+        pet.angle+=dt*1.6*(i%2===0?1:-1);
+        pet.px=this.player.px+Math.cos(pet.angle)*orbitR;
+        pet.py=this.player.py+Math.sin(pet.angle)*orbitR;
+        if (this._petLevel>0) {
+          pet.fireTimer-=dt;
+          if (pet.fireTimer<=0) {
+            const gunBulletCap=BULLET_BASE_CAP*getLoopMultiplier(this.stage);
+            const playerMaxR=this.cs*(0.25+(gunBulletCap-1)/99*1.75);
+            const pattern=_getPetPattern(this._petLevel,this._petCap,this.cs,playerMaxR/2);
+            pet.fireTimer=pattern.interval;
+            const baseAngle=Math.atan2(this._lastDy,this._lastDx);
+            for (const {angDeg} of pattern.bullets) {
+              const ang=baseAngle+angDeg*Math.PI/180;
+              this.petBullets.push(new PetBullet(pet.px,pet.py,Math.cos(ang)*260,Math.sin(ang)*260,pattern.dmg,pattern.r,pattern.homing));
+            }
+          }
+        }
+      }
+    }
+    for (const pb of this.petBullets) pb.update(dt,this.grid,this.cs,this.monsters);
+    for (const pb of this.petBullets) {
+      if (pb.dead) continue;
+      for (const m of this.monsters) {
+        if (pb.hitsMonster(m)) { m.takeDamage(pb.dmg); pb.dead=true; break; }
+      }
+    }
+    this.petBullets=this.petBullets.filter(pb=>!pb.dead);
+
     this.monsters=this.monsters.filter(m=>{ if (m.hp<=0) { this._spawnHitParticles(m.px,m.py); this.score+=_killScore(m); return false; } return true; });
 
     // Particles
@@ -1713,6 +1864,9 @@ export class Game extends EventTarget {
     // 10. Player bullets
     for (const pb of this.playerBullets) pb.draw(ctx);
 
+    // 10c. Pet bullets
+    for (const pb of this.petBullets) pb.draw(ctx);
+
     // 10b. Laser beams
     for(const lb of this.laserBeams) lb.draw(ctx);
 
@@ -1795,6 +1949,9 @@ export class Game extends EventTarget {
       ctx.translate(tr.x,tr.y); ctx.rotate(this._time*4+i*0.8);
       _drawStarShape(ctx,0,0,4,sz,sz*0.42); ctx.restore(); ctx.globalAlpha=1;
     }
+
+    // 13b. Pets (본캐보다 먼저 그려 겹칠 때 본캐가 위로 오게 함)
+    for (const pet of this.pets) this._drawPetSprite(ctx,cs,pet);
 
     // 14. Player
     this._drawCutePlayer(ctx,cs);
@@ -1880,6 +2037,39 @@ export class Game extends EventTarget {
       ctx.beginPath(); ctx.arc(-bubR*0.3,-bubR*0.4,bubR*0.32,Math.PI*1.1,Math.PI*1.65); ctx.stroke();
     }
 
+    this._drawSquirrelBody(ctx,h,isShield,t);
+
+    ctx.restore();
+
+    // Gun muzzle indicator (world coords, outside transform)
+    const hasGun=this.heldItems.find(hi=>hi.type==='gun');
+    if (hasGun) {
+      const gdx=this._lastDx, gdy=this._lastDy;
+      const mag=Math.sqrt(gdx*gdx+gdy*gdy)||1;
+      const nx=gdx/mag, ny=gdy/mag;
+      const ox=px+nx*cs*0.28, oy=py+bounce+ny*cs*0.28;
+      const ex=px+nx*cs*0.75, ey=py+bounce+ny*cs*0.75;
+      ctx.save();
+      ctx.lineCap='round';
+      // barrel body
+      ctx.strokeStyle='#778899'; ctx.lineWidth=Math.max(3,cs*0.1);
+      ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ex,ey); ctx.stroke();
+      // barrel highlight
+      ctx.strokeStyle='#aabbcc'; ctx.lineWidth=Math.max(1.5,cs*0.04);
+      const side=cs*0.02;
+      ctx.beginPath(); ctx.moveTo(ox-ny*side,oy+nx*side); ctx.lineTo(ex-ny*side,ey+nx*side); ctx.stroke();
+      // muzzle glow
+      const mg=ctx.createRadialGradient(ex,ey,0,ex,ey,cs*0.18);
+      mg.addColorStop(0,'rgba(0,255,255,0.9)'); mg.addColorStop(1,'transparent');
+      ctx.beginPath(); ctx.arc(ex,ey,cs*0.18,0,PI2); ctx.fillStyle=mg; ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // 다람쥐 캐릭터 몸체 그리기 — 본캐(_drawCutePlayer)와 펫(_drawPetSprite)이 공용으로
+  // 쓴다. 호출 전 ctx가 이미 캐릭터 중심으로 translate(+rotate/scale)돼 있다고 가정하며,
+  // 이 함수 안에서는 save/restore를 하지 않는다(호출부가 관리).
+  _drawSquirrelBody(ctx, h, isShield, t) {
     // Shield aura
     if (isShield) {
       const hue=(t*120)%360;
@@ -1969,31 +2159,18 @@ export class Game extends EventTarget {
     // Acorn sparkle accessory
     ctx.fillStyle='#ffe566';
     _drawStarShape(ctx,h*0.28,-h*0.76,4,Math.max(1.5,h*0.09),Math.max(0.8,h*0.04));
+  }
 
+  // 신화 등급 "펫" 렌더링 — 본캐와 같은 몸체를 1/3 크기로 그린다. 펫은 죽지 않는
+  // 보조 유닛이라 무적 깜빡임 등 본캐 전용 연출은 없다.
+  _drawPetSprite(ctx, cs, pet) {
+    const isShield=this.shieldTimer>0;
+    const t=this._time+pet.index*0.7;
+    const h=(cs*0.7)/3;
+    const bounce=Math.sin(t*3.5)*cs*0.03;
+    ctx.save();
+    ctx.translate(pet.px,pet.py+bounce);
+    this._drawSquirrelBody(ctx,h,isShield,t);
     ctx.restore();
-
-    // Gun muzzle indicator (world coords, outside transform)
-    const hasGun=this.heldItems.find(hi=>hi.type==='gun');
-    if (hasGun) {
-      const gdx=this._lastDx, gdy=this._lastDy;
-      const mag=Math.sqrt(gdx*gdx+gdy*gdy)||1;
-      const nx=gdx/mag, ny=gdy/mag;
-      const ox=px+nx*cs*0.28, oy=py+bounce+ny*cs*0.28;
-      const ex=px+nx*cs*0.75, ey=py+bounce+ny*cs*0.75;
-      ctx.save();
-      ctx.lineCap='round';
-      // barrel body
-      ctx.strokeStyle='#778899'; ctx.lineWidth=Math.max(3,cs*0.1);
-      ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ex,ey); ctx.stroke();
-      // barrel highlight
-      ctx.strokeStyle='#aabbcc'; ctx.lineWidth=Math.max(1.5,cs*0.04);
-      const side=cs*0.02;
-      ctx.beginPath(); ctx.moveTo(ox-ny*side,oy+nx*side); ctx.lineTo(ex-ny*side,ey+nx*side); ctx.stroke();
-      // muzzle glow
-      const mg=ctx.createRadialGradient(ex,ey,0,ex,ey,cs*0.18);
-      mg.addColorStop(0,'rgba(0,255,255,0.9)'); mg.addColorStop(1,'transparent');
-      ctx.beginPath(); ctx.arc(ex,ey,cs*0.18,0,PI2); ctx.fillStyle=mg; ctx.fill();
-      ctx.restore();
-    }
   }
 }
