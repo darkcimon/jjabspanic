@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { MAX_STAGE, MAX_MONSTERS, toImageStage, getLoopMultiplier, GUN_BASE_CAP, BULLET_BASE_CAP, PET_BASE_CAP } from './config.js';
+import { MAX_STAGE, MAX_MONSTERS, toImageStage, GUN_BASE_CAP, BULLET_BASE_CAP, PET_BASE_CAP } from './config.js';
 
 // ── Cell states ──────────────────────────────────────────────
 const EMPTY    = 0;
@@ -977,8 +977,8 @@ export class Game extends EventTarget {
     this.slowTimer=0; this.shieldTimer=0; this.bubbleActive=false;
     // GhostMonster/SlimeMonster가 거는 상태이상: confuseTimer(조작 반전), playerSlowTimer(이동속도 감소)
     this.confuseTimer=0; this.playerSlowTimer=0;
-    // 신화 등급 소모템(회피/동결 부적)이 스테이지 시작 시 거는 효과
-    this.repelTimer=0; this.freezeTimer=0;
+    // 신화 등급 소모템(회피/동결/수집 부적)이 스테이지 시작 시 거는 효과
+    this.repelTimer=0; this.freezeTimer=0; this.gatherTimer=0;
     this.speedActive=false; this.heldItems=[];
     this.swordActive=false; this.swordTimer=0; this.swordDx=1; this.swordDy=0; this.swordReach=2; this.swordArcHalf=0;
     this.lightningMode=false; this.activeWeapon=null;
@@ -1003,6 +1003,7 @@ export class Game extends EventTarget {
     this.slowTimer=0; this.shieldTimer=0; this.bubbleActive=false;
     this.confuseTimer=0; this.playerSlowTimer=0;
     this.repelTimer=weaponLevels.repelSeconds||0; this.freezeTimer=weaponLevels.freezeSeconds||0;
+    this.gatherTimer=weaponLevels.gatherSeconds||0;
     this.swordActive=false; this.swordTimer=0; this.lightningMode=false;
     this.heldItems=JSON.parse(JSON.stringify(resumeState?resumeState.heldItems:heldItems));
     this.speedActive=false;
@@ -1075,19 +1076,39 @@ export class Game extends EventTarget {
     this._bulletLevel = bulletLevel || 0;
   }
 
+  // 메인 총알이 도달할 수 있는 최대 크기(총탄 강화가 BULLET_BASE_CAP에 도달했을 때의
+  // 반지름) — 총탄 레벨과 무관하게 항상 이 값이 상한이다 (_getGunPattern 참고).
+  // 펫 총알 크기 상한, 그리고 "회피 부적"의 최소 접근 거리(barrierR)에서도 같은
+  // 기준을 재사용한다.
+  _getMaxBulletRadius() { return this.cs * 2; }
+
   _getGunPattern(level) {
     if (level <= 0) {
-      return { dmg:1, r:this.cs*0.25, bullets:[{angDeg:0,delay:0}] };
+      return { dmg:1, r:this.cs*0.25, bullets:[{angDeg:0,delay:0}], coreR:0, coreDmg:0 };
     }
     const lv = level;
     // 데미지 = 총 업그레이드 레벨
     const dmg = lv;
-    // 총알 크기: 총탄 업그레이드 레벨로 결정 (1단=블록 절반). 상한은 총탄 강화
-    // 상한과 마찬가지로 300단계를 한 바퀴 돌 때마다 2배씩 계속 풀린다.
+    // 총알 크기: 총탄 업그레이드 레벨 1~BULLET_BASE_CAP(100)단계에서만 커진다.
+    // 예전엔 상한(bulletCap)이 300단계 루프를 돌 때마다 2배씩 계속 풀리는데도
+    // 크기 공식의 분모가 99로 고정돼 있어, 루프가 진행될수록(예: 200단계 총탄강화)
+    // 총알이 화면을 가득 채울 만큼 끝없이 커지는 문제가 있었다. 그래서 메인 탄
+    // 크기는 여기서 완전히 고정하고, BULLET_BASE_CAP을 넘는 초과분(코어 레벨)은
+    // 대신 ①데미지 보너스 ②메인 탄과 같은 자리에서 같이 나가는 작은 "코어 탄"
+    // 성장에 쓴다 — 코어 탄도 별개의 발사체라 같은 적을 동시에 맞히면 한 발로
+    // 사실상 두 발을 맞히는 효과를 낸다 (useGun 참고).
     const bLv = Math.max(1, this._bulletLevel || 1);
-    const bulletCap = BULLET_BASE_CAP * getLoopMultiplier(this.stage);
-    const sz  = Math.min(bLv, bulletCap);
-    const r   = this.cs * (0.25 + (sz - 1) / 99 * 1.75);
+    const sz  = Math.min(bLv, BULLET_BASE_CAP);
+    const r   = this.cs * (0.25 + (sz - 1) / (BULLET_BASE_CAP - 1) * 1.75);
+
+    // 코어 탄: BULLET_BASE_CAP을 넘는 레벨부터 등장. 이후 BULLET_BASE_CAP단계를
+    // 더 강화하는 동안(예: 101~200단계) 메인 탄 최대 크기의 절반까지 자라고,
+    // 그 뒤로는 크기는 고정한 채 데미지만 계속 오른다 — 코어 탄 역시 무한정
+    // 커지지 않도록.
+    const coreLv   = Math.max(0, bLv - BULLET_BASE_CAP);
+    const coreSzLv = Math.min(coreLv, BULLET_BASE_CAP);
+    const coreR    = coreLv > 0 ? this.cs * (0.25 + (coreSzLv - 1) / (BULLET_BASE_CAP - 1) * 0.75) : 0;
+    const coreDmg  = coreLv;
 
     let bullets;
     if (lv <= 10) {
@@ -1205,7 +1226,7 @@ export class Game extends EventTarget {
     if(dx===0&&dy===0) return;
     const mainAngle=Math.atan2(dy,dx);
     const gunLv=this._gunLevel||0;
-    const {dmg,r,bullets}=this._getGunPattern(gunLv);
+    const {dmg,r,bullets,coreR,coreDmg}=this._getGunPattern(gunLv);
     const speed=320;
     // 펫 보유 시: 본캐와 동일한 총알 패턴을 각 펫의 위치에서도 추가로 발사한다
     // (탄약은 본캐 것 1회분만 소모 — 펫 몫을 별도로 깎지 않음).
@@ -1219,6 +1240,14 @@ export class Game extends EventTarget {
         const pb=new PlayerBullet(ox,oy,vx,vy,dmg,r);
         pb.isGunBullet=true;
         this.playerBullets.push(pb);
+        // 총탄 강화가 BULLET_BASE_CAP을 넘으면, 메인 탄과 완전히 같은 자리·방향으로
+        // 작은 "코어 탄"을 함께 쏜다. 서로 겹쳐서 나가지만 별개의 발사체라 같은
+        // 적을 동시에 맞히면 데미지가 두 번 들어간다 — 한 발로 두 발 맞히는 효과.
+        if (coreR > 0) {
+          const core=new PlayerBullet(ox,oy,vx,vy,coreDmg,coreR);
+          core.isGunBullet=true;
+          this.playerBullets.push(core);
+        }
       }
     }
     gun.ammo=Math.max(0,gun.ammo-1);
@@ -1503,6 +1532,7 @@ export class Game extends EventTarget {
     if (this.playerSlowTimer>0) this.playerSlowTimer-=dt;
     if (this.repelTimer>0) this.repelTimer-=dt;
     if (this.freezeTimer>0) this.freezeTimer-=dt;
+    if (this.gatherTimer>0) this.gatherTimer-=dt;
 
     // Monsters — 신화 등급 "동결 부적" 효과 중엔 이동/발사/디버프를 포함해 몹 업데이트를
     // 통째로 건너뛰어 완전히 멈춰있는 것처럼 보이게 한다.
@@ -1516,12 +1546,34 @@ export class Game extends EventTarget {
         }
         if (m.pendingDebuff) { this._applyDebuff(m.pendingDebuff); m.pendingDebuff=null; }
       }
-      // 신화 등급 "회피 부적": 몹 종류와 무관하게 플레이어에게서 멀어지는 방향으로
-      // 다음 프레임 이동 방향을 덮어쓴다 (추적형 몹의 추적도 함께 무효화됨).
-      if (this.repelTimer>0) {
+      // 신화 등급 "수집 부적": 몹 종류와 무관하게 플레이어 쪽으로 다음 프레임 이동
+      // 방향을 덮어쓴다 (추적형 몹의 추적도 함께 무효화됨). "회피 부적"과 함께
+      // 쓰면, 끌려오다가 아래 회피 부적의 최소 접근 거리 장벽에 막혀 캐릭터 바로
+      // 바깥에 링 모양으로 뭉치게 되어 총/칼로 한 번에 쓸어담기 좋다.
+      if (this.gatherTimer>0) {
         for (const m of this.monsters) {
-          const dx=m.px-this.player.px, dy=m.py-this.player.py, d=Math.sqrt(dx*dx+dy*dy)||1;
+          const dx=this.player.px-m.px, dy=this.player.py-m.py, d=Math.sqrt(dx*dx+dy*dy)||1;
           m.vx=(dx/d)*m.spd; m.vy=(dy/d)*m.spd;
+        }
+      }
+      // 신화 등급 "회피 부적": 예전엔 몹이 플레이어에게서 무한정 도망치는 방식이었지만,
+      // "수집 부적"과 반대 방향으로 서로 밀고 당기기만 해 조합했을 때 아무 효과가
+      // 없어져버렸다. 그래서 "플레이어에게서 절대 접근할 수 없는 최소 거리(장벽)"로
+      // 바꿨다 — 반경은 총탄 강화가 최대일 때의 총알 크기(_getMaxBulletRadius)와
+      // 같아, 어차피 총/칼이 닿는 사정거리 바로 바깥에서 몹이 멈추는 셈이다.
+      if (this.repelTimer>0) {
+        const barrierR=this._getMaxBulletRadius();
+        for (const m of this.monsters) {
+          const dx=m.px-this.player.px, dy=m.py-this.player.py;
+          const d=Math.sqrt(dx*dx+dy*dy)||1;
+          const minD=barrierR+m.r;
+          if (d<minD) {
+            const nx=dx/d, ny=dy/d;
+            m.px=this.player.px+nx*minD; m.py=this.player.py+ny*minD;
+            // 장벽 쪽으로 향하던 속도 성분만 제거 — 옆으로는 계속 미끄러지듯 움직일 수 있다.
+            const vDot=m.vx*nx+m.vy*ny;
+            if (vDot<0) { m.vx-=vDot*nx; m.vy-=vDot*ny; }
+          }
         }
       }
     }
@@ -1614,9 +1666,10 @@ export class Game extends EventTarget {
         if (this._petLevel>0) {
           pet.fireTimer-=dt;
           if (pet.fireTimer<=0) {
-            const gunBulletCap=BULLET_BASE_CAP*getLoopMultiplier(this.stage);
-            const playerMaxR=this.cs*(0.25+(gunBulletCap-1)/99*1.75);
-            const pattern=_getPetPattern(this._petLevel,this.cs,playerMaxR/2);
+            // 플레이어 메인 탄과 같은 이유로(_getMaxBulletRadius 참고) 여기서도 크기
+            // 기준을 고정한다 — 예전엔 루프마다 풀리는 상한을 그대로 써서 펫 총알도
+            // 루프가 진행될수록 끝없이 커지는 문제가 있었다.
+            const pattern=_getPetPattern(this._petLevel,this.cs,this._getMaxBulletRadius()/2);
             pet.fireTimer=pattern.interval;
             const baseAngle=Math.atan2(this._lastDy,this._lastDx);
             const bulletColor=_resolveDynamicColor(_getPetColor(this._petLevel),this._time);
@@ -1745,6 +1798,7 @@ export class Game extends EventTarget {
         playerSlowTimer:Math.ceil(Math.max(0,this.playerSlowTimer)),
         repelTimer:Math.ceil(Math.max(0,this.repelTimer)),
         freezeTimer:Math.ceil(Math.max(0,this.freezeTimer)),
+        gatherTimer:Math.ceil(Math.max(0,this.gatherTimer)),
       }}));
     }
   }

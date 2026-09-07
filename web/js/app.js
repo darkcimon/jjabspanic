@@ -145,7 +145,7 @@ function updateHUD({ fill, lives, time, stage, score = 0,
                      slowTimer = 0, shieldTimer = 0, bubbleActive = false,
                      rareBubbleActive = false, heldItems = [],
                      confuseTimer = 0, playerSlowTimer = 0,
-                     repelTimer = 0, freezeTimer = 0 }) {
+                     repelTimer = 0, freezeTimer = 0, gatherTimer = 0 }) {
   $('hud-stage').textContent = stage;
   $('hud-score').textContent = score;
   if (time >= 60) {
@@ -198,13 +198,19 @@ function updateHUD({ fill, lives, time, stage, score = 0,
   if (repelTimer > 0) {
     const p = document.createElement('span');
     p.className = 'timer-pill repel';
-    p.textContent = `🧲 ${repelTimer}s`;
+    p.textContent = `🚧 ${repelTimer}s`;
     timersEl.appendChild(p);
   }
   if (freezeTimer > 0) {
     const p = document.createElement('span');
     p.className = 'timer-pill freeze';
     p.textContent = `⏳ ${freezeTimer}s`;
+    timersEl.appendChild(p);
+  }
+  if (gatherTimer > 0) {
+    const p = document.createElement('span');
+    p.className = 'timer-pill gather';
+    p.textContent = `🧲 ${gatherTimer}s`;
     timersEl.appendChild(p);
   }
 
@@ -233,20 +239,22 @@ async function startGame(stage, rating, resumeState = null) {
   const ms = getMonsterSpeed(stage);
   const tl = getTimeLimit(stage);
   const heldItems = save.heldItems || [];
-  // 신화 등급 회피/동결 부적 — 영구 확률 스탯(repelChance/freezeChance, %)이라 매
-  // 스테이지 시작마다 그 확률로 새로 추첨한다. 방패와 동일한 이유로 이어하기
+  // 신화 등급 회피/동결/수집 부적 — 영구 확률 스탯(repelChance/freezeChance/gatherChance, %)
+  // 이라 매 스테이지 시작마다 그 확률로 새로 추첨한다. 방패와 동일한 이유로 이어하기
   // (resumeState)에는 다시 추첨하지 않는다 — 이미 그 스테이지 시작 때 한 번 정해졌어야 함.
   const useRepel  = !resumeState && Math.random() * 100 < (pb?.repelChance  || 0);
   const useFreeze = !resumeState && Math.random() * 100 < (pb?.freezeChance || 0);
+  const useGather = !resumeState && Math.random() * 100 < (pb?.gatherChance || 0);
   // 신화 등급 "방패"는 스테이지 시작 순간의 연출이라 이어하기(resumeState)에는 재적용하지 않는다
-  // (회피/동결 부적과 동일한 이유 — 이미 그 스테이지 시작 때 한 번 소진됐어야 함).
+  // (회피/동결/수집 부적과 동일한 이유 — 이미 그 스테이지 시작 때 한 번 소진됐어야 함).
   const shieldSeconds = !resumeState ? Math.min(pb?.mythicShieldLevel || 0, MYTHIC_SHIELD_MAX) : 0;
   await game.init(stage, rating, mc, ms, tl, heldItems, resumeState,
     { gunLevel: pb?.gunLevel||0, swordLevel: pb?.swordLevel||0, bulletLevel: pb?.bulletLevel||0,
       guardianOrb: !!pb?.guardianOrb, phoenixHeart: !!pb?.phoenixHeart, midasTouch: !!pb?.midasTouch,
       petCount: pb?.petCount||0, petLevel: pb?.petLevel||0, autoModeOwned: !!pb?.autoModeOwned,
       autoModeUpgraded: !!pb?.autoModeUpgraded,
-      repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0, shieldSeconds });
+      repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0,
+      gatherSeconds: useGather ? 15 : 0, shieldSeconds });
   if (!resumeState) {
     if (save.bonusLives > 0) {
       game.lives += save.bonusLives;
@@ -476,34 +484,42 @@ function setupInput(canvas, g) {
       _lightningFire(t.clientX, t.clientY);
       return;
     }
-    if (_isFireableWeaponActive()) { e.preventDefault(); g.useActiveWeapon(); }
+    // 손가락이 거의 안 움직인(=드래그가 아닌) 탭일 때만 발사한다. 드래그였다면
+    // onTM에서 이미 이동 처리를 했으므로 여기서 또 발사하면 안 된다 (아래 참고).
+    if (_isFireableWeaponActive() && !touchMoved) { e.preventDefault(); g.useActiveWeapon(); }
   };
   canvas.addEventListener('click',    onCanvasClick);
   canvas.addEventListener('touchend', onCanvasTouchEnd, { passive: false });
 
-  // Swipe on canvas
-  // 번개 조준 모드이거나 총/칼이 "선택된 무기"로 활성화돼 있을 때는, 화면 터치가
-  // 발사 전용이어야 한다 — 예전엔 이 가드가 onTE(터치 종료 시 이동 정지)에만 있고
-  // onTS/onTM(터치 시작·이동)에는 없어서, 발사하려고 화면을 누르거나 손가락이
-  // 살짝만 움직여도(24px 이상) 스와이프로 인식돼 캐릭터가 같이 이동해버렸다.
-  let tx = 0, ty = 0;
+  // Swipe on canvas.
+  // 총/칼이 "선택된 무기"로 활성화돼 있을 때 화면 터치를 전부 "발사 전용"으로
+  // 막아버렸던 예전 방식은, 무기를 선택한 상태에서는 드래그로 이동하는 기능
+  // 자체가 완전히 죽어버리는 버그였다(D패드/키보드로만 이동 가능). 대신 손가락
+  // 이동 거리로 탭과 드래그를 구분한다: 24px 이상 움직이면 드래그로 보고 평소처럼
+  // 캐릭터를 이동시키고(이 경우 무기는 발사하지 않음), 그만큼 움직이지 않은 채
+  // 손을 떼면 탭으로 보고 onCanvasTouchEnd에서 선택된 무기를 발사한다.
+  // 번개 조준 모드는 정확한 한 지점을 짚어야 하므로 예외적으로 계속 탭 전용이다.
+  let tx = 0, ty = 0, touchMoved = false;
   const onTS = e => {
     e.preventDefault();
-    if (g.lightningMode || _isFireableWeaponActive()) return;
+    if (g.lightningMode) return;
+    touchMoved = false;
     tx = e.touches[0].clientX; ty = e.touches[0].clientY;
   };
   const onTM = e => {
     e.preventDefault();
-    if (g.lightningMode || _isFireableWeaponActive()) return;
+    if (g.lightningMode) return;
     const dx = e.touches[0].clientX - tx, dy = e.touches[0].clientY - ty;
     if (Math.abs(dx) + Math.abs(dy) > 24) {
+      touchMoved = true;
       if (Math.abs(dx) > Math.abs(dy)) g.setDirection(dx > 0 ? 1 : -1, 0);
       else g.setDirection(0, dy > 0 ? 1 : -1);
       tx = e.touches[0].clientX; ty = e.touches[0].clientY;
     }
   };
   const onTE = e => {
-    if (g.lightningMode || _isFireableWeaponActive()) return; // 발사는 onCanvasTouchEnd가 처리
+    if (g.lightningMode) return; // 조준 발사는 onCanvasTouchEnd가 처리
+    if (_isFireableWeaponActive() && !touchMoved) return; // 탭 발사는 onCanvasTouchEnd가 처리
     if (!isContinuous()) g.setDirection(0, 0);
   };
   canvas.addEventListener('touchstart', onTS, { passive: false });
@@ -1173,7 +1189,7 @@ $('btn-reset-confirm').onclick = () => {
   save.totalScore = 0; save.bonusLives = 0; save.mythicUnlockShown = false;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0, autoModeOwned: false, autoModeUpgraded: false };
+    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgraded: false };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1202,7 +1218,7 @@ $('btn-complete-no').onclick = () => {
   save.mythicUnlockShown = false;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0, autoModeOwned: false, autoModeUpgraded: false };
+    repelChance: 0, freezeChance: 0, gatherChance: 0, autoModeOwned: false, autoModeUpgraded: false };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1267,6 +1283,10 @@ function getMarketItems() {
   const hasRareBubble = save.heldItems.some(h => h.type === 'rareBubble');
   const mythicUnlocked = save.stage >= MYTHIC_UNLOCK_STAGE;
   const caps = getUpgradeCaps();
+  // 총/칼/총탄 강화 포인트는 300단계(MAX_STAGE)를 넘어가면 2배로 오른다 — 몹 체력·
+  // 무기 강화 상한 등 다른 밸런스 요소도 300단계를 한 바퀴 돌 때마다 크게 세지는데
+  // 강화 비용만 그대로면 상대적으로 너무 저렴해지기 때문.
+  const weaponCostMult = save.stage > MAX_STAGE ? 2 : 1;
   // 분열 아이템은 스테이지당 최대 2개까지만 구매 가능 (무제한 파밍 방지).
   // save.splitBuyStage에 마지막으로 센 스테이지 번호를 저장해두고, 현재
   // save.stage와 다르면(=새 스테이지로 넘어감) 자동으로 0부터 다시 센다.
@@ -1347,15 +1367,20 @@ function getMarketItems() {
         name:t('market.item.petUpgrade.name', { from: t('market.unitLevel', { n: petLv }), to: t('market.unitLevel', { n: petLv + 1 }) }),
         desc:t('market.item.petUpgrade.desc', { to: petLv + 1, max: petCap }) }
     );
-    // 회피/동결 부적 — 예전엔 "구매 개수만큼 다음 스테이지부터 순서대로 소모"되는
+    // 회피/동결/수집 부적 — 예전엔 "구매 개수만큼 다음 스테이지부터 순서대로 소모"되는
     // 소모품이었는데, 한 스테이지 안에서는 몇 개를 갖고 있든 효과(15초/5초 고정)가
     // 똑같아 "여러 개 보유"가 사실상 미래 스테이지 몫을 미리 사두는 것 이상의 의미가
     // 없었다. 그래서 영구 스탯으로 바꿔, 매 구매마다 "다음 스테이지에 발동할 확률"이
     // +1%p씩 쌓이는 방식으로 변경 (100개 사면 100% 확정 발동, 그 이상은 못 삼).
+    // 회피 부적은 몹이 캐릭터에게서 최대 총알 크기 반경 안으로 못 들어오게 막는
+    // 장벽으로, 수집 부적은 몹을 캐릭터 쪽으로 끌어당기는 용도로 바뀌었다 — 둘을
+    // 함께 쓰면 몹이 끌려오다 장벽에 막혀 캐릭터 바로 바깥에 뭉치므로, 총/칼로
+    // 한 번에 쓸어담기 좋다 (game.js _update 참고).
     const repelChance  = Math.min(REPEL_FREEZE_CHANCE_MAX, pb.repelChance  || 0);
     const freezeChance = Math.min(REPEL_FREEZE_CHANCE_MAX, pb.freezeChance || 0);
+    const gatherChance = Math.min(REPEL_FREEZE_CHANCE_MAX, pb.gatherChance || 0);
     if (repelChance < REPEL_FREEZE_CHANCE_MAX) items.push(
-      { id:'repelCharm', tier:'mythic', cost:120000, icon:'🧲',
+      { id:'repelCharm', tier:'mythic', cost:120000, icon:'🚧',
         name:t('market.item.repelCharm.name'),
         desc:t('market.item.repelCharm.desc', { pct: repelChance + 1, max: REPEL_FREEZE_CHANCE_MAX }) }
     );
@@ -1363,6 +1388,11 @@ function getMarketItems() {
       { id:'freezeCharm', tier:'mythic', cost:100000, icon:'⏳',
         name:t('market.item.freezeCharm.name'),
         desc:t('market.item.freezeCharm.desc', { pct: freezeChance + 1, max: REPEL_FREEZE_CHANCE_MAX }) }
+    );
+    if (gatherChance < REPEL_FREEZE_CHANCE_MAX) items.push(
+      { id:'gatherCharm', tier:'mythic', cost:130000, icon:'🧲',
+        name:t('market.item.gatherCharm.name'),
+        desc:t('market.item.gatherCharm.desc', { pct: gatherChance + 1, max: REPEL_FREEZE_CHANCE_MAX }) }
     );
     items.push(
       { id:'diceOfFate', tier:'mythic', cost:60000, icon:'🎲',
@@ -1381,7 +1411,7 @@ function getMarketItems() {
   // 맨 끝에 있어 모바일에서 스크롤을 끝까지 내려야만 보였음)
   const swordLv = (save.persistentBonus?.swordLevel) || 0;
   if (hasSword && swordLv < caps.sword) {
-    const swCost = 5000 + Math.floor(swordLv / 5) * 1000;
+    const swCost = (5000 + Math.floor(swordLv / 5) * 1000) * weaponCostMult;
     const swIcons=['⚪','🔴','🟠','🟡','🟢','🔵','🔷','🟣','⚫','🩵','🌈'];
     const swIcon = swIcons[Math.min(Math.floor(swordLv/10),10)];
     items.push({id:'swordLevelUp', tier: swordLv<10?'normal':swordLv<30?'rare':'legend', cost:swCost, icon:swIcon+'⚔️',
@@ -1404,7 +1434,7 @@ function getMarketItems() {
   // Gun upgrade — 총 보유 시에만 표시
   const gunLv = (save.persistentBonus?.gunLevel) || 0;
   if (hasGun && gunLv < caps.gun) {
-    const gunCost = 3000 + Math.floor(gunLv / 5) * 1000;
+    const gunCost = (3000 + Math.floor(gunLv / 5) * 1000) * weaponCostMult;
     const gunLabel = gunLv===0 ? t('market.item.gunUpgrade.labelBase') : t('market.unitLevel', { n: gunLv });
     const _gunPatternKey = lv => {
       if (lv<=10)  return 'market.gunPattern.p2';
@@ -1423,14 +1453,23 @@ function getMarketItems() {
       name: t('market.item.gunUpgrade.name', { from: gunLabel, to: t('market.unitLevel', { n: gunLv + 1 }) }),
       desc: t('market.item.gunUpgrade.desc', { pattern: t(_gunPatternKey(gunLv + 1)), dmg: gunLv + 1 }) });
   }
-  // Bullet upgrade — 총 보유 시에만 표시
+  // Bullet upgrade — 총 보유 시에만 표시.
+  // 1~BULLET_BASE_CAP(100)단계까지는 메인 탄 크기가 커지고, 그 이후로는(루프를
+  // 돌아 상한이 더 풀려도) 화면을 가득 채우지 않도록 크기를 고정한 채 데미지
+  // 상승 + 코어 탄 성장으로 전환된다 (game.js _getGunPattern 참고).
   const bulletLv = (save.persistentBonus?.bulletLevel) || 0;
   if (hasGun && bulletLv < caps.bullet) {
-    const bulletCost = 3000 + Math.floor(bulletLv / 5) * 1000;
-    const bulletSz = Math.round((0.25 + (Math.min(bulletLv+1,caps.bullet)-1)/99*1.75)*10)/10;
+    const bulletCost = (3000 + Math.floor(bulletLv / 5) * 1000) * weaponCostMult;
+    const nextLv = bulletLv + 1;
+    const desc = nextLv <= BULLET_BASE_CAP
+      ? t('market.item.bulletUpgrade.desc', { size: Math.round((0.25 + (nextLv-1)/(BULLET_BASE_CAP-1)*1.75)*10)/10 })
+      : t('market.item.bulletUpgrade.descCore', {
+          dmg: nextLv - BULLET_BASE_CAP,
+          size: Math.round((0.25 + (Math.min(nextLv-BULLET_BASE_CAP,BULLET_BASE_CAP)-1)/(BULLET_BASE_CAP-1)*0.75)*10)/10,
+        });
     items.push({id:'bulletUpgrade', tier: bulletLv<10?'normal':bulletLv<50?'rare':'legend', cost:bulletCost, icon:'🔵',
       name: t('market.item.bulletUpgrade.name', { from: t('market.unitLevel', { n: bulletLv }), to: t('market.unitLevel', { n: bulletLv + 1 }) }),
-      desc: t('market.item.bulletUpgrade.desc', { size: bulletSz }) });
+      desc });
   }
   return items;
 }
@@ -1549,6 +1588,7 @@ function showMarket() {
   if (pb.petCount > 0)    pbParts.push(t('market.pbPet', { n: pb.petCount, lv: pb.petLevel || 0 }));
   if (pb.repelChance > 0)  pbParts.push(t('market.pbRepelChance',  { n: Math.min(pb.repelChance,  REPEL_FREEZE_CHANCE_MAX) }));
   if (pb.freezeChance > 0) pbParts.push(t('market.pbFreezeChance', { n: Math.min(pb.freezeChance, REPEL_FREEZE_CHANCE_MAX) }));
+  if (pb.gatherChance > 0) pbParts.push(t('market.pbGatherChance', { n: Math.min(pb.gatherChance, REPEL_FREEZE_CHANCE_MAX) }));
   if (pb.autoModeOwned)   pbParts.push(t(pb.autoModeUpgraded ? 'market.pbAutoModeUpgraded' : 'market.pbAutoMode'));
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
@@ -1635,6 +1675,9 @@ function showMarket() {
       } else if (mi.id === 'freezeCharm') {
         // 신화 등급 영구템: 다음 스테이지 발동 확률 +1%p(최대 100%) — startGame()의 freezeChance 참고.
         save.persistentBonus.freezeChance = Math.min(REPEL_FREEZE_CHANCE_MAX, (save.persistentBonus.freezeChance || 0) + 1);
+      } else if (mi.id === 'gatherCharm') {
+        // 신화 등급 영구템: 다음 스테이지 발동 확률 +1%p(최대 100%) — startGame()의 gatherChance 참고.
+        save.persistentBonus.gatherChance = Math.min(REPEL_FREEZE_CHANCE_MAX, (save.persistentBonus.gatherChance || 0) + 1);
       } else if (mi.id === 'diceOfFate') {
         // 소모템: 구매 즉시 결과가 나오는 도박성 아이템 — 별도 토스트로 결과를 안내한다.
         diceToastMsg = _rollDiceOfFate();

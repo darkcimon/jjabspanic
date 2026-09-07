@@ -251,6 +251,7 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 .timer-pill.playerslow { color: #7ddc7d; border-color: #7ddc7d; }
 .timer-pill.repel      { color: #ff9fd6; border-color: #ff9fd6; }
 .timer-pill.freeze     { color: #9fe6ff; border-color: #9fe6ff; }
+.timer-pill.gather     { color: #ffcf6e; border-color: #ffcf6e; }
 
 /* ── Held items bar ─────────────────────────────────────── */
 #held-items-bar {
