@@ -337,11 +337,6 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   const img = $('clear-image');
   if (charImage) { img.src = charImage.src; img.style.display = 'block'; }
   else img.style.display = 'none';
-  // 클리어 이미지를 3초간 확대해 보여준다 (클래스를 뺐다 다시 붙여야 애니메이션이
-  // 재생됨 — 연속 클리어 시 이전 재생이 끝난 상태 그대로 남아있을 수 있어서).
-  img.classList.remove('zoom-in');
-  void img.offsetWidth; // reflow 강제 — 다음 줄에서 클래스를 다시 붙여도 애니메이션이 처음부터 재생되게 함
-  img.classList.add('zoom-in');
   $('clear-stage').textContent = stage;
   const totalScore = save.totalScore || 0;
   $('btn-clear-market').style.display = totalScore >= 3000 ? 'block' : 'none';
@@ -350,15 +345,21 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
 
   show('stage-clear');
 
-  // 3초 후 자동으로 "다음 스테이지" 버튼을 누른 것과 동일하게 진행한다 (특전/소장품
-  // 화면으로 가야 하면 그쪽으로, 아니면 바로 다음 스테이지로 — btn-next-stage의
-  // 클릭 핸들러를 그대로 재사용). 그 사이 사용자가 이미 다른 화면으로 넘어갔다면
-  // (마켓/광고 등) 건드리지 않는다.
+  // 오토모드로 클리어했을 때만: 갤러리에서 사진을 탭해 크게 보는 것과 동일한
+  // 전면 라이트박스로 클리어 이미지를 3초간 띄운 뒤 자동으로 닫고, "다음 스테이지"
+  // 버튼을 누른 것과 동일하게 진행한다 (특전/소장품 화면으로 가야 하면 그쪽으로 —
+  // btn-next-stage의 클릭 핸들러를 그대로 재사용). 수동 플레이 중엔 예전처럼
+  // 클리어 화면에 계속 머물러 있고, 그 사이 사용자가 다른 화면(마켓/광고 등)으로
+  // 넘어갔다면 건드리지 않는다.
   if (_clearAutoAdvanceTimer) clearTimeout(_clearAutoAdvanceTimer);
-  _clearAutoAdvanceTimer = setTimeout(() => {
-    _clearAutoAdvanceTimer = null;
-    if ($('screen-stage-clear').classList.contains('active')) $('btn-next-stage').click();
-  }, 3000);
+  if (game && game.autoModeActive) {
+    if (charImage) openLightbox(charImage.src);
+    _clearAutoAdvanceTimer = setTimeout(() => {
+      _clearAutoAdvanceTimer = null;
+      closeLightbox();
+      if ($('screen-stage-clear').classList.contains('active')) $('btn-next-stage').click();
+    }, 3000);
+  }
 }
 
 function onGameOver({ stage }) {
