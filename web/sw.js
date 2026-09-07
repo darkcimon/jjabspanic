@@ -15,8 +15,8 @@
  * 다음 방문부터는 최신 파일로 자연히 교체된다.
  */
 
-const CACHE_NAME   = 'galspanic-v19';
-const API_CACHE    = 'galspanic-api-v19';
+const CACHE_NAME   = 'galspanic-v20';
+const API_CACHE    = 'galspanic-api-v20';
 
 // install 시 pre-cache할 정적 자산 목록
 const STATIC_ASSETS = [

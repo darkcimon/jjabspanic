@@ -586,7 +586,13 @@ function closeLightbox() {
   $('img-lightbox-img').src = '';
 }
 $('img-lightbox').addEventListener('click', e => {
-  if (e.target === $('img-lightbox') || e.target === $('img-lightbox-close')) closeLightbox();
+  if (e.target !== $('img-lightbox') && e.target !== $('img-lightbox-close')) return;
+  closeLightbox();
+  // 오토모드 클리어 자동 진행(라이트박스 4초 후 다음 스테이지) 중에 사용자가 직접
+  // 닫으면(예: 그 사이 마켓에서 아이템을 사고 싶어서) 자동 진행만 취소한다 — 이걸로
+  // 오토모드 자체(게임 내 발사 on/off)까지 꺼버리면 안 된다. 갤러리 등 다른 곳에서
+  // 연 라이트박스는 이 타이머가 애초에 안 걸려 있어 그냥 무해하다.
+  if (_clearAutoAdvanceTimer) { clearTimeout(_clearAutoAdvanceTimer); _clearAutoAdvanceTimer = null; }
 });
 
 /**
