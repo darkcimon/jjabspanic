@@ -156,7 +156,7 @@ const dict = {
     'help.market.normal.body': '<li>⏱️ <b>시간 연장</b> — 다음 스테이지 시작 시 +20초 (중첩 가능)</li><li>💊 <b>회복약</b> — 다음 스테이지 시작 시 목숨 +1</li><li>💨 <b>스피드</b> — 다음 스테이지 1회 한정 2배 속도</li>',
     'help.market.rare.body': '<li>❤️‍🔥 <b>생명의 정수</b> (12,000pt) — 매 스테이지 목숨 +1 <b>영구</b>. 단, 목숨이 3 이상일 때만 발동. 목숨이 2가 되면 효과가 다음 스테이지까지 일시 중단. 중첩 구매 시 추가 목숨 증가 (2개 구매 → 매 스테이지 5목숨 시작)</li><li>🕰️ <b>시간의 정수</b> (10,000pt) — 매 스테이지 +20초 <b>영구</b>. 중첩 가능</li><li>💫 <b>인내의 속도</b> (15,000pt) — 매 스테이지 시작 시 2배 속도 <b>영구</b>. 목숨을 잃으면 해당 스테이지 해제, 다음 스테이지 재발동</li><li>🌀 <b>초월의 속도</b> (20,000pt) — 3배 속도 <b>완전 영구</b>. 목숨을 잃어도 유지</li>',
     'help.market.legend.body': '<li>⚔️ <b>칼</b> (30,000pt) — Z키/탭으로 선 위 적 처치 (목숨 2 이상 필요)</li><li>🗡️ <b>신검</b> (30,000pt) — 칼 강화: 사정거리·공격력 증가 (칼 보유 시 표시)</li><li>🔫 <b>총</b> (30,000pt) — X키/스페이스바/탭으로 탄환 5발 발사</li><li>🔫 <b>탄약 ×5</b> (10,000pt) — 총알 5발 추가 (총 보유 시 표시)</li><li>⚡ <b>번개</b> (10,000pt) — 번개 버튼 탭 후 화면 터치로 3×3 범위 공격. 중첩 가능</li><li>🌩️ <b>제우스의 번개</b> (15,000pt) — 5×5 초광역 번개. 번개보다 넓은 범위 파괴. 중첩 가능</li>',
-    'help.market.mythic.body': '<li>🔮 <b>수호의 구슬</b> (1,000,000pt) — 영구. 적과 부딪혀도 원위치로 돌아가지 않고 그리던 선을 유지한 채 계속 땅따먹기 가능 (목숨은 동일하게 1 소모)</li><li>🔥 <b>불사조의 심장</b> (700,000pt) — 영구. 목숨이 0이 되어도 스테이지당 1회 목숨 1로 즉시 부활</li><li>💰 <b>미다스의 손</b> (800,000pt) — 영구. 스테이지 클리어 보너스 +30%</li><li>🗺️ <b>영역의 각인</b> (900,000pt) — 영구. 클리어 판정 기준선 75%→70% 하향</li><li>🛡️ <b>방패</b> (50만pt부터, 살 때마다 +50만) — 영구. 스테이지 시작 시 무적 시간 +1초(최대 5초)</li><li>🐿️ <b>펫</b> (마리당 5,000,000pt, 최대 2마리) — 영구. 칼/총 사용 시 자기 위치에서도 같은 공격을 재현하는 분신을 소환</li><li>🔧 <b>펫강화</b> (100,000pt부터 최대 1,000만pt) — 영구. 펫이 스스로 자동 발사를 시작·강화 (10단: 직선, 50단: 부채꼴, 100단: 유도탄, 150단: 발사 속도 증가, 200단: 총알 크기 최대 확대)</li><li>🧲 <b>몬스터 회피의 부적</b> (120,000pt) — 영구. 다음 스테이지 발동 확률 +1%p(최대 100%)</li><li>⏳ <b>시간 동결의 부적</b> (100,000pt) — 영구. 다음 스테이지 발동 확률 +1%p(최대 100%)</li><li>🎲 <b>운명의 주사위</b> (60,000pt) — 구매 즉시 랜덤 보상 (꽝~잭팟, 1% 확률로 펫 당첨)</li>',
+    'help.market.mythic.body': '<li>🔮 <b>수호의 구슬</b> (1,000,000pt) — 영구. 적과 부딪혀도 원위치로 돌아가지 않고 그리던 선을 유지한 채 계속 땅따먹기 가능 (목숨은 동일하게 1 소모)</li><li>🔥 <b>불사조의 심장</b> (700,000pt) — 영구. 목숨이 0이 되어도 스테이지당 1회 목숨 1로 즉시 부활</li><li>💰 <b>미다스의 손</b> (800,000pt) — 영구. 스테이지 클리어 보너스 +30%</li><li>🗺️ <b>영역의 각인</b> (900,000pt) — 영구. 클리어 판정 기준선 75%→70% 하향</li><li>🛡️ <b>방패</b> (50만pt부터, 살 때마다 +50만) — 영구. 스테이지 시작 시 무적 시간 +1초(최대 5초)</li><li>🐿️ <b>펫</b> (마리당 5,000,000pt, 최대 2마리) — 영구. 칼/총 사용 시 자기 위치에서도 같은 공격을 재현하는 분신을 소환</li><li>🔧 <b>펫강화</b> (100,000pt부터 최대 1,000만pt) — 영구. 펫이 스스로 자동 발사를 시작·강화 (10단: 직선, 50단: 부채꼴, 100단: 유도탄, 150단: 발사 속도 증가, 200단: 총알 크기 최대 확대). 데미지도 함께 성장해 "N강화 = N스테이지 몹을 한 방에" (200강화면 200스테이지 몹 즉사). 상한은 기본 200단이지만 스테이지가 300을 넘으면 그 스테이지 번호만큼, 이후 100스테이지마다 계속 풀림</li><li>🤖 <b>오토모드</b> (50,000,000pt) — 영구. 게임 중 하단 버튼으로 켜고 끌 수 있으며, 켜져 있으면 선택된 총 또는 칼을 1초에 4발씩 자동으로 사용</li><li>🧲 <b>몬스터 회피의 부적</b> (120,000pt) — 영구. 다음 스테이지 발동 확률 +1%p(최대 100%)</li><li>⏳ <b>시간 동결의 부적</b> (100,000pt) — 영구. 다음 스테이지 발동 확률 +1%p(최대 100%)</li><li>🎲 <b>운명의 주사위</b> (60,000pt) — 구매 즉시 랜덤 보상 (꽝~잭팟, 1% 확률로 펫 당첨)</li>',
     'help.market.mythic.note': '51단계부터 레어 등급 상점이 마감되고 신화 등급이 대신 열립니다. 100단계를 넘으면 적 체력도 크게 강해집니다.',
     'help.market.note': '💡 레어·전설·신화 아이템은 누적 점수로 구입하므로 고득점 플레이가 중요합니다!',
 
@@ -238,6 +238,7 @@ const dict = {
     'market.pbPet': '🐿️ 펫 {n}마리 (강화 {lv}단)',
     'market.pbRepelChance': '🧲 몬스터 회피 발동 확률 {n}%',
     'market.pbFreezeChance': '⏳ 시간 동결 발동 확률 {n}%',
+    'market.pbAutoMode': '🤖 오토모드 보유중 (게임 중 하단 버튼으로 켜기/끄기)',
 
     'market.item.timeboost.name': '시간 연장',
     'market.item.timeboost.desc': '+20초 (다음 스테이지 시작 시)',
@@ -286,6 +287,8 @@ const dict = {
     'market.item.midasTouch.desc': '영구 1회 구매. 스테이지 클리어 보너스(시간·스테이지·영역·전멸) +30%',
     'market.item.territoryMark.name': '영역의 각인',
     'market.item.territoryMark.desc': '영구 1회 구매. 클리어 판정 기준선을 75%→70%로 영구 하향',
+    'market.item.autoMode.name': '오토모드',
+    'market.item.autoMode.desc': '영구 1회 구매. 게임 중 하단 버튼으로 켜고 끌 수 있으며, 켜져 있으면 선택된 총 또는 칼을 1초에 4발씩 자동으로 사용한다',
     'market.item.mythicShield.name': '방패',
     'market.item.mythicShield.desc': '영구. 스테이지 시작 시 무적 시간 +1초 → {sec}초 (최대 {max}초, 살 때마다 가격 상승)',
     'market.item.pet.name': '펫',
@@ -488,7 +491,7 @@ const dict = {
     'help.market.normal.body': '<li>⏱️ <b>Time Extension</b> — +20s at the start of the next stage (stackable)</li><li>💊 <b>Potion</b> — +1 life at the start of the next stage</li><li>💨 <b>Speed</b> — 2× speed for one stage</li>',
     'help.market.rare.body': '<li>❤️‍🔥 <b>Essence of Life</b> (12,000pt) — <b>permanent</b> +1 life every stage. Only active while lives are 3 or more; drops to 2 lives pauses the effect until the next stage. Stacks for more lives (buy 2 → start every stage with 5 lives)</li><li>🕰️ <b>Essence of Time</b> (10,000pt) — <b>permanent</b> +20s every stage. Stackable</li><li>💫 <b>Speed of Patience</b> (15,000pt) — <b>permanent</b> 2× speed at the start of every stage. Losing a life disables it for that stage, re-activates next stage</li><li>🌀 <b>Speed of Transcendence</b> (20,000pt) — <b>fully permanent</b> 3× speed, stays active even after losing a life</li>',
     'help.market.legend.body': '<li>⚔️ <b>Sword</b> (30,000pt) — Z/tap to kill enemies on your line (requires 2+ lives)</li><li>🗡️ <b>Divine Sword</b> (30,000pt) — sword upgrade: more range and power (shown once you own a sword)</li><li>🔫 <b>Gun</b> (30,000pt) — X/Space/tap to fire 5 bullets</li><li>🔫 <b>Ammo ×5</b> (10,000pt) — +5 bullets (shown once you own a gun)</li><li>⚡ <b>Lightning</b> (10,000pt) — tap the lightning button then touch the screen for a 3×3 strike. Stackable</li><li>🌩️ <b>Zeus\'s Lightning</b> (15,000pt) — a massive 5×5 lightning strike, wider than regular lightning. Stackable</li>',
-    'help.market.mythic.body': '<li>🔮 <b>Guardian Orb</b> (1,000,000pt) — permanent. Getting hit no longer sends you back to start or clears your line (still costs 1 life)</li><li>🔥 <b>Phoenix Heart</b> (700,000pt) — permanent. Once per stage, revive with 1 life instead of a game over</li><li>💰 <b>Midas Touch</b> (800,000pt) — permanent. +30% to stage-clear bonuses</li><li>🗺️ <b>Territory Mark</b> (900,000pt) — permanent. Clear threshold lowered from 75% to 70%</li><li>🛡️ <b>Shield</b> (from 500,000pt, +500,000 each purchase) — permanent. +1s invincibility at the start of every stage (max 5s)</li><li>🐿️ <b>Pet</b> (5,000,000pt each, up to 2) — permanent. Summons a companion that mirrors your sword/gun attacks from its own position</li><li>🔧 <b>Pet Upgrade</b> (from 100,000pt up to 10,000,000pt) — permanent. Makes your pet auto-fire and upgrades it (Lv.10: straight shot, Lv.50: spread shot, Lv.100: homing missile, Lv.150: faster fire rate, Lv.200: bigger bullets)</li><li>🧲 <b>Repel Charm</b> (120,000pt) — permanent. +1%p trigger chance for the next stage (max 100%)</li><li>⏳ <b>Freeze Charm</b> (100,000pt) — permanent. +1%p trigger chance for the next stage (max 100%)</li><li>🎲 <b>Dice of Fate</b> (60,000pt) — random reward the instant you buy it (bust to jackpot, 1% chance of a pet)</li>',
+    'help.market.mythic.body': '<li>🔮 <b>Guardian Orb</b> (1,000,000pt) — permanent. Getting hit no longer sends you back to start or clears your line (still costs 1 life)</li><li>🔥 <b>Phoenix Heart</b> (700,000pt) — permanent. Once per stage, revive with 1 life instead of a game over</li><li>💰 <b>Midas Touch</b> (800,000pt) — permanent. +30% to stage-clear bonuses</li><li>🗺️ <b>Territory Mark</b> (900,000pt) — permanent. Clear threshold lowered from 75% to 70%</li><li>🛡️ <b>Shield</b> (from 500,000pt, +500,000 each purchase) — permanent. +1s invincibility at the start of every stage (max 5s)</li><li>🐿️ <b>Pet</b> (5,000,000pt each, up to 2) — permanent. Summons a companion that mirrors your sword/gun attacks from its own position</li><li>🔧 <b>Pet Upgrade</b> (from 100,000pt up to 10,000,000pt) — permanent. Makes your pet auto-fire and upgrades it (Lv.10: straight shot, Lv.50: spread shot, Lv.100: homing missile, Lv.150: faster fire rate, Lv.200: bigger bullets). Damage scales too, so "Lv.N one-shots stage-N enemies" (Lv.200 instantly kills a stage-200 enemy). The cap is Lv.200 by default, but once your stage passes 300 it rises to match your stage number, and keeps rising every 100 stages after that</li><li>🤖 <b>Auto Mode</b> (50,000,000pt) — permanent. Toggle on/off with the bottom button in-game; while on, automatically fires your selected gun or sword 4 times per second</li><li>🧲 <b>Repel Charm</b> (120,000pt) — permanent. +1%p trigger chance for the next stage (max 100%)</li><li>⏳ <b>Freeze Charm</b> (100,000pt) — permanent. +1%p trigger chance for the next stage (max 100%)</li><li>🎲 <b>Dice of Fate</b> (60,000pt) — random reward the instant you buy it (bust to jackpot, 1% chance of a pet)</li>',
     'help.market.mythic.note': 'From stage 51, the Rare tier closes and the Mythic tier opens in its place. Past stage 100, enemies get much tougher too.',
     'help.market.note': '💡 Rare, Legendary, and Mythic items cost accumulated score, so high-score runs matter!',
 
@@ -570,6 +573,7 @@ const dict = {
     'market.pbPet': '🐿️ {n} pet(s) (upgrade Lv.{lv})',
     'market.pbRepelChance': '🧲 Repel Charm trigger chance {n}%',
     'market.pbFreezeChance': '⏳ Freeze Charm trigger chance {n}%',
+    'market.pbAutoMode': '🤖 Auto Mode owned (toggle with the bottom button in-game)',
 
     'market.item.timeboost.name': 'Time Extension',
     'market.item.timeboost.desc': '+20s (at the start of the next stage)',
@@ -618,6 +622,8 @@ const dict = {
     'market.item.midasTouch.desc': 'One-time permanent buy. +30% to all stage-clear bonuses (time, stage, fill, all-clear)',
     'market.item.territoryMark.name': 'Territory Mark',
     'market.item.territoryMark.desc': 'One-time permanent buy. Permanently lowers the clear threshold from 75% to 70%',
+    'market.item.autoMode.name': 'Auto Mode',
+    'market.item.autoMode.desc': 'One-time permanent buy. Toggle on/off with the bottom button in-game; while on, automatically fires your selected gun or sword 4 times per second',
     'market.item.mythicShield.name': 'Shield',
     'market.item.mythicShield.desc': 'Permanent. +1s of invincibility at the start of every stage → {sec}s (max {max}s, price rises with each purchase)',
     'market.item.pet.name': 'Pet',

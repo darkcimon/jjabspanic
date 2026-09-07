@@ -898,38 +898,40 @@ class PetBullet {
   }
 }
 
-// 펫강화 레벨에 따른 자동발사 패턴. cap(=PET_BASE_CAP×루프배수)의 5/25/50/75/100%
-// 지점을 기준으로 10/50/100/150/200단(1회차 기준) 구간을 그대로 재현한다.
+// 펫강화 레벨에 따른 자동발사 패턴. 10/50/100/150/200단(고정값 — 펫업그레이드
+// 상한이 스테이지 진행에 따라 200 이상으로 계속 풀려도 이 다섯 구간 자체는 그대로다):
 //  - ~10단: 일직선 1발
 //  - ~50단: 중앙+양쪽 30도 부채꼴(구간 전반엔 2발, 후반엔 3발)
 //  - ~100단: 유도탄 1발
 //  - ~150단: 유도탄 + 발사 속도 점점 빨라짐
 //  - ~200단: 유도탄 + 최고 속도 + 총알 크기가 본캐 최대 총탄의 절반까지 커짐
-function _getPetPattern(lv, cap, cs, maxHalfR) {
+//    (200단을 넘어서도 발사 패턴·속도·크기는 200단 값에서 유지)
+// 데미지는 getStageHP()를 그대로 재사용해 "N강화 = N스테이지 몹 체력"이 되도록
+// 맞춘다 — 200강화면 200스테이지 일반 몹을 정확히 한 방에 잡을 수 있다.
+const PET_TIER1 = 10, PET_TIER2 = 50, PET_TIER3 = 100, PET_TIER4 = 150, PET_TIER5 = 200;
+function _getPetPattern(lv, cs, maxHalfR) {
   if (lv <= 0) return null;
-  const t1 = Math.ceil(cap * 0.05), t2 = Math.ceil(cap * 0.25),
-        t3 = Math.ceil(cap * 0.5),  t4 = Math.ceil(cap * 0.75);
   let bullets, homing = false;
-  if (lv <= t1) {
+  if (lv <= PET_TIER1) {
     bullets = [{ angDeg: 0 }];
-  } else if (lv <= t2) {
-    const mid = Math.ceil((t1 + t2) / 2);
+  } else if (lv <= PET_TIER2) {
+    const mid = Math.ceil((PET_TIER1 + PET_TIER2) / 2);
     bullets = lv <= mid ? [{ angDeg: 30 }, { angDeg: -30 }] : [{ angDeg: 0 }, { angDeg: 30 }, { angDeg: -30 }];
   } else {
     bullets = [{ angDeg: 0 }];
     homing = true;
   }
   let interval = 1.0;
-  if (lv > t3) {
-    const span = Math.max(1, t4 - t3);
-    interval = 1.0 - Math.min(1, (lv - t3) / span) * 0.6; // 1.0s → 0.4s
+  if (lv > PET_TIER3) {
+    const span = PET_TIER4 - PET_TIER3;
+    interval = 1.0 - Math.min(1, (lv - PET_TIER3) / span) * 0.6; // 1.0s → 0.4s
   }
   let r = cs * 0.22;
-  if (lv > t4) {
-    const span = Math.max(1, cap - t4);
-    r = cs * 0.22 + (maxHalfR - cs * 0.22) * Math.min(1, (lv - t4) / span);
+  if (lv > PET_TIER4) {
+    const span = PET_TIER5 - PET_TIER4;
+    r = cs * 0.22 + (maxHalfR - cs * 0.22) * Math.min(1, (lv - PET_TIER4) / span);
   }
-  const dmg = Math.max(1, Math.floor(lv / 5));
+  const dmg = Math.max(1, getStageHP(lv));
   return { bullets, homing, interval, r, dmg };
 }
 
@@ -964,6 +966,7 @@ export class Game extends EventTarget {
     this._itemSchedule=[]; this._itemScheduleIdx=0; this._itemContinuousTimer=20;
     this._monsterSpeed=1;
     this.pets=[]; this.petBullets=[]; this._petLevel=0; this._petCap=PET_BASE_CAP;
+    this.autoModeOwned=false; this.autoModeActive=false; this._autoFireTimer=0;
   }
 
   async init(stage, rating, _count, monsterSpeed, timeLimit, heldItems=[], resumeState=null, weaponLevels={}) {
@@ -998,12 +1001,18 @@ export class Game extends EventTarget {
     this.midasTouch=!!weaponLevels.midasTouch;
     // 신화 등급 영구 아이템 "펫" — 최대 2마리, 본체 주위를 돌며 칼/총 사용 시 같은
     // 공격을 자기 위치에서도 재현하고(useSword/useGun), 펫강화(petLevel)를 하면
-    // 별도로 자동 발사도 한다(_getPetPattern/PetBullet 참고).
-    this._petCap=PET_BASE_CAP*getLoopMultiplier(stage);
+    // 별도로 자동 발사도 한다(_getPetPattern/PetBullet 참고). 상한(petCap)은 기본
+    // 200단, 스테이지가 300을 넘으면(정확히는 100의 배수를 넘을 때마다) 그 스테이지
+    // 번호만큼으로 함께 풀려서, 계속 진행할수록 펫강화도 그만큼 더 할 수 있다.
+    this._petCap=Math.max(PET_BASE_CAP,Math.floor(stage/100)*100);
     this._petLevel=Math.min(weaponLevels.petLevel||0,this._petCap);
     this.pets=[];
     for(let i=0;i<Math.min(2,weaponLevels.petCount||0);i++) this.pets.push(new Pet(i));
     this.petBullets=[];
+    // 신화 등급 영구 아이템 "오토모드" — 게임 중 토글하면 선택된 무기(총/칼)를
+    // 초당 4회 자동 발사한다 (toggleAutoMode/_update 참고).
+    this.autoModeOwned=!!weaponLevels.autoModeOwned;
+    this.autoModeActive=false; this._autoFireTimer=0;
     const sp=this.heldItems.find(h=>h.type==='speed');
     if (sp) { this.speedActive=true; }
 
@@ -1251,6 +1260,15 @@ export class Game extends EventTarget {
 
   selectWeapon(type) { if (this.heldItems.find(h=>h.type===type)) this.activeWeapon=type; }
   useActiveWeapon() { if (this.activeWeapon==='sword') this.useSword(); else if (this.activeWeapon==='gun') this.useGun(); }
+
+  // 신화 등급 "오토모드" 켜기/끄기 — 켜져 있으면 _update()에서 매 0.25초(초당 4회)
+  // 마다 현재 selectWeapon()으로 선택된 총 또는 칼을 자동으로 사용한다.
+  toggleAutoMode() {
+    if (!this.autoModeOwned) return false;
+    this.autoModeActive = !this.autoModeActive;
+    this._autoFireTimer = 0;
+    return this.autoModeActive;
+  }
 
   // ── Spawn ────────────────────────────────────────────────────
   _spawnMonsters(speed) {
@@ -1575,7 +1593,7 @@ export class Game extends EventTarget {
           if (pet.fireTimer<=0) {
             const gunBulletCap=BULLET_BASE_CAP*getLoopMultiplier(this.stage);
             const playerMaxR=this.cs*(0.25+(gunBulletCap-1)/99*1.75);
-            const pattern=_getPetPattern(this._petLevel,this._petCap,this.cs,playerMaxR/2);
+            const pattern=_getPetPattern(this._petLevel,this.cs,playerMaxR/2);
             pet.fireTimer=pattern.interval;
             const baseAngle=Math.atan2(this._lastDy,this._lastDx);
             for (const {angDeg} of pattern.bullets) {
@@ -1643,6 +1661,17 @@ export class Game extends EventTarget {
     // Sword timer
     if (this.swordTimer>0) this.swordTimer-=dt;
     if (this.swordTimer<=0) this.swordActive=false;
+
+    // 신화 등급 "오토모드" — 활성화 중이면 선택된 무기(총/칼)를 초당 4회 자동 사용
+    if (this.autoModeOwned&&this.autoModeActive&&(this.activeWeapon==='gun'||this.activeWeapon==='sword')) {
+      this._autoFireTimer-=dt;
+      if (this._autoFireTimer<=0) {
+        this._autoFireTimer=0.25; // 1초에 4발
+        if (this.activeWeapon==='gun') this.useGun(); else this.useSword();
+      }
+    } else {
+      this._autoFireTimer=0;
+    }
 
     // Collision: monster hits LINE
     if (this.player.isDrawing&&!this.player.invincible) {

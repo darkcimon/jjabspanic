@@ -35,6 +35,10 @@ let pendingRewardStage = 0;
 // 위 두 변수와 마찬가지로 save.pendingGameComplete로도 함께 저장해 모바일 재로드에도 복구한다.
 let pendingGameComplete = false;
 let marketReturnScreen = 'main'; // 마켓 진입 전 화면
+// 스테이지 클리어 화면에서 3초간 이미지를 확대해 보여준 뒤 자동으로 다음 진행 단계로
+// 넘어가는 타이머. onStageClear()가 새로 열릴 때마다, 그리고 사용자가 직접
+// "다음 스테이지"/메인 메뉴 버튼을 눌렀을 때 취소해 중복 진행을 막는다.
+let _clearAutoAdvanceTimer = null;
 
 // ── Canvas sizing ────────────────────────────────────────────
 function calcCellSize() {
@@ -101,6 +105,19 @@ function makeHeldItemButton(item, game) {
   return btn;
 }
 
+function makeAutoModeButton(g) {
+  const btn = document.createElement('button');
+  btn.className = 'held-item-btn' + (g.autoModeActive ? ' active' : '');
+  btn.innerHTML = `<span style="font-size:1.2rem;line-height:1">🤖</span>`;
+  btn.title = t('market.item.autoMode.name');
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    g.toggleAutoMode();
+    updateHeldItemsBar(g.heldItems);
+  });
+  return btn;
+}
+
 function updateHeldItemsBar(heldItems) {
   const bar = $('held-items-bar');
   bar.innerHTML = '';
@@ -111,6 +128,8 @@ function updateHeldItemsBar(heldItems) {
     if (item.type === 'speed' || item.type === 'timeboost' || item.type === 'rareBubble') continue;
     bar.appendChild(makeHeldItemButton(item, game));
   }
+  // 신화 등급 "오토모드" — 보유 중이면 총/칼 버튼들과 나란히 켜기/끄기 토글을 보여준다.
+  if (game && game.autoModeOwned) bar.appendChild(makeAutoModeButton(game));
 }
 
 // ── HUD ──────────────────────────────────────────────────────
@@ -217,7 +236,7 @@ async function startGame(stage, rating, resumeState = null) {
   await game.init(stage, rating, mc, ms, tl, heldItems, resumeState,
     { gunLevel: pb?.gunLevel||0, swordLevel: pb?.swordLevel||0, bulletLevel: pb?.bulletLevel||0,
       guardianOrb: !!pb?.guardianOrb, phoenixHeart: !!pb?.phoenixHeart, midasTouch: !!pb?.midasTouch,
-      petCount: pb?.petCount||0, petLevel: pb?.petLevel||0,
+      petCount: pb?.petCount||0, petLevel: pb?.petLevel||0, autoModeOwned: !!pb?.autoModeOwned,
       repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0, shieldSeconds });
   if (!resumeState) {
     if (save.bonusLives > 0) {
@@ -318,6 +337,11 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   const img = $('clear-image');
   if (charImage) { img.src = charImage.src; img.style.display = 'block'; }
   else img.style.display = 'none';
+  // 클리어 이미지를 3초간 확대해 보여준다 (클래스를 뺐다 다시 붙여야 애니메이션이
+  // 재생됨 — 연속 클리어 시 이전 재생이 끝난 상태 그대로 남아있을 수 있어서).
+  img.classList.remove('zoom-in');
+  void img.offsetWidth; // reflow 강제 — 다음 줄에서 클래스를 다시 붙여도 애니메이션이 처음부터 재생되게 함
+  img.classList.add('zoom-in');
   $('clear-stage').textContent = stage;
   const totalScore = save.totalScore || 0;
   $('btn-clear-market').style.display = totalScore >= 3000 ? 'block' : 'none';
@@ -325,6 +349,16 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString() + 'pt';
 
   show('stage-clear');
+
+  // 3초 후 자동으로 "다음 스테이지" 버튼을 누른 것과 동일하게 진행한다 (특전/소장품
+  // 화면으로 가야 하면 그쪽으로, 아니면 바로 다음 스테이지로 — btn-next-stage의
+  // 클릭 핸들러를 그대로 재사용). 그 사이 사용자가 이미 다른 화면으로 넘어갔다면
+  // (마켓/광고 등) 건드리지 않는다.
+  if (_clearAutoAdvanceTimer) clearTimeout(_clearAutoAdvanceTimer);
+  _clearAutoAdvanceTimer = setTimeout(() => {
+    _clearAutoAdvanceTimer = null;
+    if ($('screen-stage-clear').classList.contains('active')) $('btn-next-stage').click();
+  }, 3000);
 }
 
 function onGameOver({ stage }) {
@@ -1040,6 +1074,8 @@ $('btn-back-gallery').onclick = () => show('main');
 // $('btn-pack-all').onclick = () => onPackBuy('pack_all');
 
 $('btn-next-stage').onclick = () => {
+  // 자동 진행 타이머가 아직 대기 중이면 취소 — 수동으로 눌렀으니 중복 진행 불필요.
+  if (_clearAutoAdvanceTimer) { clearTimeout(_clearAutoAdvanceTimer); _clearAutoAdvanceTimer = null; }
   // save.pendingRewardStage/pendingCollectionStage는 여기서 지우지 않는다 — 해당
   // 화면을 실제로 완료했을 때(proceedAfterReward/confirmBtn.onclick)만 지워야,
   // 화면에 머무는 동안 새로고침해도 boot()에서 같은 화면으로 복귀할 수 있다.
@@ -1057,7 +1093,10 @@ $('btn-next-stage').onclick = () => {
 };
 $('btn-collection-skip').onclick = () => advanceAfterClear();
 $('btn-retry').onclick      = () => { save.heldItems = []; startGame(save.stage, save.rating); };
-$('btn-back-menu').onclick  = () => show('main');
+$('btn-back-menu').onclick  = () => {
+  if (_clearAutoAdvanceTimer) { clearTimeout(_clearAutoAdvanceTimer); _clearAutoAdvanceTimer = null; }
+  show('main');
+};
 $('btn-back-menu2').onclick = () => show('main');
 
 $('btn-reset').onclick = () => {
@@ -1076,7 +1115,7 @@ $('btn-reset-confirm').onclick = () => {
   save.totalScore = 0; save.bonusLives = 0; save.mythicUnlockShown = false;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0 };
+    repelChance: 0, freezeChance: 0, autoModeOwned: false };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1105,7 +1144,7 @@ $('btn-complete-no').onclick = () => {
   save.mythicUnlockShown = false;
   save.persistentBonus = { extraLives: 0, extraTime: 0, speedLevel: 0, gunLevel: 0, swordLevel: 0, bulletLevel: 0, guardianOrb: false,
     phoenixHeart: false, midasTouch: false, territoryMark: false, mythicShieldLevel: 0, petCount: 0, petLevel: 0,
-    repelChance: 0, freezeChance: 0 };
+    repelChance: 0, freezeChance: 0, autoModeOwned: false };
   Storage.save(save);
   updateMainStats();
   show('main');
@@ -1127,7 +1166,12 @@ $('modal-alert').addEventListener('pointerdown', e => {
 // (getLoopMultiplier) 2배씩 계속 풀린다. 실제 상수는 game.js와 공유하도록 config.js에 둔다.
 function getUpgradeCaps() {
   const mult = getLoopMultiplier(save.stage);
-  return { gun: GUN_BASE_CAP * mult, bullet: BULLET_BASE_CAP * mult, sword: SWORD_BASE_CAP * mult, pet: PET_BASE_CAP * mult };
+  // 펫강화만 예외: "N강화 = N스테이지 몹 체력"으로 맞춰뒀기 때문에(game.js의
+  // _getPetPattern 참고), 상한도 루프배수 대신 실제 스테이지 번호를 그대로 따라간다.
+  // 200단 기본 상한은 스테이지 300에서 300으로, 이후 100스테이지를 더 깰 때마다
+  // (400/500/600…) 그만큼씩 계속 풀린다.
+  const petCap = Math.max(PET_BASE_CAP, Math.floor(save.stage / 100) * 100);
+  return { gun: GUN_BASE_CAP * mult, bullet: BULLET_BASE_CAP * mult, sword: SWORD_BASE_CAP * mult, pet: petCap };
 }
 
 // 신화 등급 "방패" — 스테이지 시작 시 무적 시간을 1초씩 늘려주는 영구템. 최대 5초(5회)까지
@@ -1213,6 +1257,12 @@ function getMarketItems() {
     if (!pb.territoryMark) items.push(
       { id:'territoryMark', tier:'mythic', cost:900000, icon:'🗺️',
         name:t('market.item.territoryMark.name'), desc:t('market.item.territoryMark.desc') }
+    );
+    // 오토모드 — 게임 중 토글해서 선택된 총/칼을 초당 4회 자동 발사 (game.js의
+    // toggleAutoMode/_update 참고). 구매 자체는 1회성 영구, 발동은 게임 내 토글.
+    if (!pb.autoModeOwned) items.push(
+      { id:'autoMode', tier:'mythic', cost:50000000, icon:'🤖',
+        name:t('market.item.autoMode.name'), desc:t('market.item.autoMode.desc') }
     );
     // 방패 — 스테이지 시작 시 무적 시간 +1초(최대 5초), 살 때마다 50만씩 비싸짐.
     const shieldLv = pb.mythicShieldLevel || 0;
@@ -1436,6 +1486,7 @@ function showMarket() {
   if (pb.petCount > 0)    pbParts.push(t('market.pbPet', { n: pb.petCount, lv: pb.petLevel || 0 }));
   if (pb.repelChance > 0)  pbParts.push(t('market.pbRepelChance',  { n: Math.min(pb.repelChance,  REPEL_FREEZE_CHANCE_MAX) }));
   if (pb.freezeChance > 0) pbParts.push(t('market.pbFreezeChance', { n: Math.min(pb.freezeChance, REPEL_FREEZE_CHANCE_MAX) }));
+  if (pb.autoModeOwned)   pbParts.push(t('market.pbAutoMode'));
   pbSummary.style.display = pbParts.length ? '' : 'none';
   pbSummary.innerHTML = pbParts.length
     ? `<b>${t('market.pbTitle')}</b><br>${pbParts.join(' · ')}` : '';
@@ -1498,6 +1549,10 @@ function showMarket() {
       } else if (mi.id === 'territoryMark') {
         // 신화 등급 영구템: 클리어 판정 기준선을 75%→70%로 영구 하향 — startGame()의 clearThreshold 참고.
         save.persistentBonus.territoryMark = true;
+      } else if (mi.id === 'autoMode') {
+        // 신화 등급 영구템: 게임 중 토글로 켜고 끌 수 있는 자동 발사 — game.js init()의
+        // autoModeOwned/toggleAutoMode() 참고. 구매 자체는 소지 여부만 켜둔다.
+        save.persistentBonus.autoModeOwned = true;
       } else if (mi.id === 'mythicShield') {
         // 신화 등급 영구템: 스테이지 시작 시 무적 시간 +1초(최대 5초) — game.js init()의 shieldSeconds 참고.
         save.persistentBonus.mythicShieldLevel = Math.min(MYTHIC_SHIELD_MAX, (save.persistentBonus.mythicShieldLevel || 0) + 1);

@@ -317,6 +317,13 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   object-fit: cover; border-radius: 12px;
   border: 2px solid rgba(200,80,192,0.4);
 }
+/* 클리어 직후 3초간 이미지를 확대해서 보여주며 다음 스테이지로 자동 전환됨을
+   시각적으로 암시한다 (app.js의 onStageClear 자동 진행 타이머와 짝을 이룸). */
+#clear-image.zoom-in { animation: clear-image-zoom 3s ease-out forwards; }
+@keyframes clear-image-zoom {
+  0%   { transform: scale(1); }
+  100% { transform: scale(1.22); }
+}
 
 .result-stats {
   display: grid; grid-template-columns: 1fr 1fr 1fr;
