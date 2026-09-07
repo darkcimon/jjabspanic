@@ -35,7 +35,7 @@ let pendingRewardStage = 0;
 // 위 두 변수와 마찬가지로 save.pendingGameComplete로도 함께 저장해 모바일 재로드에도 복구한다.
 let pendingGameComplete = false;
 let marketReturnScreen = 'main'; // 마켓 진입 전 화면
-// 오토모드로 클리어했을 때, 라이트박스로 클리어 이미지를 3초간 띄운 뒤 자동으로
+// 오토모드로 클리어했을 때, 라이트박스로 클리어 이미지를 4초간 띄운 뒤 자동으로
 // 다음 진행 단계로 넘어가는 타이머. onStageClear()가 새로 열릴 때마다, 그리고
 // 사용자가 직접 "다음 스테이지"/메인 메뉴 버튼을 눌렀을 때 취소해 중복 진행을 막는다.
 let _clearAutoAdvanceTimer = null;
@@ -360,7 +360,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   show('stage-clear');
 
   // 오토모드로 클리어했을 때만: 갤러리에서 사진을 탭해 크게 보는 것과 동일한
-  // 전면 라이트박스로 클리어 이미지를 3초간 띄운 뒤 자동으로 닫고, "다음 스테이지"
+  // 전면 라이트박스로 클리어 이미지를 4초간 띄운 뒤 자동으로 닫고, "다음 스테이지"
   // 버튼을 누른 것과 동일하게 진행한다 (특전/소장품 화면으로 가야 하면 그쪽으로 —
   // btn-next-stage의 클릭 핸들러를 그대로 재사용). 수동 플레이 중엔 예전처럼
   // 클리어 화면에 계속 머물러 있고, 그 사이 사용자가 다른 화면(마켓/광고 등)으로
@@ -372,7 +372,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
       _clearAutoAdvanceTimer = null;
       closeLightbox();
       if ($('screen-stage-clear').classList.contains('active')) $('btn-next-stage').click();
-    }, 3000);
+    }, 4000);
   }
 }
 
