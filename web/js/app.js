@@ -35,10 +35,15 @@ let pendingRewardStage = 0;
 // 위 두 변수와 마찬가지로 save.pendingGameComplete로도 함께 저장해 모바일 재로드에도 복구한다.
 let pendingGameComplete = false;
 let marketReturnScreen = 'main'; // 마켓 진입 전 화면
-// 스테이지 클리어 화면에서 3초간 이미지를 확대해 보여준 뒤 자동으로 다음 진행 단계로
-// 넘어가는 타이머. onStageClear()가 새로 열릴 때마다, 그리고 사용자가 직접
-// "다음 스테이지"/메인 메뉴 버튼을 눌렀을 때 취소해 중복 진행을 막는다.
+// 오토모드로 클리어했을 때, 라이트박스로 클리어 이미지를 3초간 띄운 뒤 자동으로
+// 다음 진행 단계로 넘어가는 타이머. onStageClear()가 새로 열릴 때마다, 그리고
+// 사용자가 직접 "다음 스테이지"/메인 메뉴 버튼을 눌렀을 때 취소해 중복 진행을 막는다.
 let _clearAutoAdvanceTimer = null;
+// 무기 선택(activeWeapon)과 오토모드 on/off는 새 Game 인스턴스를 만들 때마다
+// (매 스테이지 시작 시) 초기화되므로, 스테이지가 바뀌어도 이어지도록 마지막 상태를
+// 여기 기록해뒀다가 startGame()에서 복원한다 (updateHeldItemsBar 참고).
+let _lastActiveWeapon = null;
+let _lastAutoModeActive = false;
 
 // ── Canvas sizing ────────────────────────────────────────────
 function calcCellSize() {
@@ -130,6 +135,9 @@ function updateHeldItemsBar(heldItems) {
   }
   // 신화 등급 "오토모드" — 보유 중이면 총/칼 버튼들과 나란히 켜기/끄기 토글을 보여준다.
   if (game && game.autoModeOwned) bar.appendChild(makeAutoModeButton(game));
+  // 이 함수는 무기 선택/오토모드 토글이 바뀔 때마다(그리고 매 HUD tick마다) 호출되므로,
+  // 다음 스테이지 시작 시 복원할 수 있도록 최신 상태를 계속 기록해둔다.
+  if (game) { _lastActiveWeapon = game.activeWeapon; _lastAutoModeActive = game.autoModeActive; }
 }
 
 // ── HUD ──────────────────────────────────────────────────────
@@ -268,6 +276,12 @@ async function startGame(stage, rating, resumeState = null) {
   game.setWeaponLevels(pb?.gunLevel || 0, pb?.swordLevel || 0, pb?.bulletLevel || 0);
   game.start();
   setupInput(canvas, game);
+  // 새 Game 인스턴스는 무기 선택(activeWeapon)과 오토모드 on/off가 항상 초기화된
+  // 상태로 시작하므로, 직전 스테이지에서의 선택을 그대로 이어서 복원한다.
+  if (_lastActiveWeapon && game.heldItems.some(h => h.type === _lastActiveWeapon)) {
+    game.selectWeapon(_lastActiveWeapon);
+  }
+  if (_lastAutoModeActive && game.autoModeOwned) game.toggleAutoMode();
   // HUD의 첫 tick(최대 0.1초 지연)을 기다리지 않고 즉시 갱신 —
   // 그 전까지 이전 스테이지의 held-items-bar 버튼(멈춘 이전 game 인스턴스를 참조)이
   // 그대로 남아있어, 시작 직후 총(무기) 버튼을 바로 누르면 죽은 game 객체에 발사되어
