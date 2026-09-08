@@ -216,6 +216,10 @@ export function drawBragCard(ctx, stats, t, labels) {
       ctx.fillStyle = 'rgba(255,255,255,0.10)';
       ctx.beginPath(); ctx.arc(bx, badgeY, 18, 0, PI2); ctx.fill();
       ctx.font = '20px system-ui, sans-serif';
+      // 배경 원과 같은 fillStyle(10% 불투명도)이 그대로 남아있으면 이모지 아이콘도
+      // 같이 10%로 흐려져 거의 안 보였다 — 장착 뱃지가 안 보인다는 문제의 원인.
+      // 아이콘은 완전 불투명하게 다시 설정해서 그린다.
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(acc.icon, bx, badgeY+1);
     });
     ctx.textBaseline = 'alphabetic';
