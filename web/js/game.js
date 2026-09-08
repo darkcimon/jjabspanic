@@ -985,6 +985,9 @@ export class Game extends EventTarget {
     this.pets=[]; this.petBullets=[]; this._petLevel=0; this._petCap=PET_BASE_CAP;
     this.autoModeOwned=false; this.autoModeActive=false; this._autoFireTimer=0; this.autoModeUpgradeLevel=0;
     this.mythicZeusOwned=false; this.mythicZeusLevel=0; this._zeusTimers=[];
+    // 오토모드 중 번개 타이머(제우스의 분노) 발동 시 자동 전진하는 남은 칸 수/방향
+    // (_triggerMythicZeusWrath/_update 참고).
+    this._autoWalkCellsLeft=0; this._autoWalkDir=null;
     this.equippedAccessories={};
   }
 
@@ -1265,16 +1268,20 @@ export class Game extends EventTarget {
   }
 
   // 번개 AOE 공통 로직 — 보유템 소모형(triggerLightning)과 신화 등급 영구
-  // 자동발동형(_triggerMythicZeusWrath)이 함께 쓴다.
-  _lightningStrike(px, py, radius) {
+  // 자동발동형(_triggerMythicZeusWrath)이 함께 쓴다. damageFrac을 주면 즉사 대신
+  // 몬스터 최대체력의 그 비율만큼만 깎는다(생존 가능) — triggerLightning 참고.
+  _lightningStrike(px, py, radius, damageFrac=null) {
     const gx=Math.floor(px/this.cs), gy=Math.floor(py/this.cs);
     for (let dx=-radius;dx<=radius;dx++) for (let dy=-radius;dy<=radius;dy++) {
       this.grid._s(gx+dx,gy+dy,CAPTURED);
       this._spawnHitParticles((gx+dx+0.5)*this.cs,(gy+dy+0.5)*this.cs);
     }
     this.monsters=this.monsters.filter(m=>{
-      if (Math.abs(m.gx-gx)<=radius&&Math.abs(m.gy-gy)<=radius) { this._spawnHitParticles(m.px,m.py); this.score+=_killScore(m); return false; }
-      return true;
+      if (!(Math.abs(m.gx-gx)<=radius&&Math.abs(m.gy-gy)<=radius)) return true;
+      this._spawnHitParticles(m.px,m.py);
+      const dead = damageFrac==null ? true : m.takeDamage(Math.ceil(m.maxHp*damageFrac));
+      if (!dead) return true; // 체력만 깎이고 생존
+      this.score+=_killScore(m); return false;
     });
   }
 
@@ -1282,7 +1289,11 @@ export class Game extends EventTarget {
     const li=this.heldItems.find(h=>h.type==='lightning'||h.type==='zeusLightning');
     if (!li) return;
     const radius=li.type==='zeusLightning'?2:1;
-    this._lightningStrike(px, py, radius);
+    // 제우스의 번개(zeusLightning, 15,000pt)는 100단계를 넘으면 즉사 대신 최대체력의
+    // 90%만 깎는다 — 저렴한 가격에 비해 고스테이지에서 5x5 즉사가 지나치게 강력해
+    // 밸런스가 무너지는 문제 수정. 기본 번개(3x3)와 100단계 이하는 기존대로 즉사.
+    const damageFrac=(li.type==='zeusLightning'&&this.stage>100)?0.9:null;
+    this._lightningStrike(px, py, radius, damageFrac);
     li.count=(li.count||1)-1;
     if (li.count<=0) this.heldItems=this.heldItems.filter(h=>h!==li);
     this.lightningMode=false;
@@ -1303,6 +1314,12 @@ export class Game extends EventTarget {
     this._lightningStrike(ax, ay, 2);
     this.flashTimer=0.4;
     this.flashColor='rgba(180,255,100,0.7)';
+    // 오토모드가 켜져 있으면 번개가 떨어진 방향으로 3칸을 자동으로 전진시킨다
+    // (조작 없이도 영역이 계속 넓어지도록). 실제 이동/정지 처리는 _update 참고.
+    if (this.autoModeOwned && this.autoModeActive) {
+      this._autoWalkDir={dx, dy};
+      this._autoWalkCellsLeft=3;
+    }
   }
 
   triggerSplit() {
@@ -1535,19 +1552,37 @@ export class Game extends EventTarget {
   }
 
   _update(dt) {
+    // 오토모드 중 번개 타이머(제우스의 분노) 발동 시 자동 전진 — 남은 칸이 있으면
+    // 매 프레임 목표 방향을 강제하고(수동 입력보다 우선), 한 칸 이동할 때마다
+    // 카운트를 줄인다. 벽/선에 막히면 그 자리에서 취소한다.
+    const autoWalking=this._autoWalkCellsLeft>0;
+    if (autoWalking && (this.player.dx!==this._autoWalkDir.dx || this.player.dy!==this._autoWalkDir.dy)) {
+      this.player.setDir(this._autoWalkDir.dx, this._autoWalkDir.dy);
+      this._lastDx=this._autoWalkDir.dx; this._lastDy=this._autoWalkDir.dy;
+      this.pendingDir=null;
+    }
+    const _preGx=this.player.gx, _preGy=this.player.gy;
+
     // Input
-    if (this.pendingDir&&this.player.progress===0) {
+    if (!autoWalking && this.pendingDir&&this.player.progress===0) {
       const {dx,dy}=this.pendingDir;
       this.player.setDir(dx,dy);
       if (dx!==0||dy!==0) { this._lastDx=dx; this._lastDy=dy; }
       this.pendingDir=null;
     }
     const result=this.player.update(dt,this.grid,this.playerSlowTimer>0?0.6:1.0);
-    if (this.pendingDir&&this.player.progress===0) {
+    if (!autoWalking && this.pendingDir&&this.player.progress===0) {
       const {dx,dy}=this.pendingDir;
       this.player.setDir(dx,dy);
       if (dx!==0||dy!==0) { this._lastDx=dx; this._lastDy=dy; }
       this.pendingDir=null;
+    }
+    if (autoWalking) {
+      if (this.player.gx!==_preGx || this.player.gy!==_preGy) {
+        if (--this._autoWalkCellsLeft<=0) this.player.setDir(0,0);
+      } else if (this.player.dx===0 && this.player.dy===0 && this.player.progress===0) {
+        this._autoWalkCellsLeft=0; // 벽/선에 막혀 더 못 감 — 자동 전진 취소
+      }
     }
     if (result==='LINE_COMPLETE') { this._onLineComplete(); if (!this.running) return; }
 

@@ -7,7 +7,7 @@
  * URL 쿼리스트링에 실어 stateless하게 공유하는 방식이라(buildShareUrl 참고),
  * 이 모듈은 순수 렌더링 함수만 제공하고 별도 상태를 갖지 않는다.
  */
-import { drawSquirrelBody, drawLaurelWreath, drawAccessories, resolveDynamicColor } from './squirrel.js';
+import { drawSquirrelBody, drawAccessories, resolveDynamicColor } from './squirrel.js';
 import { getAccessory } from './accessories.js';
 
 const PI2 = Math.PI * 2;
@@ -55,14 +55,14 @@ function _equippedList(equipped = {}) {
     .filter(Boolean);
 }
 
-// 다람쥐 색·월계관 티어 — 최고 스테이지(bestStage) 기준. 펫강화 색상 시스템
+// 다람쥐 색 티어 — 최고 스테이지(bestStage) 기준. 펫강화 색상 시스템
 // (game.js _getPetColor: 10단마다 색 변경, 200단 이상 무지개)과 같은 감각으로
-// 맞췄고, 300단계(1회차 클리어)를 "무지개 + 월계관" 최상위 티어로 뒀다.
+// 맞췄고, 300단계(1회차 클리어)를 "무지개" 최상위 티어로 뒀다.
 export function getBragTier(bestStage) {
   const s = bestStage || 0;
-  if (s >= 300) return { furColor: 'rainbow', wreath: true };
-  if (s >= 10)  return { furColor: `hsl(${(Math.floor(s / 30) * 137) % 360}, 75%, 58%)`, wreath: s >= 100 };
-  return { furColor: null, wreath: false };
+  if (s >= 300) return { furColor: 'rainbow' };
+  if (s >= 10)  return { furColor: `hsl(${(Math.floor(s / 30) * 137) % 360}, 75%, 58%)` };
+  return { furColor: null };
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -203,8 +203,6 @@ export function drawBragCard(ctx, stats, t, labels) {
     drawAccessories(ctx, h, equipped);
     ctx.restore();
   }
-  if (tier.wreath) drawLaurelWreath(ctx, headCx, headCy - h*0.05, h*0.62, '#ffd700');
-
   // Equipped badges — 초상화 한 장으로는 다 못 담는 조합(최대 4종 동시 착용)을
   // 아이콘으로 보완 표시. accessories.js의 emoji 아이콘을 그대로 쓴다.
   const equippedList = _equippedList(equipped);

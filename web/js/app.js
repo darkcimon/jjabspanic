@@ -316,7 +316,10 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
                          rareLifeLost = false }) {
   // 화면 전환 플래그를 가장 먼저 설정 — 이후 코드 예외에 영향받지 않도록.
   // save에도 함께 기록해 페이지 재로드로 이 값이 유실돼도 복구 가능하게 한다.
-  if (stage % 10 === 0)  { pendingCollectionStage = stage; save.pendingCollectionStage = stage; }
+  // 소장품 선택화면은 1회차(1~300단계)에서만 뜬다 — 300단계를 넘어 이어서
+  // 플레이할 때도 10단계마다 계속 떴던 걸, 아트워크가 1~300으로 순환되는 시점부터는
+  // 뜨지 않도록 막았다(특전 이미지는 반대로 계속 반복 지급 — 위 pendingRewardStage 참고).
+  if (stage % 10 === 0 && stage <= MAX_STAGE) { pendingCollectionStage = stage; save.pendingCollectionStage = stage; }
   // 특전 이미지는 100단계마다 반복 지급 — 300단계를 넘어 이어서 플레이해도
   // 400, 500... 에서 계속 나온다.
   if (stage % 100 === 0) { pendingRewardStage = stage; save.pendingRewardStage = stage; }
@@ -1137,7 +1140,7 @@ $('btn-back-help').onclick = () => show('main');
 // ── 내 캐릭터 자랑하기 ────────────────────────────────────────
 // 서버 DB 없이, 통계값을 그대로 공유 URL 쿼리스트링에 실어 공유 페이지
 // (share.html)에서 같은 카드를 다시 그리게 한다 (bragCard.js buildShareUrl 참고).
-// 레벨/월계관 등 티어는 최고 스테이지(bestStage) 기준 — bragCard.js getBragTier.
+// 레벨/색상 등 티어는 최고 스테이지(bestStage) 기준 — bragCard.js getBragTier.
 let _bragRafId = null;
 function _bragStats() {
   return {

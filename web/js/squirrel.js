@@ -135,28 +135,6 @@ export function resolveDynamicColor(colorKey, t) {
   return colorKey;
 }
 
-// 월계관 — "자랑하기" 카드 전용 장식. 머리 위로 잎사귀 두 줄기가 감싸는 모양을
-// 그린다. cx,cy는 머리 중심(=drawSquirrelBody 호출 시 translate 기준 원점 부근),
-// radius는 잎사귀가 퍼지는 반경.
-export function drawLaurelWreath(ctx, cx, cy, radius, color='#ffd700') {
-  const leaves = 6;
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < leaves; i++) {
-      const a = Math.PI*0.08 + i*(Math.PI*0.42/leaves)*2.1;
-      const lx = cx + side*Math.sin(a)*radius;
-      const ly = cy - Math.cos(a)*radius*0.95;
-      ctx.save();
-      ctx.translate(lx, ly);
-      ctx.rotate(side*a*0.6);
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, radius*0.22, radius*0.09, 0, 0, PI2);
-      ctx.fill();
-      ctx.restore();
-    }
-  }
-}
-
 // ── 악세사리(코스메틱) 렌더링 ────────────────────────────────
 // drawSquirrelBody 호출 직후, 같은 좌표계(캐릭터 중심 translate 상태)에서
 // 이어서 그린다. equipped: { hat, outfit, accessory, shoes } — 각각 accessories.js의
