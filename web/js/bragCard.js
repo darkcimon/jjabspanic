@@ -38,12 +38,17 @@ function _isReady(img) {
   return !!img && img.complete && img.naturalWidth > 0;
 }
 
-// equipped 상태에서 초상화로 보여줄 이미지 하나를 고른다 (없으면 미착용 이미지).
-function _pickPortraitImage(equipped = {}) {
+// equipped 상태에서 초상화 베이스 이미지로 쓸 항목 하나를 고른다(없으면 미착용
+// 이미지). 어떤 카테고리를 썼는지도 같이 돌려줘야, 그 카테고리는 이미 이미지에
+// 그려져 있으니 벡터 오버레이에서 중복으로 그리지 않고 건너뛸 수 있다.
+function _pickPortraitCategory(equipped = {}) {
   for (const cat of ACCESSORY_PORTRAIT_PRIORITY) {
-    const id = equipped[cat];
-    if (id) return _loadImg(`${id}.png`);
+    if (equipped[cat]) return cat;
   }
+  return null;
+}
+function _pickPortraitImage(portraitCategory, equipped = {}) {
+  if (portraitCategory) return _loadImg(`${equipped[portraitCategory]}.png`);
   return _loadImg('bare.png');
 }
 
@@ -168,14 +173,18 @@ export function drawBragCard(ctx, stats, t, labels) {
   ctx.strokeStyle = 'rgba(200,80,192,0.55)'; ctx.lineWidth = 2;
   roundRect(ctx, panelX, panelY, panelW, panelH, 28); ctx.stroke();
 
-  // Character — 악세사리 조합 중 우선순위상 가장 앞선 것 하나를 대표 이미지로
-  // 보여준다 (이미지 로딩 전이거나 파일이 없으면 예전 벡터 그림으로 폴백).
+  // Character — AI 이미지 한 장으로는 착용한 조합 전부를 담을 수 없어, 그중
+  // 우선순위상 가장 앞선 항목 하나를 초상화 베이스로 쓰고, 나머지 착용 항목은
+  // (초상화 이미지 로딩 전이거나 파일이 없을 때 쓰는 것과 같은) 벡터
+  // drawAccessories()로 그 위에 겹쳐 그린다 — "장착 중"이라고 아이콘으로만
+  // 알려주는 게 아니라, 실제로 걸치고 있는 모습이 이미지에 보여야 한다.
   const tier = getBragTier(stats.bestStage);
   const furColor = resolveDynamicColor(tier.furColor, t);
   const headCx = W/2, headCy = panelY + panelH*0.33;
   const h = panelH * 0.40;
   const equipped = stats.equippedAccessories || {};
-  const portraitImg = _pickPortraitImage(equipped);
+  const portraitCategory = _pickPortraitCategory(equipped);
+  const portraitImg = _pickPortraitImage(portraitCategory, equipped);
 
   if (_isReady(portraitImg)) {
     const size = h * 1.3;
@@ -195,6 +204,18 @@ export function drawBragCard(ctx, stats, t, labels) {
     ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2;
     roundRect(ctx, headCx-size/2, headCy-size/2, size, size, size*0.14); ctx.stroke();
+
+    // 초상화 베이스가 이미 담고 있는 카테고리(portraitCategory)만 빼고 나머지를
+    // 벡터로 겹쳐 그린다 — drawSquirrelBody 없이 drawAccessories만 단독으로 써도
+    // 좌표계는 동일(캐릭터 중심 기준, 같은 h)이라 그대로 얹을 수 있다.
+    const overlayEquipped = { ...equipped };
+    if (portraitCategory) overlayEquipped[portraitCategory] = null;
+    if (Object.values(overlayEquipped).some(Boolean)) {
+      ctx.save();
+      ctx.translate(headCx, headCy);
+      drawAccessories(ctx, h, overlayEquipped);
+      ctx.restore();
+    }
   } else {
     // 폴백: 벡터 다람쥐 (이미지가 아직 안 떴거나 로드 실패)
     ctx.save();
