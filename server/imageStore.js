@@ -8,7 +8,16 @@ const fs   = require('fs');
 const path = require('path');
 
 const DB_PATH  = path.join(__dirname, 'data', 'images.json');
-const IMG_DIR  = process.env.IMAGE_DIR || path.join(__dirname, 'public', 'images');
+// IMAGE_DIR 환경변수가 상대경로(예: "./public/images", .env.example 그대로 복사한 값)로
+// 설정된 경우, path.join(IMG_DIR, ...)이나 fs 호출은 이걸 __dirname이 아니라 프로세스의
+// 현재 작업 디렉토리(CWD) 기준으로 해석한다. Railway 배포는 저장소 루트에서
+// `npm start` -> `node server/server.js`로 실행되어 CWD가 server/가 아닌 루트이므로,
+// 이 값을 그대로 쓰면 이미지가 실제로는 <repo root>/public/images 에 저장된다.
+// 반면 app.js가 정적 파일을 서빙하는 경로는 항상 __dirname 기준 절대경로라 서로
+// 어긋나 버림 — 생성은 성공(로그도 정상)하지만 브라우저는 그 파일을 영원히
+// 404로 못 받아온다. path.resolve로 __dirname 기준 절대경로로 고정해 CWD와
+// 무관하게 만든다(이미 절대경로면 그대로 유지됨).
+const IMG_DIR  = path.resolve(__dirname, process.env.IMAGE_DIR || path.join('public', 'images'));
 
 const BATCH_SIZE  = 30;
 const MAX_STAGE   = 300;

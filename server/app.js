@@ -38,7 +38,10 @@ app.set('trust proxy', 1);
 
 app.use(express.json());
 app.use(cookieParser());
-app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
+// imageStore의 IMG_DIR을 그대로 재사용한다 — 여기서 별도 경로를 하드코딩하면
+// IMAGE_DIR 환경변수 설정에 따라 실제 파일이 쓰이는 위치와 서빙되는 위치가
+// 어긋날 수 있다(원인은 imageStore.js의 IMG_DIR 주석 참고).
+app.use('/images', express.static(store.IMG_DIR));
 // TWA 도메인 소유권 증명 파일 서빙 (/.well-known/assetlinks.json)
 app.get('/.well-known/assetlinks.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');

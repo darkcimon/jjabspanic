@@ -11,6 +11,10 @@ jest.mock('../imageStore', () => ({
     MAX_STAGE:              300,
     BATCH_SIZE:             30,
     TOTAL_BATCH:            10,
+    // app.js가 express.static(store.IMG_DIR)로 실제 정적 파일 서빙 경로를
+    // imageStore와 공유하므로, 목에도 값이 있어야 앱 생성(require) 자체가
+    // 깨지지 않는다.
+    IMG_DIR:                require('path').join(__dirname, '..', 'public', 'images'),
     getBatchIndex:          jest.fn((stage) => Math.floor((stage - 1) / 30)),
     getBatchStatus:         jest.fn(),
     getImageUrl:            jest.fn(),
