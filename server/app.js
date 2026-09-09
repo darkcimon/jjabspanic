@@ -129,37 +129,62 @@ const apiLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
-// 특전 이미지 생성: IP당 하루 3회 (실제로 이미지가 생성된 요청만 셈 — 콘텐츠
-// 차단, 유효성 검사 실패, API 오류 등으로 실패한 요청은 소모하지 않는다.
-// 그렇지 않으면 성인물 등 차단된 키워드를 몇 번 시도해본 사용자가 진짜 원인
+// 특전 이미지 생성: userId(기기)당 하루 3회 — 실제로 생성에 성공한 요청만
+// 센다. 콘텐츠 차단, 유효성 검사 실패, API 오류 등으로 실패한 요청은 애초에
+// 카운트를 올리지 않는다(hasUserRewardQuota로 확인만 하고, 생성이 성공한
+// 뒤에야 consumeUserRewardQuota를 호출 — "증가 후 실패 시 환불"이 아니라
+// "성공했을 때만 증가"라 실패가 카운트에 반영될 여지 자체가 없다). 그렇지
+// 않으면 성인물 등 차단된 키워드를 몇 번 시도해본 사용자가 진짜 원인
 // ("성적인 이미지는 생성할 수 없습니다")을 모른 채 "횟수 초과"라는 엉뚱한
-// 메시지만 보게 된다.)
-// store를 직접 만들어 갖고 있어야 테스트에서 resetAll()로 초기화할 수 있다
-// (rewardGlobalCount와 달리 이 IP당 하루 3회 한도는 지금까지 테스트 리셋
-// 수단이 없어, 한 테스트 파일 안에서 성공 응답이 누적되면 이후 테스트가
-// 실제로는 정상 동작인데도 429로 실패하는 문제가 있었다).
-const rewardLimiterStore = new rateLimit.MemoryStore();
-const rewardLimiter = rateLimit({
-    windowMs: 24 * 60 * 60 * 1000,
-    max: 3,
-    keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
-    message: (req) => ({ error: i18n.t(req, 'rewardDailyLimit') }),
-    skipFailedRequests: true,
-    store: rewardLimiterStore,
-});
+// 메시지만 보게 된다.
+//
+// IP가 아니라 userId 기준인 이유: 예전엔 IP당 하루 3회였는데, 모바일
+// 통신사는 CGNAT로 여러 가입자가 같은 공인 IP를 공유하는 경우가 흔해서,
+// 내가 한 번도 시도한 적 없어도 같은 통신사의 다른 사용자가 그날 몫을 다
+// 써버리면 막혀버렸다(게다가 리셋도 자정이 아니라 "그 IP가 처음 걸린 시점 +
+// 24시간"이라, 공유 IP 트래픽이 많으면 하루가 지나도 계속 막힌 것처럼
+// 보였다).
+const REWARD_USER_DAILY_CAP = parseInt(process.env.REWARD_USER_DAILY_CAP, 10) || 3;
+const REWARD_USER_WINDOW_MS = 24 * 60 * 60 * 1000;
+const rewardUserDailyUsage = new Map(); // userId → { count, windowStart }
+
+function hasUserRewardQuota(userId) {
+    const entry = rewardUserDailyUsage.get(userId);
+    if (!entry || Date.now() - entry.windowStart >= REWARD_USER_WINDOW_MS) return true;
+    return entry.count < REWARD_USER_DAILY_CAP;
+}
+
+function consumeUserRewardQuota(userId) {
+    const now = Date.now();
+    const entry = rewardUserDailyUsage.get(userId);
+    if (!entry || now - entry.windowStart >= REWARD_USER_WINDOW_MS) {
+        rewardUserDailyUsage.set(userId, { count: 1, windowStart: now });
+    } else {
+        entry.count++;
+    }
+}
 
 // userId당 쿨다운 (1시간)
 const rewardCooldown = new Map(); // userId → lastGeneratedAt (ms)
 const REWARD_COOLDOWN_MS = 60 * 60 * 1000;
 
-// 서버 전체 일일 상한 — IP/userId를 여러 개로 바꿔가며 우회하더라도(예: 여러
-// 기기·프록시로 rewardLimiter의 IP당 하루 3회를 각각 새로 채우는 경우) 특전
-// 이미지(고비용 sd3-large 모델)에 쓰이는 Stability AI 크레딧이 하루에 무제한으로
-// 소진되지 않도록, 요청 출처와 무관한 절대 상한선을 둔다.
+// 서버 전체 일일 상한 — userId를 여러 개로 바꿔가며 우회하더라도(예: 여러
+// 기기로 각자의 하루 3회를 따로 채우는 경우) 특전 이미지(고비용 sd3-large
+// 모델)에 쓰이는 Stability AI 크레딧이 하루에 무제한으로 소진되지 않도록,
+// 요청 출처와 무관한 절대 상한선을 둔다. 이 역시 성공한 생성만 카운트한다.
 const REWARD_GLOBAL_DAILY_CAP = parseInt(process.env.REWARD_GLOBAL_DAILY_CAP, 10) || 30;
 const REWARD_GLOBAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 let rewardGlobalCount = 0;
 let rewardGlobalWindowStart = Date.now();
+
+function hasGlobalRewardQuota() {
+    const now = Date.now();
+    if (now - rewardGlobalWindowStart >= REWARD_GLOBAL_WINDOW_MS) {
+        rewardGlobalWindowStart = now;
+        rewardGlobalCount = 0;
+    }
+    return rewardGlobalCount < REWARD_GLOBAL_DAILY_CAP;
+}
 
 function consumeGlobalRewardQuota() {
     const now = Date.now();
@@ -167,9 +192,7 @@ function consumeGlobalRewardQuota() {
         rewardGlobalWindowStart = now;
         rewardGlobalCount = 0;
     }
-    if (rewardGlobalCount >= REWARD_GLOBAL_DAILY_CAP) return false;
     rewardGlobalCount++;
-    return true;
 }
 
 // ── 클라이언트 설정 노출 ──────────────────────────────────
@@ -265,7 +288,7 @@ app.post('/api/reward/token', (req, res) => {
 });
 
 // ── 완주 보상 이미지 생성 ─────────────────────────────────
-app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
+app.post('/api/reward/generate', async (req, res) => {
     const { userId, keywords, token } = req.body;
 
     if (!userId || !keywords || keywords.trim().length === 0)
@@ -311,9 +334,17 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
     }
 
     // 서버 전체 일일 상한 체크 — 유료 API 호출(generateRewardImage) 전에 막는다.
-    // 한도 초과 시 토큰/쿨다운을 소모하지 않아 유저는 내일 같은 토큰으로 재시도 가능.
-    if (!consumeGlobalRewardQuota()) {
+    // 확인만 하고 실제 차감(consumeGlobalRewardQuota)은 생성 성공 후에 하므로
+    // 한도 초과 시는 물론 생성 실패 시에도 토큰/쿨다운/전역 한도 어느 것도
+    // 소모되지 않아, 유저는 같은 토큰으로 (내일 기다릴 필요 없이) 재시도 가능.
+    if (!hasGlobalRewardQuota()) {
         return res.status(429).json({ error: i18n.t(req, 'rewardGlobalCap') });
+    }
+
+    // userId(기기)당 하루 3회 한도 체크 — 역시 확인만 하고, 실제 차감은 생성
+    // 성공 후에만 한다(실패는 카운트되지 않음).
+    if (!hasUserRewardQuota(userId)) {
+        return res.status(429).json({ error: i18n.t(req, 'rewardDailyLimit') });
     }
 
     // 토큰은 "생성 성공" 시에만 소모한다. 실패(금지 키워드, API 차단 등) 후에도
@@ -324,11 +355,12 @@ app.post('/api/reward/generate', rewardLimiter, async (req, res) => {
         rewardCooldown.set(userId, Date.now());
         await generator.generateRewardImage(userId, keywords.trim());
         rewardTokens.delete(token); // 일회용: 생성 "성공" 시에만 소모
+        consumeGlobalRewardQuota(); // 전역 한도도 성공 시에만 차감
+        consumeUserRewardQuota(userId); // 유저 하루 3회 한도도 성공 시에만 차감
         const imageUrl = store.getRewardImageUrl(userId);
         res.json({ status: 'ready', imageUrl });
     } catch (err) {
         rewardCooldown.delete(userId); // 실패 시 쿨다운 취소
-        rewardGlobalCount = Math.max(0, rewardGlobalCount - 1); // 실패 시 전역 한도도 환급
         console.error(`[Server] 보상 이미지 생성 실패: ${err.message}`);
         const message = err.code === 'BLOCKED_KEYWORD' ? i18n.t(req, 'blockedKeyword') : err.message;
         res.status(500).json({ error: message });
@@ -343,8 +375,8 @@ module.exports = {
         rewardGlobalCount = 0;
         rewardGlobalWindowStart = Date.now();
     },
-    // 테스트 전용: IP당 하루 3회 리미터를 초기화한다.
+    // 테스트 전용: userId당 하루 3회 한도를 초기화한다.
     __resetRewardLimiterForTests: () => {
-        rewardLimiterStore.resetAll();
+        rewardUserDailyUsage.clear();
     },
 };
