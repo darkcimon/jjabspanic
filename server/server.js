@@ -15,6 +15,7 @@ const { app }        = require('./app');
 const store          = require('./imageStore');
 const userStore      = require('./userStore');
 const purchaseStore  = require('./purchaseStore');
+const rankStore      = require('./rankStore');
 const scheduler      = require('./scheduler');
 
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ const PORT = process.env.PORT || 3000;
 store.init();
 userStore.init();
 purchaseStore.init();
+rankStore.init();
 scheduler.init();
 
 app.listen(PORT, () => {

@@ -12,6 +12,7 @@ const rateLimit    = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const store        = require('./imageStore');
 const generator    = require('./batchGenerator');
+const rankStore    = require('./rankStore');
 const { router: authRouter }    = require('./auth');
 const { router: paymentRouter } = require('./payment');
 const i18n = require('./i18n');
@@ -205,6 +206,28 @@ app.get('/api/config', (req, res) => {
     res.json({
         tossClientKey: process.env.TOSS_CLIENT_KEY || null,
     });
+});
+
+// ── 자랑하기 랭킹 (포인트 / 스테이지 / 점령율) ─────────────
+// "내 캐릭터 자랑하기" 모달을 열 때마다 클라이언트가 자기 통계를 보내고,
+// 그 자리에서 세 지표의 순위 + 표시용 전체 인원수를 돌려받는다.
+// 로그인이 없는 게임이라 userId는 storage.js가 생성한 익명 UUID를 그대로 쓴다.
+app.post('/api/rank', (req, res) => {
+    const { userId, totalScore, bestStage, bestFillPct } = req.body || {};
+    if (!userId || typeof userId !== 'string' || userId.length > 100) {
+        return res.status(400).json({ error: i18n.t(req, 'invalidRankPayload') });
+    }
+    if ([totalScore, bestStage, bestFillPct].some(v => v !== undefined && typeof v !== 'number')) {
+        return res.status(400).json({ error: i18n.t(req, 'invalidRankPayload') });
+    }
+
+    try {
+        const result = rankStore.submitAndRank(userId, { totalScore, bestStage, bestFillPct });
+        res.json(result);
+    } catch (e) {
+        console.error('[Rank] 랭킹 처리 오류:', e);
+        res.status(500).json({ error: i18n.t(req, 'rankGenericError') });
+    }
 });
 
 // ── 이미지 URL 조회 ───────────────────────────────────────

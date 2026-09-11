@@ -38,6 +38,7 @@ const dict = {
     'main.btnGallery': '갤러리',
     'main.btnHelp': '도움말 / 조작법',
     'main.privacyLink': '개인정보처리방침',
+    'main.termsLink': '이용약관',
 
     'brag.btnOpen': '🐿️ 내 캐릭터 자랑하기',
     'brag.modalTitle': '내 캐릭터 자랑하기',
@@ -53,6 +54,12 @@ const dict = {
     'brag.linkCopied': '공유 링크가 복사됐습니다!',
     'brag.ctaTryIt': '나도 해보기 →',
     'brag.shareNote': '캐릭터를 키우고 친구에게 자랑해보세요!',
+    'brag.rank.points': '🏆 포인트 순위',
+    'brag.rank.stage': '🚩 스테이지 순위',
+    'brag.rank.fill': '🗺️ 점령율 순위',
+    'brag.rank.loading': '불러오는 중…',
+    'brag.rank.value': '{total}명 중 {rank}위',
+    'brag.rank.unavailable': '순위 정보 없음',
 
     // 악세사리 — 코스메틱 전용, 레벨(최고 스테이지) 50 이상부터 마켓 악세사리
     // 탭에서 해금. 카테고리(모자/옷/악세사리/신발)당 하나만 착용 가능.
@@ -223,6 +230,7 @@ const dict = {
     'gallery.unlocked': '✅ 해금됨',
     'gallery.empty': '아직 해금된 이미지가 없습니다',
     'gallery.packUnlocked': '✔ 해금 완료',
+    'gallery.comingSoon': '준비 중',
     'gallery.packComingSoon': '준비중 (추후 광고로 해금 예정)',
     'gallery.packAdProgress': '광고 시청 {count}/{threshold}회',
     'gallery.rewardAlt': '특전 {n}스테이지',
@@ -435,6 +443,7 @@ const dict = {
     'main.btnGallery': 'Gallery',
     'main.btnHelp': 'Help / Controls',
     'main.privacyLink': 'Privacy Policy',
+    'main.termsLink': 'Terms of Service',
 
     'brag.btnOpen': '🐿️ Show Off My Character',
     'brag.modalTitle': 'Show Off My Character',
@@ -450,6 +459,12 @@ const dict = {
     'brag.linkCopied': 'Share link copied!',
     'brag.ctaTryIt': 'Try it yourself →',
     'brag.shareNote': 'Grow your character and show it off to friends!',
+    'brag.rank.points': '🏆 Points Rank',
+    'brag.rank.stage': '🚩 Stage Rank',
+    'brag.rank.fill': '🗺️ Fill Rate Rank',
+    'brag.rank.loading': 'Loading…',
+    'brag.rank.value': '#{rank} of {total}',
+    'brag.rank.unavailable': 'Rank unavailable',
 
     'accessory.locked': 'Accessories unlock once your best stage reaches {level}',
     'accessory.category.hat': '🎩 Hats',
@@ -618,6 +633,7 @@ const dict = {
     'gallery.unlocked': '✅ Unlocked',
     'gallery.empty': 'No images unlocked yet',
     'gallery.packUnlocked': '✔ Unlocked',
+    'gallery.comingSoon': 'Coming Soon',
     'gallery.packComingSoon': 'Coming soon (will unlock via ads)',
     'gallery.packAdProgress': 'Ad views {count}/{threshold}',
     'gallery.rewardAlt': 'Bonus Stage {n}',

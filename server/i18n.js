@@ -36,6 +36,9 @@ const dict = {
         loginRequired: '로그인이 필요합니다.',
         invalidAuthToken: '인증 토큰이 유효하지 않습니다.',
         userInfoNotFound: '유저 정보를 찾을 수 없습니다.',
+
+        invalidRankPayload: '잘못된 랭킹 요청입니다.',
+        rankGenericError: '랭킹 정보를 불러오는 중 오류가 발생했습니다.',
     },
     en: {
         tooManyRequests: 'Too many requests',
@@ -68,6 +71,9 @@ const dict = {
         loginRequired: 'Login required.',
         invalidAuthToken: 'Invalid auth token.',
         userInfoNotFound: 'User info not found.',
+
+        invalidRankPayload: 'Invalid ranking request.',
+        rankGenericError: 'Something went wrong loading ranking info.',
     },
 };
 

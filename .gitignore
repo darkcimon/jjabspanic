@@ -9,6 +9,9 @@ node_modules/
 # 구매 데이터 (런타임 생성, 민감 정보)
 server/data/purchases.json
 
+# 랭킹 데이터 (런타임 생성)
+server/data/ranks.json
+
 # 로그
 *.log
 npm-debug.log*
@@ -36,3 +39,6 @@ gradle.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code 로컬 설정 (기기별)
+.claude/settings.local.json

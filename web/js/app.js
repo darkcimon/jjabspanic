@@ -334,6 +334,9 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   if (stage > save.bestStage) save.bestStage = stage;
   // 자랑하기 카드용 통계 — 99% 이상 점령하고 클리어한 횟수를 누적 기록한다.
   if (fill >= 0.99) save.highFillClearCount = (save.highFillClearCount || 0) + 1;
+  // 랭킹(점령율별 등수)용 통계 — 지금까지 한 스테이지에서 달성한 최고 점령율.
+  const fillPct100 = Math.floor(fill * 100);
+  if (fillPct100 > (save.bestFillPct || 0)) save.bestFillPct = fillPct100;
   // 스테이지 번호 자체는 300 이후로도 계속 증가한다 — 실제 존재하는 아트워크는
   // 300장뿐이라 캐릭터 이미지만 1단계부터 순환해서 보여준다 (game.js의 toImageStage 참고).
   save.stage = stage + 1;
@@ -643,9 +646,9 @@ function updatePackBanner(packId, owned) {
   const status = $(`pack-${suffix}-status`);
   if (!btn || !status) return;
 
-  // -- 구매 재개 시 아래로 원복 --
-  // btn.style.display = owned ? 'none' : '';
-  btn.style.display = 'none';
+  // 실 결제는 아직 비활성(버튼에 disabled 속성, index.html 참고) — "준비 중"으로
+  // 노출만 하고, 광고 누적 시청 등으로 이미 해금된 경우에만 버튼을 완전히 숨긴다.
+  btn.style.display = owned ? 'none' : '';
 
   if (owned) {
     status.textContent   = t('gallery.packUnlocked');
@@ -843,12 +846,10 @@ async function showGallery() {
     updatePackBanner(packId, isPackOwned(packId, purchases));
   }
 
-  // 완전판 팩 버튼: 전체 구매 완료 시 숨김
-  // [팩 구매 보류] 실 결제 구매를 막아두는 동안은 항상 숨김.
+  // 완전판 팩 버튼: 전체 구매 완료 시 숨김 (그 전까지는 "준비 중" 비활성 버튼으로 노출)
   const allOwned = ['pack_a', 'pack_b', 'pack_c'].every(p => isPackOwned(p, purchases));
   const btnAll = $('btn-pack-all');
-  // if (btnAll) btnAll.style.display = allOwned ? 'none' : '';
-  if (btnAll) btnAll.style.display = 'none';
+  if (btnAll) btnAll.style.display = allOwned ? 'none' : '';
 
   // 팩별 그리드 렌더링
   for (const [packId, range] of Object.entries(PACK_RANGES)) {
@@ -1147,6 +1148,7 @@ function _bragStats() {
     bestStage: save.bestStage || 0,
     totalScore: save.totalScore || 0,
     highFillClearCount: save.highFillClearCount || 0,
+    bestFillPct: save.bestFillPct || 0,
     equippedAccessories: save.accessoryEquipped || {},
   };
 }
@@ -1172,6 +1174,42 @@ function openBragModal() {
   };
   draw();
   $('modal-brag').classList.add('active');
+  _loadBragRank(stats);
+}
+
+// ── 자랑하기 랭킹 (포인트 / 스테이지 / 점령율 등수) ──────────────
+// 경쟁 심리를 자극하는 가벼운 재미 요소 — 로그인이 없는 게임이라 storage.js가
+// 만든 익명 userId를 그대로 랭킹 식별자로 쓴다(보상 이미지 식별에도 쓰이는
+// 같은 값 — privacy.html에 랭킹 용도로도 함께 쓰인다고 고지되어 있다).
+const _BRAG_RANK_METRICS = ['score', 'stage', 'fill'];
+
+function _bragRankValueEl(metric) {
+  return document.querySelector(`#brag-rank [data-metric="${metric}"] .brag-rank-value`);
+}
+
+async function _loadBragRank(stats) {
+  _BRAG_RANK_METRICS.forEach(m => {
+    const el = _bragRankValueEl(m);
+    if (el) el.textContent = t('brag.rank.loading');
+  });
+  try {
+    const result = await api.submitRank(save.userId, {
+      totalScore:  stats.totalScore,
+      bestStage:   stats.bestStage,
+      bestFillPct: stats.bestFillPct,
+    });
+    const rowFor = { score: result.score, stage: result.stage, fill: result.fillPct };
+    _BRAG_RANK_METRICS.forEach(m => {
+      const el = _bragRankValueEl(m);
+      if (el) el.textContent = t('brag.rank.value', { rank: rowFor[m].rank, total: result.totalUsers });
+    });
+  } catch (e) {
+    console.warn('[Rank] 랭킹 조회 실패:', e);
+    _BRAG_RANK_METRICS.forEach(m => {
+      const el = _bragRankValueEl(m);
+      if (el) el.textContent = t('brag.rank.unavailable');
+    });
+  }
 }
 function closeBragModal() {
   $('modal-brag').classList.remove('active');
@@ -1253,7 +1291,14 @@ $('btn-next-stage').onclick = () => {
     advanceAfterClear();
   }
 };
-$('btn-collection-skip').onclick = () => advanceAfterClear();
+$('btn-collection-skip').onclick = () => {
+  // 확정(소장하기)과 마찬가지로 화면을 실제로 빠져나가는 시점에 pending
+  // 플래그를 지운다 — 여기서 안 지우면 건너뛰기를 눌러도 다음 접속 때 같은
+  // 화면이 계속 다시 뜨는 문제가 있었다.
+  save.pendingCollectionStage = 0;
+  Storage.save(save);
+  advanceAfterClear();
+};
 $('btn-retry').onclick      = () => { save.heldItems = []; startGame(save.stage, save.rating); };
 $('btn-back-menu').onclick  = () => {
   if (_clearAutoAdvanceTimer) { clearTimeout(_clearAutoAdvanceTimer); _clearAutoAdvanceTimer = null; }
@@ -2045,6 +2090,13 @@ async function boot() {
   // 재로드 등으로 앱이 다시 시작된 경우, save에 저장해둔 대기 상태를 복구한다
   // (그렇지 않으면 100단계 특전 화면 등이 조용히 스킵된 것처럼 보임).
   pendingCollectionStage = save.pendingCollectionStage || 0;
+  // 소장품 선택화면은 1~300단계에서만 뜬다(위 onStageClear 참고). 그 규칙이
+  // 생기기 전에 저장된 값이거나, 건너뛰기가 플래그를 안 지우던 예전 버그로
+  // 남아있던 값이면 300을 넘을 수 있으므로, 여기서 걸러 더는 뜨지 않게 한다.
+  if (pendingCollectionStage > MAX_STAGE) {
+    pendingCollectionStage = 0;
+    save.pendingCollectionStage = 0;
+  }
   pendingRewardStage     = save.pendingRewardStage || 0;
   pendingGameComplete    = !!save.pendingGameComplete;
   chkContinuous.checked = !!save.continuousMove;
