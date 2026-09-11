@@ -1,13 +1,8 @@
 /**
  * ads.js — 구글 애드센스 리워드 광고(Ad Placement API) 연동
  *
- * 사전 준비 (필수):
- *  1. web/index.html <head>의 `ca-pub-XXXXXXXXXXXXXXXX`를 실제 애드센스
- *     게시자 ID로 교체한다.
- *  2. 애드센스 계정에서 사이트를 "H5 게임 광고(Ad Placement API)"용으로
- *     승인받아야 실제 보상형 광고가 노출된다.
- *  3. index.html 스크립트 태그의 `data-adbreak-test="on"`은 승인 전
- *     테스트 광고를 보여주기 위한 속성이다 — 실제 서비스 배포 전 반드시 제거할 것.
+ * 애드센스 심사를 통과해 테스트 모드(`data-adbreak-test="on"`)를 해제했다.
+ * 이제 index.html의 스크립트 태그가 실제 보상형 광고를 요청한다.
  *
  * 참고: https://developers.google.com/ad-placement
  *
