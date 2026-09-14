@@ -174,10 +174,12 @@ export function drawBragCard(ctx, stats, t, labels) {
   roundRect(ctx, panelX, panelY, panelW, panelH, 28); ctx.stroke();
 
   // Character — AI 이미지 한 장으로는 착용한 조합 전부를 담을 수 없어, 그중
-  // 우선순위상 가장 앞선 항목 하나를 초상화 베이스로 쓰고, 나머지 착용 항목은
-  // (초상화 이미지 로딩 전이거나 파일이 없을 때 쓰는 것과 같은) 벡터
-  // drawAccessories()로 그 위에 겹쳐 그린다 — "장착 중"이라고 아이콘으로만
-  // 알려주는 게 아니라, 실제로 걸치고 있는 모습이 이미지에 보여야 한다.
+  // 우선순위상 가장 앞선 항목 하나만 초상화 베이스로 보여준다. 나머지 착용
+  // 항목은 벡터 drawAccessories()로 겹쳐 그려봤지만, 그 좌표계가 실제 게임
+  // 캐릭터(drawSquirrelBody)의 비율에 맞춰져 있어 AI 초상화 위에서는 위치가
+  // 어긋나 보기 좋지 않았다(예: 목도리가 몸통을 가로지르는 것처럼 보임) —
+  // 그래서 오버레이는 그만두고, 초상화에 없는 나머지 착용 항목은 아래
+  // 배지 아이콘으로만 표시한다.
   const tier = getBragTier(stats.bestStage);
   const furColor = resolveDynamicColor(tier.furColor, t);
   const headCx = W/2, headCy = panelY + panelH*0.33;
@@ -204,18 +206,6 @@ export function drawBragCard(ctx, stats, t, labels) {
     ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2;
     roundRect(ctx, headCx-size/2, headCy-size/2, size, size, size*0.14); ctx.stroke();
-
-    // 초상화 베이스가 이미 담고 있는 카테고리(portraitCategory)만 빼고 나머지를
-    // 벡터로 겹쳐 그린다 — drawSquirrelBody 없이 drawAccessories만 단독으로 써도
-    // 좌표계는 동일(캐릭터 중심 기준, 같은 h)이라 그대로 얹을 수 있다.
-    const overlayEquipped = { ...equipped };
-    if (portraitCategory) overlayEquipped[portraitCategory] = null;
-    if (Object.values(overlayEquipped).some(Boolean)) {
-      ctx.save();
-      ctx.translate(headCx, headCy);
-      drawAccessories(ctx, h, overlayEquipped);
-      ctx.restore();
-    }
   } else {
     // 폴백: 벡터 다람쥐 (이미지가 아직 안 떴거나 로드 실패)
     ctx.save();
