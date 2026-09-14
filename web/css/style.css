@@ -908,11 +908,16 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   text-align: center; font-size: 0.85rem; color: var(--muted);
   padding: 30px 20px; line-height: 1.6;
 }
+.accessory-fullset-hint {
+  font-size: 0.78rem; color: #ffe566; text-align: center;
+  padding: 6px 10px; margin: 0 0 4px;
+}
 .accessory-category-label {
   font-size: 0.8rem; font-weight: 700; color: var(--accent);
   margin: 10px 0 -2px;
 }
 .accessory-card.equipped { border-color: var(--accent); box-shadow: 0 0 8px rgba(200,80,192,0.35); }
+.accessory-card.locked { opacity: 0.55; }
 .accessory-req-row {
   display: flex; align-items: center; gap: 6px;
   font-size: 0.72rem; color: var(--muted); margin-top: 2px;

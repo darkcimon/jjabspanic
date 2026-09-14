@@ -1,8 +1,9 @@
 /**
  * ads.js — 구글 애드센스 리워드 광고(Ad Placement API) 연동
  *
- * 애드센스 심사를 통과해 테스트 모드(`data-adbreak-test="on"`)를 해제했다.
- * 이제 index.html의 스크립트 태그가 실제 보상형 광고를 요청한다.
+ * ⚠️ 애드센스 심사가 아직 승인되지 않아 index.html 스크립트 태그에
+ * data-adbreak-test="on"을 다시 붙여둔 상태다 (테스트 광고만 표시됨).
+ * 승인이 나면 그 속성을 제거해야 실제 보상형 광고가 노출된다.
  *
  * 참고: https://developers.google.com/ad-placement
  *
@@ -48,6 +49,12 @@ export function computeNextAdReward(lastReward) {
   return Math.min(Math.floor((lastReward * 1.5) / 100) * 100, AD_REWARD_CAP);
 }
 
+// adsbygoogle.js 스크립트가 광고 차단 프로그램·네트워크 문제·광고 재고 없음 등으로
+// 요청을 아예 처리하지 못하면 adBreak의 콜백(adViewed/adDismissed/adBreakDone)이
+// 하나도 호출되지 않는 경우가 있다. 그러면 버튼이 disabled 상태로 영원히 멈춰버리고
+// 사용자 눈에는 "눌러도 반응 없음"으로 보인다 — 타임아웃으로 강제 복구한다.
+const AD_TIMEOUT_MS = 12000;
+
 /**
  * 리워드 광고 시청을 요청한다.
  * @param {{ onReward: () => void, onUnavailable?: (reason: string) => void }} handlers
@@ -58,20 +65,41 @@ export function watchRewardAd({ onReward, onUnavailable }) {
     return;
   }
 
+  let settled = false;
+  const timeoutId = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    console.warn('[ads] adBreak timed out with no callback — ad blocked or unavailable');
+    onUnavailable && onUnavailable('timeout');
+  }, AD_TIMEOUT_MS);
+
   let rewarded = false;
   try {
     window.adBreak({
       type: 'reward',
       name: AD_NAME,
       beforeReward: (showAdFn) => { showAdFn(); },
-      adViewed: () => { rewarded = true; onReward(); },
-      adDismissed: () => { /* 끝까지 시청하지 않고 닫음 — 보상 없음 */ },
+      adViewed: () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        rewarded = true;
+        onReward();
+      },
+      adDismissed: () => { /* 끝까지 시청하지 않고 닫음 — 보상 없음 (adBreakDone에서 처리) */ },
       adBreakDone: (placementInfo) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
         if (!rewarded) onUnavailable && onUnavailable(placementInfo && placementInfo.breakStatus);
       },
     });
   } catch (e) {
-    console.warn('[ads] adBreak failed:', e);
-    onUnavailable && onUnavailable('error');
+    if (!settled) {
+      settled = true;
+      clearTimeout(timeoutId);
+      console.warn('[ads] adBreak failed:', e);
+      onUnavailable && onUnavailable('error');
+    }
   }
 }

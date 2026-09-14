@@ -1,6 +1,7 @@
 import { t } from './i18n.js';
 import { MAX_STAGE, MAX_MONSTERS, toImageStage, GUN_BASE_CAP, BULLET_BASE_CAP, PET_BASE_CAP, PET_MAX_COUNT } from './config.js';
 import { drawStarShape as _sharedDrawStarShape, drawSquirrelBody, drawAccessories, resolveDynamicColor as _sharedResolveDynamicColor } from './squirrel.js';
+import { getAccessoryStatBonus, isAccessoryFullSet, ACCESSORY_FULL_SET_POINT_BONUS } from './accessories.js';
 
 // ── Cell states ──────────────────────────────────────────────
 const EMPTY    = 0;
@@ -958,7 +959,7 @@ export class Game extends EventTarget {
     super();
     this.canvas=canvas; this.ctx=canvas.getContext('2d');
     const { cols=20,rows=26,playerSpeed=7,clearThreshold=0.75,serverUrl='' }=opts;
-    this.COLS=cols; this.ROWS=rows; this.PLAYER_SPEED=playerSpeed;
+    this.COLS=cols; this.ROWS=rows; this.PLAYER_SPEED=playerSpeed; this._basePlayerSpeed=playerSpeed;
     this.CLEAR_THRESHOLD=clearThreshold; this.serverUrl=serverUrl;
     this.fogCanvas=document.createElement('canvas');
     this.fogCtx=this.fogCanvas.getContext('2d');
@@ -993,7 +994,9 @@ export class Game extends EventTarget {
 
   async init(stage, rating, _count, monsterSpeed, timeLimit, heldItems=[], resumeState=null, weaponLevels={}) {
     this.stage=stage; this.rating=rating; this._monsterSpeed=monsterSpeed;
-    this.lives=resumeState?2:3;
+    // 악세사리 "영웅의 망토"(extraLife) — 최대 목숨 +1.
+    const accExtraLife=getAccessoryStatBonus(weaponLevels.equippedAccessories||{},'extraLife');
+    this.lives=(resumeState?2:3)+accExtraLife;
     const timeboostBonus=(resumeState?resumeState.heldItems:heldItems)
       .filter(h=>h.type==='timeboost').reduce((s,h)=>s+(h.count||1)*20,0);
     this.timeLeft=resumeState?resumeState.timeLeft:timeLimit+timeboostBonus;
@@ -1044,11 +1047,19 @@ export class Game extends EventTarget {
     this.mythicZeusOwned=!!weaponLevels.mythicZeusOwned;
     this.mythicZeusLevel=weaponLevels.mythicZeusLevel||0;
     this._zeusTimers=this.mythicZeusOwned?this._getZeusPeriods().slice():[];
-    // 코스메틱 전용 "악세사리" — 레벨(최고 스테이지) 50 이상부터 마켓 악세사리
-    // 탭에서 구매·착용 가능 (accessories.js/squirrel.js drawAccessories 참고).
-    // 카테고리(hat/outfit/accessory/shoes)당 하나만 착용되며, 게임 결과에는
-    // 영향을 주지 않는 순수 꾸미기 요소다.
+    // 악세사리 — 레벨(최고 스테이지) 50/100 이상부터 마켓 악세사리 탭에서
+    // 구매·착용 가능 (accessories.js/squirrel.js drawAccessories 참고). 카테고리
+    // (hat/outfit/accessory/shoes)당 하나만 착용되며, 작은 상시 스탯이 붙는다 —
+    // 이동속도(shoes)/아이템 등장 빈도(hat)/피격 후 무적시간(outfit_scarf)/
+    // 최대 목숨(outfit_cape, 위에서 이미 반영)/포인트 획득량(accessory)은
+    // accessories.js의 getAccessoryStatBonus()로 합산해 아래에서 적용한다.
     this.equippedAccessories=weaponLevels.equippedAccessories||{};
+    this._accSpeedBonus=getAccessoryStatBonus(this.equippedAccessories,'speedBonus');
+    this._accItemChanceBonus=getAccessoryStatBonus(this.equippedAccessories,'itemChance');
+    this._accInvincibleBonus=getAccessoryStatBonus(this.equippedAccessories,'invincibleBonus');
+    this._accPointBonus=getAccessoryStatBonus(this.equippedAccessories,'pointBonus')
+      +(isAccessoryFullSet(this.equippedAccessories)?ACCESSORY_FULL_SET_POINT_BONUS:0);
+    this._basePlayerSpeed=this.PLAYER_SPEED*(1+this._accSpeedBonus);
     const sp=this.heldItems.find(h=>h.type==='speed');
     if (sp) { this.speedActive=true; }
 
@@ -1060,7 +1071,7 @@ export class Game extends EventTarget {
       this.grid.data.set(resumeState.gridSnapshot);
     }
     const sp2=this.heldItems.find(h=>h.type==='speed');
-    const spd=this.speedActive?(sp2?.level===2?this.PLAYER_SPEED*3:this.PLAYER_SPEED*2):this.PLAYER_SPEED;
+    const spd=this.speedActive?(sp2?.level===2?this._basePlayerSpeed*3:this._basePlayerSpeed*2):this._basePlayerSpeed;
     this.player=new Player(Math.floor(this.COLS/2),0,this.cs,spd);
     // 신화 등급 영구 아이템 "방패" — 스테이지 시작 시 N초간 무적 (N=구매 횟수, 최대 5초).
     // 기존 'shield' 습득 아이템과 동일한 shieldTimer를 재사용해 이펙트도 그대로 공유한다.
@@ -1071,7 +1082,8 @@ export class Game extends EventTarget {
     // Item spawn schedule
     this._itemSchedule=this._getItemSchedule(stage);
     this._itemScheduleIdx=0;
-    this._itemInterval=Math.max(20 - Math.floor(stage / 5), 8);
+    // 악세사리 "아이템 등장 빈도" 보너스만큼 간격을 단축해 아이템이 더 자주 나오게 한다.
+    this._itemInterval=Math.max(20 - Math.floor(stage / 5), 8) / (1 + this._accItemChanceBonus);
     this._itemContinuousTimer=this._itemInterval;
     this._gunKillCount=0;
     this._swordKillCount=0;
@@ -1471,8 +1483,8 @@ export class Game extends EventTarget {
       }
       case 'speed': {
         const ex=this.heldItems.find(h=>h.type==='speed');
-        if (ex) { ex.level=2; this.player.speed=this.PLAYER_SPEED*3; }
-        else { if (this.heldItems.length<3) this.heldItems.push({type:'speed',level:1}); this.player.speed=this.PLAYER_SPEED*2; }
+        if (ex) { ex.level=2; this.player.speed=this._basePlayerSpeed*3; }
+        else { if (this.heldItems.length<3) this.heldItems.push({type:'speed',level:1}); this.player.speed=this._basePlayerSpeed*2; }
         this.speedActive=true; break;
       }
       case 'sword': {
@@ -1927,7 +1939,7 @@ export class Game extends EventTarget {
     }
     this.lives--;
     if (this.lives<=2) this._rareLifeLost=true;
-    if (this.speedActive && this._persistentSpeedLevel < 2) { this.speedActive=false; this.player.speed=this.PLAYER_SPEED; this.heldItems=this.heldItems.filter(h=>h.type!=='speed'); }
+    if (this.speedActive && this._persistentSpeedLevel < 2) { this.speedActive=false; this.player.speed=this._basePlayerSpeed; this.heldItems=this.heldItems.filter(h=>h.type!=='speed'); }
     // 칼은 목숨 1 이하일 때 삭제하지 않고 useSword()에서 사용만 막는다 —
     // 총과 동일하게 한 번 구입하면 목숨과 무관하게 보유·강화가 유지되도록.
     // 수호의 구슬 보유 시: 원위치 복귀·그리던 선 초기화를 건너뛰어 목숨만 깎이고
@@ -1939,7 +1951,8 @@ export class Game extends EventTarget {
       this.player.px=this.player.gx*this.cs+this.cs*0.5; this.player.py=this.cs*0.5;
       this.player.dx=0; this.player.dy=0; this.player.progress=0;
     }
-    this.player.invincible=true; this.player.invTimer=1.5;
+    // 악세사리 "포근한 목도리"(invincibleBonus) — 피격 후 무적시간 연장.
+    this.player.invincible=true; this.player.invTimer=1.5+(this._accInvincibleBonus||0);
     this.shakeTimer=0.45; this.shakeAmt=10; this.flashTimer=0.4; this.flashColor='rgba(255,50,50,0.5)';
     this.bullets=[];
     if (this.lives<=0 && this.phoenixHeart && !this._phoenixUsed) {
@@ -1957,7 +1970,8 @@ export class Game extends EventTarget {
     // 스테이지 비례 보너스 배율 (10스테이지마다 +30%) — 포인트 획득 난이도 완화를 위해 2배 지급
     const bonusMult=(1+Math.floor(this.stage/10)*0.3)*2;
     // 신화 등급 영구 아이템 "미다스의 손" — 아래 스테이지 클리어 보너스 전체에 +30%.
-    const midasMult=this.midasTouch?1.3:1;
+    // 악세사리(멋쟁이 선글라스/요정 날개, 풀세트 보너스 포함)의 포인트 획득 보너스도 같이 곱해준다.
+    const midasMult=(this.midasTouch?1.3:1)*(1+(this._accPointBonus||0));
     // 시간/스테이지 보너스: 광고 리워드 포인트 도입 후 이 둘까지 과하게 얹으면
     // 광고를 볼 유인이 사라진다는 피드백에 따라 예전 배율(추가 배율 없음)로 되돌림
     const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult*midasMult);

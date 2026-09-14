@@ -13,7 +13,7 @@ import {
 import { t, onLangChange } from './i18n.js';
 import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds } from './ads.js';
 import { drawBragCard, buildShareUrl } from './bragCard.js';
-import { ACCESSORY_LEVEL_REQUIREMENT, ACCESSORY_CATEGORIES, ACCESSORIES, getAccessory } from './accessories.js';
+import { ACCESSORY_LEVEL_REQUIREMENT, ACCESSORY_TIER2_LEVEL_REQUIREMENT, ACCESSORY_CATEGORIES, ACCESSORIES, getAccessory } from './accessories.js';
 
 // ── Screen management ────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -275,7 +275,7 @@ async function startGame(stage, rating, resumeState = null) {
       if (pb.speedLevel >= 1) {
         const alreadySpeed = game.heldItems.find(h => h.type === 'speed');
         if (!alreadySpeed) {
-          const spd = pb.speedLevel >= 2 ? game.PLAYER_SPEED * 3 : game.PLAYER_SPEED * 2;
+          const spd = pb.speedLevel >= 2 ? game._basePlayerSpeed * 3 : game._basePlayerSpeed * 2;
           game.heldItems.push({ type: 'speed', level: pb.speedLevel, persistent: true });
           game.speedActive = true;
           game.player.speed = spd;
@@ -1961,6 +1961,11 @@ function renderAccessoryTab() {
   if (!save.accessoryEquipped) save.accessoryEquipped = {};
   if (!save.accessoryAdProgress) save.accessoryAdProgress = {};
 
+  const hint = document.createElement('div');
+  hint.className = 'accessory-fullset-hint';
+  hint.textContent = t('accessory.fullSetHint');
+  list.appendChild(hint);
+
   for (const category of ACCESSORY_CATEGORIES) {
     const catLabel = document.createElement('div');
     catLabel.className = 'accessory-category-label';
@@ -1973,20 +1978,28 @@ function renderAccessoryTab() {
       const adProgress = Math.min(item.ads, save.accessoryAdProgress[item.id] || 0);
       const adsReady  = adProgress >= item.ads;
       const canAfford = save.totalScore >= item.cost;
+      // 기본 4종(minLevel 50)은 'rare' 스타일로, 상위 4종(minLevel 100)만 'mythic'
+      // 스타일로 보여준다 — 예전엔 전부 mythic 카드로 보여서 "신화 등급 전용"처럼
+      // 보인다는 피드백이 있었음.
+      const tierClass = item.minLevel >= ACCESSORY_TIER2_LEVEL_REQUIREMENT ? 'market-mythic' : 'market-rare';
+      const levelLocked = level < item.minLevel;
 
       const card = document.createElement('div');
-      card.className = `market-card market-mythic accessory-card${equipped ? ' equipped' : ''}`;
+      card.className = `market-card ${tierClass} accessory-card${equipped ? ' equipped' : ''}${levelLocked ? ' locked' : ''}`;
       card.innerHTML = `
         <span class="market-icon">${item.icon}</span>
         <div class="market-info">
           <b class="market-name">${t(`accessory.item.${item.id}.name`)}</b>
           <span class="market-desc">${t(`accessory.item.${item.id}.desc`)}</span>
-          ${owned ? '' : `<div class="accessory-req-row">📺 ${adProgress}/${item.ads}${adsReady ? ' ✅' : ''}</div>`}
+          ${levelLocked ? `<div class="accessory-req-row">🔒 ${t('accessory.itemLocked', { level: item.minLevel })}</div>`
+            : owned ? '' : `<div class="accessory-req-row">📺 ${adProgress}/${item.ads}${adsReady ? ' ✅' : ''}</div>`}
         </div>
         <div class="accessory-buy-col"></div>`;
 
       const buyCol = card.querySelector('.accessory-buy-col');
-      if (owned) {
+      if (levelLocked) {
+        // 잠금 상태 — 버튼 없이 안내만 표시.
+      } else if (owned) {
         const btn = document.createElement('button');
         btn.className = `market-buy-btn ${equipped ? 'btn-secondary' : 'btn-primary'}`;
         btn.textContent = equipped ? t('accessory.btnUnequip') : t('accessory.btnEquip');
