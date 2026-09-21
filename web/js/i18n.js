@@ -110,6 +110,10 @@ const dict = {
     'clear.btnMarket': '🛒 마켓 (3,000pt~)',
     'clear.timeUnit': '초',
 
+    'showtime.clear': '✨ STAGE CLEAR!',
+    'showtime.perfect': '💯 PERFECT!',
+    'showtime.allclear': '🔥 ALL CLEAR!',
+
     'over.btnRetry': '다시 시도',
     'over.weaponWarning': '⚠️ 총·칼을 모두 잃었습니다',
     'over.weaponWarningText': '보유 중인 <strong>{parts}</strong> 장비 단계가 3단계 낮아졌습니다 ㅠ',
@@ -219,7 +223,7 @@ const dict = {
 
     'gallery.title': '갤러리',
     'gallery.rewardBannerTitle': '🎁 특전 이미지',
-    'gallery.rewardBannerDesc': '100/200/300스테이지 달성 특전',
+    'gallery.rewardBannerDesc': '10/20/100/200/300스테이지 달성 특전',
     'gallery.myCollectionTitle': '⭐ 내 소장품',
     'gallery.myCollectionDesc': '10스테이지마다 직접 고른 이미지',
     'gallery.packATitle': '팩 A — 스테이지 1~100',
@@ -515,6 +519,10 @@ const dict = {
     'clear.btnMarket': '🛒 Market (3,000pt~)',
     'clear.timeUnit': 's',
 
+    'showtime.clear': '✨ STAGE CLEAR!',
+    'showtime.perfect': '💯 PERFECT!',
+    'showtime.allclear': '🔥 ALL CLEAR!',
+
     'over.btnRetry': 'Retry',
     'over.weaponWarning': '⚠️ You lost your gun and sword',
     'over.weaponWarningText': 'Your <strong>{parts}</strong> gear dropped by 3 levels ㅠ',
@@ -624,7 +632,7 @@ const dict = {
 
     'gallery.title': 'Gallery',
     'gallery.rewardBannerTitle': '🎁 Bonus Images',
-    'gallery.rewardBannerDesc': 'Rewards for reaching stage 100/200/300',
+    'gallery.rewardBannerDesc': 'Rewards for reaching stage 10/20/100/200/300',
     'gallery.myCollectionTitle': '⭐ My Collection',
     'gallery.myCollectionDesc': 'Images you picked every 10 stages',
     'gallery.packATitle': 'Pack A — Stages 1–100',

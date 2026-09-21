@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "pregenerate": "node scripts/pregenerate.js",
     "generate:brag-assets": "node scripts/generateBragAssets.js",
+    "generate:showtime": "node scripts/generateShowtimeVideo.js",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"

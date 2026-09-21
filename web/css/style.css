@@ -1077,6 +1077,90 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 
+/* ── Showtime (스테이지 클리어 연출) ────────────────────
+   #screen-stage-clear가 통계를 즉시 채우고 넘어가기만 해서 "연출 없이 통계만
+   뜬다"는 불만이 있었음 — 스탯 화면 위에 잠깐 겹쳐 보여주는 논블로킹 오버레이로,
+   pointer-events:none이라 아래 버튼 조작을 절대 막지 않고 자동으로 사라진다. */
+.showtime-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+.showtime-overlay.hidden { display: none; }
+
+.showtime-flash {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,150,255,0.35) 40%, rgba(255,255,255,0) 72%);
+  opacity: 0;
+  animation: showtime-flash-anim 0.6s ease-out forwards;
+}
+@keyframes showtime-flash-anim {
+  0%   { opacity: 0; transform: scale(0.3); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+.showtime-title {
+  position: relative;
+  font-size: clamp(2rem, 11vw, 3.6rem);
+  font-weight: 900;
+  color: #fff;
+  text-align: center;
+  padding: 0 20px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 18px rgba(255,120,255,0.9), 0 0 40px rgba(120,80,255,0.6);
+  opacity: 0;
+  transform: scale(0.2) rotate(-10deg);
+  animation: showtime-title-pop 0.9s cubic-bezier(.17,1.4,.4,1) forwards;
+}
+@keyframes showtime-title-pop {
+  0%   { opacity: 0; transform: scale(0.2) rotate(-10deg); }
+  55%  { opacity: 1; transform: scale(1.15) rotate(3deg); }
+  75%  { transform: scale(0.95) rotate(-1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.showtime-overlay.tier-perfect  .showtime-title { color: #ffe566; text-shadow: 0 0 20px rgba(255,229,102,0.9), 0 0 46px rgba(255,150,50,0.7); }
+.showtime-overlay.tier-allclear .showtime-title { color: #00e676; text-shadow: 0 0 20px rgba(0,230,118,0.9), 0 0 46px rgba(0,200,255,0.6); }
+
+.showtime-overlay.fading .showtime-title,
+.showtime-overlay.fading .showtime-flash {
+  transition: opacity 0.35s ease;
+  opacity: 0 !important;
+}
+
+.showtime-confetti { position: absolute; inset: 0; }
+.showtime-piece {
+  position: absolute; top: -20px; left: 0;
+  opacity: 0.95;
+  animation-name: showtime-confetti-fall;
+  animation-timing-function: cubic-bezier(.25,.46,.45,.94);
+  animation-fill-mode: forwards;
+}
+@keyframes showtime-confetti-fall {
+  0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(var(--fall-y, 110vh)) translateX(var(--drift-x, 0px)) rotate(var(--spin, 540deg)); opacity: 0; }
+}
+
+/* 마일스톤 스테이지(10단계) MP4 모드 — 탭하면 건너뛸 수 있도록 이때만 입력을 받는다. */
+.showtime-video { display: none; }
+.showtime-overlay.video-mode { pointer-events: auto; background: #000; transition: opacity 0.35s ease; }
+.showtime-overlay.video-mode.fading { opacity: 0; }
+.showtime-overlay.video-mode .showtime-video {
+  display: block; position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+}
+.showtime-overlay.video-mode .showtime-flash,
+.showtime-overlay.video-mode .showtime-title,
+.showtime-overlay.video-mode .showtime-confetti { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .showtime-title, .showtime-flash, .showtime-piece {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 /* ── Collection slot badge ───────────────────────────── */
 .collection-slot-info {
   font-size: 0.75rem; color: var(--muted); text-align: center;

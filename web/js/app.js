@@ -46,6 +46,11 @@ let _clearAutoAdvanceTimer = null;
 // 여기 기록해뒀다가 startGame()에서 복원한다 (updateHeldItemsBar 참고).
 let _lastActiveWeapon = null;
 let _lastAutoModeActive = false;
+// 쇼타임 연출(오버레이) 자동 종료용 타이머 — onStageClear()가 연달아 여러 번
+// 불릴 일은 없지만(스테이지당 1회), 혹시 겹쳐 불려도 이전 타이머를 취소해
+// 페이드아웃 도중 다음 연출이 시작되는 경우를 방지한다.
+let _showtimeTimer = null;
+let _showtimeFadeTimer = null;
 
 // ── Canvas sizing ────────────────────────────────────────────
 function calcCellSize() {
@@ -321,8 +326,10 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   // 뜨지 않도록 막았다(특전 이미지는 반대로 계속 반복 지급 — 위 pendingRewardStage 참고).
   if (stage % 10 === 0 && stage <= MAX_STAGE) { pendingCollectionStage = stage; save.pendingCollectionStage = stage; }
   // 특전 이미지는 100단계마다 반복 지급 — 300단계를 넘어 이어서 플레이해도
-  // 400, 500... 에서 계속 나온다.
-  if (stage % 100 === 0) { pendingRewardStage = stage; save.pendingRewardStage = stage; }
+  // 400, 500... 에서 계속 나온다. 10/20단계도 추가로 지급 — 100단계까지
+  // 도달하는 유저가 드물어, 특전 기능을 한 번도 못 써보고 이탈하는 문제가 있었음
+  // (서버 isValidRewardStage와 조건을 맞춰야 함 — server/app.js 참고).
+  if (stage === 10 || stage === 20 || stage % 100 === 0) { pendingRewardStage = stage; save.pendingRewardStage = stage; }
   // 300단계를 처음 클리어한 순간에만 "게임 클리어" 안내를 띄운다 (이어서 플레이를
   // 선택하면 스테이지는 계속 증가하므로 이후 루프에서는 다시 뜨지 않음 — 처음부터
   // 다시 시작을 선택해 재도전한 경우에만 재발생).
@@ -384,6 +391,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString() + 'pt';
 
   show('stage-clear');
+  playShowtime({ stage, fill, allClearBonus, autoMode: !!(game && game.autoModeActive) });
 
   // 오토모드로 클리어했을 때만: 갤러리에서 사진을 탭해 크게 보는 것과 동일한
   // 전면 라이트박스로 클리어 이미지를 4초간 띄운 뒤 자동으로 닫고, "다음 스테이지"
@@ -606,6 +614,115 @@ function makeGalleryCard(stageNum, packOwned, lightbox = false) {
   }).catch(() => card.classList.remove('loading'));
 
   return card;
+}
+
+// ── Showtime (스테이지 클리어 연출) ────────────────────────────
+// #screen-stage-clear가 통계만 즉시 채우고 끝나 "연출이 없다"는 불만이 있어
+// 추가한 논블로킹 오버레이. pointer-events:none이라 아래 stage-clear 화면의
+// 버튼(다음 스테이지 등) 조작을 절대 막지 않고, 일정 시간 뒤 스스로 사라진다.
+const SHOWTIME_COLORS = ['#ff6fc8', '#c850c0', '#ffaaff', '#4158d0', '#8aa4ff', '#ffe566'];
+
+// MP4 클립이 준비된 마일스톤 스테이지 (web/showtime/stage_<n>.mp4).
+const SHOWTIME_VIDEO_STAGES = new Set([10]);
+
+function endShowtime() {
+  const overlay = $('showtime-overlay');
+  const video = $('showtime-video');
+  if (_showtimeTimer) clearTimeout(_showtimeTimer);
+  if (_showtimeFadeTimer) clearTimeout(_showtimeFadeTimer);
+  _showtimeTimer = null;
+  overlay.classList.add('fading');
+  _showtimeFadeTimer = setTimeout(() => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('video-mode');
+    $('showtime-confetti').innerHTML = '';
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  }, 400);
+}
+
+// 영상 재생을 시작하면 true. 파일이 없거나 재생 실패 시 false를 돌려주고
+// 호출부가 기존 confetti 연출로 대체한다.
+function playShowtimeVideo(stage) {
+  const overlay = $('showtime-overlay');
+  const video = $('showtime-video');
+  video.onended = endShowtime;
+  video.onerror = () => { if (overlay.classList.contains('video-mode')) endShowtime(); };
+  overlay.onclick = () => { if (overlay.classList.contains('video-mode')) endShowtime(); };
+  video.src = `/showtime/stage_${stage}.mp4`;
+  video.muted = false;
+  overlay.classList.remove('hidden', 'fading', 'tier-perfect', 'tier-allclear');
+  overlay.classList.add('video-mode');
+  const start = video.play();
+  if (start && start.catch) {
+    // 브라우저가 소리 있는 자동재생을 막으면 무음으로 재시도한다.
+    start.catch(() => { video.muted = true; video.play().catch(endShowtime); });
+  }
+  _showtimeTimer = setTimeout(endShowtime, 9000); // 안전장치
+  return true;
+}
+
+function playShowtime({ stage = 0, fill = 0, allClearBonus = 0, autoMode = false } = {}) {
+  const overlay = $('showtime-overlay');
+  const title = $('showtime-title');
+  const confettiLayer = $('showtime-confetti');
+  if (!overlay || !title || !confettiLayer) return;
+
+  if (_showtimeTimer) clearTimeout(_showtimeTimer);
+  if (_showtimeFadeTimer) clearTimeout(_showtimeFadeTimer);
+
+  // 오토모드는 4초 뒤 자동 진행되므로 영상은 건너뛰고 기존 연출만 쓴다.
+  if (!autoMode && SHOWTIME_VIDEO_STAGES.has(stage) && playShowtimeVideo(stage)) return;
+
+  overlay.classList.remove('hidden', 'fading', 'video-mode', 'tier-perfect', 'tier-allclear');
+  // 이전 재생에서 붙은 애니메이션이 그대로 남아있으면 class 재부여만으로는
+  // keyframe이 재시작되지 않으므로, reflow를 강제해 애니메이션을 리셋한다.
+  void overlay.offsetWidth;
+
+  // 전멸 클리어 > 99% 이상 점령 > 일반 클리어 순으로 연출 강도를 다르게 준다.
+  let tier = 'normal', labelKey = 'showtime.clear';
+  if (allClearBonus > 0)   { tier = 'allclear'; labelKey = 'showtime.allclear'; }
+  else if (fill >= 0.99)   { tier = 'perfect';  labelKey = 'showtime.perfect'; }
+  if (tier !== 'normal') overlay.classList.add(`tier-${tier}`);
+  title.textContent = t(labelKey);
+
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  confettiLayer.innerHTML = '';
+  if (!reduceMotion) {
+    const count = tier === 'normal' ? 26 : 42;
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'showtime-piece';
+      const size = 6 + Math.random() * 8;
+      piece.style.left = `${Math.random() * 100}%`;
+      piece.style.width = `${size}px`;
+      piece.style.height = `${size * (Math.random() < 0.5 ? 1 : 0.4)}px`;
+      piece.style.borderRadius = Math.random() < 0.5 ? '50%' : '2px';
+      piece.style.background = SHOWTIME_COLORS[i % SHOWTIME_COLORS.length];
+      piece.style.setProperty('--fall-y', `${100 + Math.random() * 25}vh`);
+      piece.style.setProperty('--drift-x', `${(Math.random() - 0.5) * 160}px`);
+      piece.style.setProperty('--spin', `${360 + Math.random() * 540}deg`);
+      piece.style.animationDelay = `${(Math.random() * 0.25).toFixed(2)}s`;
+      piece.style.animationDuration = `${(1.1 + Math.random() * 0.6).toFixed(2)}s`;
+      frag.appendChild(piece);
+    }
+    confettiLayer.appendChild(frag);
+  }
+
+  if (navigator.vibrate) {
+    try { navigator.vibrate(tier === 'normal' ? 30 : [30, 40, 30]); } catch (e) { /* 진동 미지원 기기 무시 */ }
+  }
+
+  const holdMs = reduceMotion ? 200 : 1000;
+  _showtimeTimer = setTimeout(() => {
+    overlay.classList.add('fading');
+    _showtimeFadeTimer = setTimeout(() => {
+      overlay.classList.add('hidden');
+      confettiLayer.innerHTML = '';
+    }, 400);
+  }, holdMs);
 }
 
 function openLightbox(url) {

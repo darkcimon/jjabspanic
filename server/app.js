@@ -22,8 +22,11 @@ const i18n = require('./i18n');
 // 특전은 100단계마다 반복 지급된다 (100, 200, 300, ... 300단계를 넘어 계속
 // 이어서 플레이해도 400, 500...에서 계속 발동). 예전엔 100/200/300 세 개만
 // 허용하는 고정 Set이라, 300단계를 넘긴 이후로는 특전 화면 자체가 뜨지 않았다.
+// 10/20단계도 추가로 허용한다 — 대부분의 유저가 100단계까지 도달하지 못해
+// 특전 기능 자체를 한 번도 못 써보는 문제가 있어, 초반에 미리 체험할 수 있게 함.
 function isValidRewardStage(n) {
-    return Number.isInteger(n) && n > 0 && n % 100 === 0;
+    if (!Number.isInteger(n) || n <= 0) return false;
+    return n === 10 || n === 20 || n % 100 === 0;
 }
 const REWARD_TOKEN_TTL_MS = 30 * 60 * 1000; // 30분
 const rewardTokens = new Map();
