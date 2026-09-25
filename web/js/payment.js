@@ -1,5 +1,5 @@
 /**
- * payment.js — 짭스패닉 콘텐츠 팩 결제 모듈
+ * payment.js — 쿤난나 콘텐츠 팩 결제 모듈
  *
  * 의존성: 토스페이먼츠 SDK (index.html에서 script 태그로 로드)
  *   <script src="https://js.tosspayments.com/v1/payment"></script>

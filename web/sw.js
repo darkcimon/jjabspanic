@@ -1,5 +1,5 @@
 /**
- * sw.js — 짭스패닉 Service Worker
+ * sw.js — 쿤난나 Service Worker
  *
  * 전략:
  *   - 정적 자산 (HTML, CSS, JS) → Stale-While-Revalidate (오프라인 지원 + 자동 갱신)
@@ -15,8 +15,8 @@
  * 다음 방문부터는 최신 파일로 자연히 교체된다.
  */
 
-const CACHE_NAME   = 'galspanic-v30';
-const API_CACHE    = 'galspanic-api-v30';
+const CACHE_NAME   = 'galspanic-v31';
+const API_CACHE    = 'galspanic-api-v31';
 
 // install 시 pre-cache할 정적 자산 목록
 const STATIC_ASSETS = [

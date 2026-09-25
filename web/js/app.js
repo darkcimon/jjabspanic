@@ -11,7 +11,10 @@ import {
   GUN_BASE_CAP, BULLET_BASE_CAP, SWORD_BASE_CAP, PET_BASE_CAP, PET_MAX_COUNT,
 } from './config.js';
 import { t, onLangChange } from './i18n.js';
-import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds } from './ads.js';
+import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds, REWARD_ADS_ENABLED } from './ads.js';
+
+// 리워드 광고가 꺼져 있으면 광고 버튼류를 CSS로 일괄 숨긴다 (style.css의 .ads-off).
+if (!REWARD_ADS_ENABLED) document.body.classList.add('ads-off');
 import { drawBragCard, buildShareUrl } from './bragCard.js';
 import { ACCESSORY_LEVEL_REQUIREMENT, ACCESSORY_TIER2_LEVEL_REQUIREMENT, ACCESSORY_CATEGORIES, ACCESSORIES, getAccessory } from './accessories.js';
 
@@ -770,6 +773,9 @@ function updatePackBanner(packId, owned) {
   if (owned) {
     status.textContent   = t('gallery.packUnlocked');
     status.classList.add('pack-owned');
+  } else if (!REWARD_ADS_ENABLED) {
+    status.textContent   = '';
+    status.classList.remove('pack-owned');
   } else {
     const threshold = AD_PACK_THRESHOLDS[packId];
     const count = Math.min(save.adWatchCount || 0, threshold);
@@ -1377,7 +1383,6 @@ document.querySelectorAll('.help-tab').forEach(btn =>
   btn.addEventListener('click', () => switchHelpTab(btn.dataset.tab)));
 
 $('btn-general').onclick = () => { save.rating = 'g'; startGame(save.stage, 'g'); };
-$('btn-sexy').onclick    = null;
 $('btn-back-main').onclick    = () => show('main');
 $('btn-back-main2').onclick   = () => show('main');
 $('btn-back-gallery').onclick = () => show('main');
@@ -1773,8 +1778,12 @@ function getMarketItems() {
 // 제외한다. 이걸 raw heldItems.length로 잘못 세면(예전 버그), speed·timeboost처럼
 // 화면엔 안 보이는 아이템 때문에 칸이 이미 다 찬 것처럼 계산돼 — 새 무기(칼/총/번개
 // 등)를 구매해도 포인트만 빠져나가고 아무것도 지급되지 않는 문제가 있었다.
+// rareBubble(황금버블)도 같은 이유로 제외한다 — _mergeHeldItem()에서 "칸 제한
+// 없이 저장"하도록 설계됐고 바에도 표시되지 않는데(위 updateHeldItemsBar 참고),
+// 여기서 빠뜨리면 황금버블 보유 중엔 화면엔 2칸만 보여도 실제론 3칸으로 계산돼
+// 새 무기 구매가 "칸이 가득 찼다"며 막히는 문제가 있었다.
 function _heldSlotCount(heldItems) {
-  return (heldItems || []).filter(h => h.type !== 'speed' && h.type !== 'timeboost').length;
+  return (heldItems || []).filter(h => h.type !== 'speed' && h.type !== 'timeboost' && h.type !== 'rareBubble').length;
 }
 
 function _mergeHeldItem(heldItems, item) {
@@ -2093,7 +2102,8 @@ function renderAccessoryTab() {
       const owned    = save.accessoryOwned.includes(item.id);
       const equipped = save.accessoryEquipped[category] === item.id;
       const adProgress = Math.min(item.ads, save.accessoryAdProgress[item.id] || 0);
-      const adsReady  = adProgress >= item.ads;
+      // 리워드 광고가 꺼져 있으면 광고 시청 조건은 면제 (포인트만으로 구매).
+      const adsReady  = !REWARD_ADS_ENABLED || adProgress >= item.ads;
       const canAfford = save.totalScore >= item.cost;
       // 기본 4종(minLevel 50)은 'rare' 스타일로, 상위 4종(minLevel 100)만 'mythic'
       // 스타일로 보여준다 — 예전엔 전부 mythic 카드로 보여서 "신화 등급 전용"처럼
@@ -2109,7 +2119,7 @@ function renderAccessoryTab() {
           <b class="market-name">${t(`accessory.item.${item.id}.name`)}</b>
           <span class="market-desc">${t(`accessory.item.${item.id}.desc`)}</span>
           ${levelLocked ? `<div class="accessory-req-row">🔒 ${t('accessory.itemLocked', { level: item.minLevel })}</div>`
-            : owned ? '' : `<div class="accessory-req-row">📺 ${adProgress}/${item.ads}${adsReady ? ' ✅' : ''}</div>`}
+            : (owned || !REWARD_ADS_ENABLED) ? '' : `<div class="accessory-req-row">📺 ${adProgress}/${item.ads}${adsReady ? ' ✅' : ''}</div>`}
         </div>
         <div class="accessory-buy-col"></div>`;
 

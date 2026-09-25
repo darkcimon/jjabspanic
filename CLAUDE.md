@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**짭스패닉 (GalsPanic)** — A mobile casual territory-capture web game. Players draw lines to capture area on a board while avoiding monsters, progressively revealing AI-generated anime character artwork. Features two content tiers (General/Sexy) and a complete 300-stage progression.
+**쿤난나 (Kunnanna)** — A mobile casual territory-capture web game. Players draw lines to capture area on a board while avoiding monsters, progressively revealing AI-generated anime character artwork. General-audience content only, with a complete 300-stage progression.
 
 Stack: Vanilla JS (Web frontend) + Node.js Express (Backend) + Stability AI SD3 (Image generation)
 

@@ -48,7 +48,7 @@
   <!-- Title -->
   <text x="58" y="148" font-family="'Arial Black','Malgun Gothic',sans-serif"
     font-weight="900" font-size="95" fill="url(#title-grad)"
-    filter="url(#glow-title)" letter-spacing="-2">짭스패닉</text>
+    filter="url(#glow-title)" letter-spacing="-2">쿤난나</text>
 
   <!-- Underline -->
   <rect x="58" y="160" width="390" height="3" rx="2" fill="#e040fb" opacity="0.75" filter="url(#glow-pink)"/>

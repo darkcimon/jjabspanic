@@ -96,7 +96,7 @@ router.get('/success', async (req, res) => {
                 customerKey,
                 amount:      SUBSCRIPTION_AMOUNT,
                 orderId:     `sub_${userId}_${Date.now()}`,
-                orderName:   '짭스패닉 프리미엄 월정액',
+                orderName:   '쿤난나 프리미엄 월정액',
                 customerEmail: null,   // 선택: 이메일 영수증
             },
             {
@@ -153,7 +153,7 @@ router.post('/subscribe', requireAuth, async (req, res) => {
                 customerKey: userId,
                 amount:      SUBSCRIPTION_AMOUNT,
                 orderId:     `sub_${userId}_${Date.now()}`,
-                orderName:   '짭스패닉 프리미엄 월정액',
+                orderName:   '쿤난나 프리미엄 월정액',
             },
             {
                 headers: {

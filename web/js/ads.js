@@ -11,6 +11,12 @@
  * 함께 미리 선언해둔 전역 함수이므로 이 모듈은 그것을 호출하기만 한다.
  */
 
+// 애드센스 사이트 심사 기간에는 false — 리워드 광고 버튼(메인/클리어/액세서리)을
+// 모두 숨기고, 광고 시청 조건(액세서리 구매 등)은 면제한다. 광고로 포인트를 주는
+// 구조가 일반 애드센스 심사에서 "광고 시청 유도"로 보일 수 있기 때문이다.
+// 승인 후 H5 게임 광고(Ad Placement API)가 활성화되면 true로 되돌린다.
+export const REWARD_ADS_ENABLED = false;
+
 const AD_NAME = 'gp_point_reward';
 // 무한정 커지면 밸런스가 깨지므로 상한을 둔다. 신화 등급에 펫(500만)·펫강화(최대
 // 1억)·방패(최대 750만) 등 고가 소모처가 추가되면서 예전 상한(10만)은 그 경제
@@ -31,7 +37,7 @@ export const AD_PACK_THRESHOLDS = { pack_a: 100, pack_b: 200, pack_c: 300 };
  */
 export function isPackUnlockedByAds(packId, adWatchCount) {
   const threshold = AD_PACK_THRESHOLDS[packId];
-  return threshold != null && (adWatchCount || 0) >= threshold;
+  return REWARD_ADS_ENABLED && threshold != null && (adWatchCount || 0) >= threshold;
 }
 
 /**
@@ -60,6 +66,10 @@ const AD_TIMEOUT_MS = 12000;
  * @param {{ onReward: () => void, onUnavailable?: (reason: string) => void }} handlers
  */
 export function watchRewardAd({ onReward, onUnavailable }) {
+  if (!REWARD_ADS_ENABLED) {
+    onUnavailable && onUnavailable('disabled');
+    return;
+  }
   if (typeof window.adBreak !== 'function') {
     onUnavailable && onUnavailable('sdk-not-loaded');
     return;

@@ -845,6 +845,9 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 .btn-ad:active { transform: scale(0.97); opacity: 0.9; }
 .btn-ad:disabled { opacity: 0.55; transform: none; }
 .btn-ad .ad-amount { color: #ffe566; }
+/* 리워드 광고 비활성(심사 기간) — ads.js REWARD_ADS_ENABLED 참고 */
+.ads-off .btn-ad,
+.ads-off .accessory-ad-btn { display: none !important; }
 
 .stat-row-score { font-size: 0.85rem; }
 .stat-row-score b { color: #ffe566; }
@@ -993,6 +996,8 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 
 .main-footer {
   margin-top: 4px;
+  text-align: center;
+  line-height: 1.9;
 }
 .main-footer a {
   font-size: 0.75rem; color: var(--muted);

@@ -20,8 +20,8 @@ Phase 2까지 구현된 게임을 PWA로 변환하고, TWA(Trusted Web Activity)
 `web/manifest.json`:
 ```json
 {
-  "name": "짭스패닉",
-  "short_name": "짭스패닉",
+  "name": "쿤난나",
+  "short_name": "쿤난나",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -94,7 +94,7 @@ app.use('/.well-known', express.static('public/.well-known'));
 1. **Google Play Console** 계정 생성 (개발자 등록비 $25, 1회)
 2. 새 앱 등록 → Android 앱 (TWA APK/AAB 업로드)
 3. 스토어 등록정보 작성:
-   - 앱 이름: 짭스패닉
+   - 앱 이름: 쿤난나
    - 짧은 설명 (80자): "AI 캐릭터를 수집하는 땅따먹기 캐주얼 게임"
    - 전체 설명 (4000자)
    - 스크린샷: 폰 2장 이상, 태블릿 1장 이상

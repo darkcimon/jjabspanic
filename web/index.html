@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#1a0a2e">
-  <meta name="description" content="짭스패닉 — 보드의 75% 이상을 점령하며 몬스터를 피해 진행하는 300스테이지 캐주얼 영역 점령 게임. 회원가입 없이 브라우저에서 바로 플레이하세요.">
-  <meta property="og:title" content="짭스패닉 (GalsPanic)">
+  <meta name="description" content="쿤난나 — 보드의 75% 이상을 점령하며 몬스터를 피해 진행하는 300스테이지 캐주얼 영역 점령 게임. 회원가입 없이 브라우저에서 바로 플레이하세요.">
+  <meta property="og:title" content="쿤난나 (Kunnanna)">
   <meta property="og:description" content="300스테이지 캐주얼 영역 점령 게임 — 회원가입 없이 브라우저에서 바로 플레이하세요.">
   <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
-  <title data-i18n="brand.name">짭스패닉</title>
+  <title data-i18n="brand.name">쿤난나</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="/manifest.json">
   <!-- 구글 애드센스 사이트 소유권 확인용 메타 태그 (애드센스 콘솔 "메타 태그" 확인 방식) -->
@@ -35,7 +35,7 @@
 <!-- ── Boot ──────────────────────────────────────────── -->
 <div id="screen-boot" class="screen active">
   <div class="center-content">
-    <h1 class="logo" data-i18n="brand.name">짭스패닉</h1>
+    <h1 class="logo" data-i18n="brand.name">쿤난나</h1>
     <div class="loading-dots"><span></span><span></span><span></span></div>
   </div>
 </div>
@@ -43,7 +43,7 @@
 <!-- ── Main ──────────────────────────────────────────── -->
 <div id="screen-main" class="screen">
   <div class="center-content">
-    <h1 class="logo" data-i18n="brand.name">짭스패닉</h1>
+    <h1 class="logo" data-i18n="brand.name">쿤난나</h1>
     <div class="stat-row">
       <span><span data-i18n="main.stageLabel">현재 스테이지</span> <b id="current-stage">1</b></span>
       <span><span data-i18n="main.bestLabel">최고</span> <b id="best-stage">0</b></span>
@@ -64,6 +64,16 @@
       <button id="btn-lang-toggle" class="btn-lang-toggle" type="button">🌐 <span id="lang-toggle-label">EN</span></button>
     </div>
     <footer class="main-footer">
+      <a href="about.html">게임 소개</a>
+      <span aria-hidden="true"> · </span>
+      <a href="how-to-play.html">플레이 방법</a>
+      <span aria-hidden="true"> · </span>
+      <a href="tips.html">공략</a>
+      <span aria-hidden="true"> · </span>
+      <a href="faq.html">FAQ</a>
+      <span aria-hidden="true"> · </span>
+      <a href="contact.html">문의</a>
+      <br>
       <a href="privacy.html" target="_blank" rel="noopener" data-i18n="main.privacyLink">개인정보처리방침</a>
       <span aria-hidden="true"> · </span>
       <a href="terms.html" target="_blank" rel="noopener" data-i18n="main.termsLink">이용약관</a>
@@ -75,7 +85,6 @@
 <div id="screen-content-select" class="screen">
   <div class="center-content">
     <button id="btn-general" style="display:none"></button>
-    <button id="btn-sexy"    style="display:none"></button>
     <button id="btn-back-main" style="display:none"></button>
   </div>
 </div>

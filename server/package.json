@@ -1,7 +1,7 @@
 {
   "name": "galspanic-image-server",
   "version": "1.0.0",
-  "description": "짭스패닉 이미지 배치 생성 & 배포 서버",
+  "description": "쿤난나 이미지 배치 생성 & 배포 서버",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -15,7 +15,7 @@ const store     = require('../imageStore');
 const generator = require('../batchGenerator');
 
 async function main() {
-    console.log('=== 짭스패닉 초기 배치 생성 (Stage 1~30) ===');
+    console.log('=== 쿤난나 초기 배치 생성 (Stage 1~30) ===');
 
     if (!process.env.STABILITY_API_KEY) {
         console.error('오류: STABILITY_API_KEY 환경변수가 설정되지 않았습니다.');

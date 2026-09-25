@@ -14,7 +14,7 @@ const STORAGE_KEY = 'de_lang';
 
 const dict = {
   ko: {
-    'brand.name': '짭스패닉',
+    'brand.name': '쿤난나',
 
     'common.stage': '스테이지',
     'common.back': '← 뒤로',
@@ -50,7 +50,7 @@ const dict = {
     'brag.highFillClears': '99% 이상 점령 클리어',
     'brag.timesSuffix': '회',
     'brag.tagline': '너도 한번 해볼래?',
-    'brag.shareText': '스테이지 {stage}까지 깼어요! 짭스패닉 같이 해요 🐿️',
+    'brag.shareText': '스테이지 {stage}까지 깼어요! 쿤난나 같이 해요 🐿️',
     'brag.linkCopied': '공유 링크가 복사됐습니다!',
     'brag.ctaTryIt': '나도 해보기 →',
     'brag.shareNote': '캐릭터를 키우고 친구에게 자랑해보세요!',
@@ -426,7 +426,7 @@ const dict = {
   },
 
   en: {
-    'brand.name': 'GalsPanic',
+    'brand.name': 'Kunnanna',
 
     'common.stage': 'Stage',
     'common.back': '← Back',
@@ -462,7 +462,7 @@ const dict = {
     'brag.highFillClears': '99%+ clears',
     'brag.timesSuffix': '',
     'brag.tagline': 'Think you can beat me?',
-    'brag.shareText': "I've made it to stage {stage}! Come play GalsPanic with me 🐿️",
+    'brag.shareText': "I've made it to stage {stage}! Come play Kunnanna with me 🐿️",
     'brag.linkCopied': 'Share link copied!',
     'brag.ctaTryIt': 'Try it yourself →',
     'brag.shareNote': 'Grow your character and show it off to friends!',

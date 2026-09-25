@@ -1,4 +1,4 @@
-# 짭스패닉 (GalsPanic)
+# 쿤난나 (Kunnanna)
 
 AI로 생성된 캐릭터를 활용한 땅따먹기 캐주얼 웹 게임 (Vanilla JS + Node.js)
 

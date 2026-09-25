@@ -1,5 +1,5 @@
 /**
- * server.js — 짭스패닉 이미지 서버
+ * server.js — 쿤난나 이미지 서버
  *
  * 엔드포인트:
  *   GET  /api/image?stage={n}&rating={g|s}      이미지 URL 조회
@@ -28,6 +28,6 @@ rankStore.init();
 scheduler.init();
 
 app.listen(PORT, () => {
-    console.log(`짭스패닉 이미지 서버 실행 중: http://localhost:${PORT}`);
+    console.log(`쿤난나 이미지 서버 실행 중: http://localhost:${PORT}`);
     console.log(`최대 스테이지: ${store.MAX_STAGE} | 배치 크기: ${store.BATCH_SIZE} | 총 배치: ${store.TOTAL_BATCH}`);
 });

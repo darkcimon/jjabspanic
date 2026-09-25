@@ -1,0 +1,53 @@
+/* pages.css — 게임 소개/가이드/FAQ 등 정적 안내 페이지 공용 스타일
+   (privacy.html·terms.html과 같은 톤을 유지한다) */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  background: #0f0720;
+  color: #e0d6f5;
+  line-height: 1.8;
+  padding: 0 16px 60px;
+}
+.container { max-width: 760px; margin: 0 auto; }
+
+.site-nav {
+  max-width: 760px; margin: 0 auto 28px; padding: 16px 0 12px;
+  border-bottom: 1px solid #3b2d6e;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+}
+.site-nav .brand { font-weight: 800; font-size: 1.15rem; color: #c084fc; text-decoration: none; margin-right: auto; }
+.site-nav a { color: #b8a6e0; font-size: 0.9rem; text-decoration: none; }
+.site-nav a:hover, .site-nav a[aria-current="page"] { color: #fff; }
+.site-nav .play {
+  background: linear-gradient(135deg, #7c3aed, #c850c0); color: #fff;
+  padding: 4px 14px; border-radius: 999px; font-weight: 700;
+}
+
+h1 { font-size: 1.6rem; color: #c084fc; margin-bottom: 6px; line-height: 1.4; }
+.lead { color: #b8a6e0; margin-bottom: 28px; }
+h2 { font-size: 1.15rem; color: #a78bfa; margin: 32px 0 10px; border-left: 3px solid #7c3aed; padding-left: 10px; }
+h3 { font-size: 1rem; color: #e9d5ff; margin: 20px 0 6px; }
+p  { margin-bottom: 12px; font-size: 0.97rem; }
+ul, ol { margin: 8px 0 14px 22px; }
+li { margin-bottom: 6px; font-size: 0.97rem; }
+b, strong { color: #fff; }
+a  { color: #818cf8; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 0.92rem; }
+th, td { border: 1px solid #3b2d6e; padding: 8px 10px; text-align: left; vertical-align: top; }
+th { background: #1e1040; color: #c084fc; }
+.note { background: #1a0d38; border: 1px solid #3b2d6e; border-radius: 10px; padding: 12px 14px; margin: 16px 0; font-size: 0.93rem; }
+.cta { display: inline-block; margin-top: 18px; background: linear-gradient(135deg, #7c3aed, #c850c0); color: #fff; padding: 10px 22px; border-radius: 999px; font-weight: 700; text-decoration: none; }
+details { border: 1px solid #3b2d6e; border-radius: 10px; padding: 10px 14px; margin: 10px 0; background: #140a2c; }
+details summary { cursor: pointer; font-weight: 700; color: #e9d5ff; }
+details[open] summary { margin-bottom: 8px; }
+
+.site-footer {
+  max-width: 760px; margin: 48px auto 0; padding-top: 16px; border-top: 1px solid #3b2d6e;
+  font-size: 0.82rem; color: #9c86c8; display: flex; flex-wrap: wrap; gap: 6px 14px;
+}
+.site-footer a { color: #9c86c8; }
+
+@media (max-width: 480px) {
+  h1 { font-size: 1.35rem; }
+  .site-nav a { font-size: 0.85rem; }
+}

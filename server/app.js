@@ -70,8 +70,8 @@ const MANIFEST_BASE = {
     ],
 };
 const MANIFEST_I18N = {
-    ko: { lang: 'ko', name: '짭스패닉', short_name: '짭스패닉', description: 'AI 캐릭터를 수집하는 땅따먹기 캐주얼 게임' },
-    en: { lang: 'en', name: 'GalsPanic', short_name: 'GalsPanic', description: 'A territory-capture casual game with collectible AI characters' },
+    ko: { lang: 'ko', name: '쿤난나', short_name: '쿤난나', description: 'AI 캐릭터를 수집하는 땅따먹기 캐주얼 게임' },
+    en: { lang: 'en', name: 'Kunnanna', short_name: 'Kunnanna', description: 'A territory-capture casual game with collectible AI characters' },
 };
 function detectServerLang(req) {
     const primary = (req.headers['accept-language'] || '').split(',')[0].trim().toLowerCase();
@@ -105,8 +105,8 @@ app.get('/share', (req, res) => {
     }
 
     const title = lang === 'ko'
-        ? `스테이지 ${stage} 달성! 짭스패닉 다람쥐 자랑`
-        : `Reached stage ${stage}! GalsPanic squirrel flex`;
+        ? `스테이지 ${stage} 달성! 쿤난나 다람쥐 자랑`
+        : `Reached stage ${stage}! Kunnanna squirrel flex`;
     const desc = lang === 'ko'
         ? `누적 ${score.toLocaleString()}pt — 나도 도전해볼까?`
         : `${score.toLocaleString()}pt total — think you can beat it?`;

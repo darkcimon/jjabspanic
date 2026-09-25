@@ -1,4 +1,4 @@
-# PRD-monetization — 짭스패닉 수익화 전략
+# PRD-monetization — 쿤난나 수익화 전략
 
 > 작성일: 2026-03-17
 > 배포 타겟: 웹 앱 (모바일 브라우저, PWA)

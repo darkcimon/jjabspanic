@@ -1,4 +1,48 @@
-# TODO — 짭스패닉 수익화 로드맵
+# TODO — 쿤난나 수익화 로드맵
+
+## 🚨 지금 할 일 — 애드센스 재심사 (2026-09-25 "정책 위반" 거절 대응)
+
+코드 작업(브랜드명 변경, 콘텐츠 페이지 6개, 리워드 광고 숨김, 아이콘 PNG 재생성)은
+`fix/adsense-review` 브랜치에 커밋·푸시 완료. 아래는 직접 해야 하는 일.
+
+### 1. 배포
+- [ ] `fix/adsense-review` PR 확인 후 `master`에 머지 → Railway 자동 배포 확인
+- [ ] 배포된 사이트에서 새 페이지가 열리는지 확인
+      `/about.html` `/how-to-play.html` `/items.html` `/tips.html` `/faq.html` `/contact.html`
+- [ ] 메인 화면 제목·로고가 "쿤난나"로 바뀌었는지, 광고 보기 버튼이 안 보이는지 확인
+      (안 바뀌어 보이면 새로고침 1~2회 — 서비스워커 캐시 v31로 올려둠)
+
+### 2. 구글 검색 등록 (재심사 전에 크롤링되게)
+- [ ] [Google Search Console](https://search.google.com/search-console)에 사이트 등록
+- [ ] `https://jjabspanic.up.railway.app/sitemap.xml` 제출
+- [ ] URL 검사로 메인·about·how-to-play 페이지 "색인 생성 요청"
+
+### 3. 도메인 (강력 권장 — 승인 가능성에 가장 큰 영향)
+- [ ] `.com` / `.kr` 등 개인 도메인 구입 (예: kunnanna.com)
+- [ ] Railway 서비스 Settings → Custom Domain 연결 (DNS CNAME 설정)
+- [ ] 연결 후 Claude에게 "도메인 바꿔줘" 요청 → `sitemap.xml`, `robots.txt`,
+      페이지 canonical 주소, `twa-manifest.json` host, assetlinks 등 일괄 교체
+- [ ] 애드센스 → 사이트에 새 도메인 추가 (기존 railway 사이트는 삭제)
+
+### 4. 재심사 요청
+- [ ] 배포 후 며칠(3~7일) 기다려 새 페이지가 크롤링되게 하기
+- [ ] 애드센스 → 사이트 → "문제를 수정했음을 확인합니다" 체크 → **검토 요청**
+- [ ] 또 거절되면 애드센스 **정책 센터** 메뉴에 구체 사유가 뜨는지 확인
+
+### 5. 승인 후
+- [ ] H5 게임 광고(Ad Placement API) 별도 신청 — 리워드 광고는 이 프로그램 전용
+- [ ] 승인되면 `web/js/ads.js`의 `REWARD_ADS_ENABLED`를 `true`로,
+      `web/index.html` 애드센스 스크립트의 `data-adbreak-test="on"` 제거
+
+### 6. 기타
+- [ ] Play 스토어 앱(TWA): 앱 이름이 "쿤난나"로 바뀌었으므로 Bubblewrap으로 다시 빌드
+      (`twa-manifest.json`은 수정됨, `app/`의 런처 아이콘은 새 `web/icons/icon-512.png`로 재생성 필요)
+- [ ] 스토어 등록정보(앱 이름·설명·그래픽 이미지)도 새 이름/새 `feature-graphic.png`로 교체
+- [ ] 이번 커밋에 포함하지 않은 기존 작업 확인 후 별도 커밋:
+      `server/dataDir.js` + store들의 DATA_DIR 변경, `server/.env.example`, `web/js/game.js`(전멸 시 점령률 100%),
+      `web/icons/*-en.*` 영문 아이콘, `server/data/images.json`·특전 이미지 1장
+
+---
 
 ## Phase 0 — 게임 완성 확인
 
