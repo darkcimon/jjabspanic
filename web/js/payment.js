@@ -56,6 +56,11 @@ function _saveLocal(list) {
   localStorage.setItem(LS_KEY, JSON.stringify([...new Set(list)]));
 }
 
+/** 이 기기 localStorage에 기록된 구매 팩 ID 목록 (세이브 이전용) */
+export function getLocalPurchases() {
+  return _loadLocal();
+}
+
 /**
  * 로컬에 팩을 저장한다 (결제 성공 리다이렉트 후, 코드 복구 후 호출).
  * pack_all 저장 시 하위 팩도 함께 저장.

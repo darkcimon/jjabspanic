@@ -737,6 +737,45 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 }
 .confirm-modal-btns button { flex: 1; }
 
+/* ── 데이터 이전 ─────────────────────────────────────── */
+.transfer-modal-box {
+  width: min(380px, 92%);
+  max-height: 88vh; overflow-y: auto;
+  border-color: rgba(200, 80, 192, 0.45);
+}
+.transfer-title { color: var(--text); }
+.transfer-app-hint {
+  margin: 0; padding: 10px 12px; border-radius: 10px;
+  background: rgba(249, 212, 35, 0.1); border: 1px solid rgba(249, 212, 35, 0.35);
+  font-size: 0.8rem; line-height: 1.55; color: var(--text); text-align: left;
+}
+.transfer-app-hint[hidden], .transfer-code-box[hidden], .transfer-note[hidden], .transfer-error[hidden] { display: none; }
+.transfer-section {
+  width: 100%; display: flex; flex-direction: column; gap: 8px;
+  padding-top: 12px; border-top: 1px solid rgba(200, 80, 192, 0.2);
+}
+.transfer-section-title { margin: 0; font-size: 0.95rem; font-weight: 800; color: var(--text); }
+.transfer-code-box { display: flex; align-items: center; gap: 8px; }
+.transfer-code {
+  flex: 1; padding: 10px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06); border: 1px dashed var(--accent);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 1.35rem; font-weight: 800; letter-spacing: 0.12em; color: var(--text);
+  user-select: all;
+}
+.transfer-copy-btn { padding: 10px 14px; font-size: 0.85rem; }
+.transfer-note { margin: 0; font-size: 0.75rem; color: var(--muted); }
+.transfer-input {
+  width: 100%; box-sizing: border-box; padding: 12px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(200, 80, 192, 0.3);
+  color: var(--text); outline: none; text-align: center;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 1.15rem; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.transfer-input:focus { border-color: var(--accent); }
+.transfer-error { margin: 0; font-size: 0.8rem; color: #ff6b6b; }
+#btn-transfer-redeem.confirming { border-color: #ff6b6b; color: #ff6b6b; }
+
 /* ── 내 캐릭터 자랑하기 ──────────────────────────────── */
 .brag-modal-box { width: min(420px, 92%); }
 .brag-canvas {

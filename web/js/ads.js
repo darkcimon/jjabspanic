@@ -1,23 +1,21 @@
 /**
- * ads.js — 구글 애드센스 리워드 광고(Ad Placement API) 연동
+ * ads.js — 리워드 광고 연동 (Android 앱 전용, Google AdMob)
  *
- * ⚠️ 애드센스 심사가 아직 승인되지 않아 index.html 스크립트 태그에
- * data-adbreak-test="on"을 다시 붙여둔 상태다 (테스트 광고만 표시됨).
- * 승인이 나면 그 속성을 제거해야 실제 보상형 광고가 노출된다.
+ * 앱(WebView)이 window.KunnannaAds 브리지를 주입하고, 광고 결과는
+ * window.__kunnannaAdEvent(requestId, event)로 돌려준다.
+ *   event: shown | rewarded | closed | failed
+ * (네이티브 코드: app/src/main/java/com/jjabspanic/app/MainActivity.java)
  *
- * 참고: https://developers.google.com/ad-placement
- *
- * window.adBreak / window.adConfig는 index.html에서 애드센스 스크립트와
- * 함께 미리 선언해둔 전역 함수이므로 이 모듈은 그것을 호출하기만 한다.
+ * 웹 브라우저에서는 광고가 없다 — 리워드 광고 버튼(메인/클리어/액세서리)을 모두
+ * 숨기고, 광고 시청 조건(액세서리 구매 등)은 면제한다.
  */
 
-// 애드센스 사이트 심사 기간에는 false — 리워드 광고 버튼(메인/클리어/액세서리)을
-// 모두 숨기고, 광고 시청 조건(액세서리 구매 등)은 면제한다. 광고로 포인트를 주는
-// 구조가 일반 애드센스 심사에서 "광고 시청 유도"로 보일 수 있기 때문이다.
-// 승인 후 H5 게임 광고(Ad Placement API)가 활성화되면 true로 되돌린다.
-export const REWARD_ADS_ENABLED = false;
+// Android 앱 WebView 안에서 실행 중인지 — addJavascriptInterface로 주입된 객체는
+// 페이지 스크립트보다 먼저 존재하므로 모듈 로드 시점에 판별해도 된다.
+const nativeAds = window.KunnannaAds;
+export const IS_NATIVE_APP = !!(nativeAds && typeof nativeAds.showRewarded === 'function');
+export const REWARD_ADS_ENABLED = IS_NATIVE_APP;
 
-const AD_NAME = 'gp_point_reward';
 // 무한정 커지면 밸런스가 깨지므로 상한을 둔다. 신화 등급에 펫(500만)·펫강화(최대
 // 1억)·방패(최대 750만) 등 고가 소모처가 추가되면서 예전 상한(10만)은 그 경제
 // 규모에 비해 너무 작아져(끝까지 시청해도 사실상 껌값) 광고를 볼 유인이 없었다.
@@ -25,8 +23,8 @@ const AD_NAME = 'gp_point_reward';
 const AD_REWARD_CAP = 1000000;
 
 // ── 보관함 팩 해금: 광고 누적 시청 횟수 기준 ──────────────────
-// "누적 시청"은 adViewed(끝까지 봐서 보상이 실제로 지급된 경우)만 센다.
-// 중간에 닫아 보상을 못 받은 시청(adDismissed)은 카운트하지 않는다.
+// "누적 시청"은 rewarded 이벤트(끝까지 봐서 보상이 실제로 지급된 경우)만 센다.
+// 중간에 닫아 보상을 못 받은 시청(closed만 온 경우)은 카운트하지 않는다.
 export const AD_PACK_THRESHOLDS = { pack_a: 100, pack_b: 200, pack_c: 300 };
 
 /**
@@ -55,61 +53,68 @@ export function computeNextAdReward(lastReward) {
   return Math.min(Math.floor((lastReward * 1.5) / 100) * 100, AD_REWARD_CAP);
 }
 
-// adsbygoogle.js 스크립트가 광고 차단 프로그램·네트워크 문제·광고 재고 없음 등으로
-// 요청을 아예 처리하지 못하면 adBreak의 콜백(adViewed/adDismissed/adBreakDone)이
-// 하나도 호출되지 않는 경우가 있다. 그러면 버튼이 disabled 상태로 영원히 멈춰버리고
-// 사용자 눈에는 "눌러도 반응 없음"으로 보인다 — 타임아웃으로 강제 복구한다.
-const AD_TIMEOUT_MS = 12000;
+// 네이티브는 광고 로드를 최대 10초 기다린 뒤 스스로 'failed'를 보낸다. 이 값은
+// 브리지 응답이 아예 끊겼을 때를 대비한 안전장치라 그보다 길게 잡는다.
+// 광고가 화면에 뜨면('shown') 타임아웃을 해제한다 — 30초짜리 광고 시청 중에
+// 타임아웃이 먼저 터져 보상을 못 받는 일이 없도록.
+const AD_LOAD_TIMEOUT_MS = 20000;
+const pendingRequests = new Map();
+let requestSeq = 0;
+
+window.__kunnannaAdEvent = (requestId, event) => {
+  const req = pendingRequests.get(requestId);
+  if (!req) return;
+  switch (event) {
+    case 'shown':
+      clearTimeout(req.timeoutId);
+      break;
+    case 'rewarded':
+      req.rewarded = true;
+      clearTimeout(req.timeoutId);
+      req.onReward();
+      break;
+    case 'closed':
+    case 'failed':
+      clearTimeout(req.timeoutId);
+      pendingRequests.delete(requestId);
+      if (!req.rewarded) req.onUnavailable && req.onUnavailable(event === 'closed' ? 'dismissed' : 'error');
+      break;
+  }
+};
 
 /**
  * 리워드 광고 시청을 요청한다.
  * @param {{ onReward: () => void, onUnavailable?: (reason: string) => void }} handlers
  */
 export function watchRewardAd({ onReward, onUnavailable }) {
-  if (!REWARD_ADS_ENABLED) {
+  if (!IS_NATIVE_APP) {
     onUnavailable && onUnavailable('disabled');
     return;
   }
-  if (typeof window.adBreak !== 'function') {
-    onUnavailable && onUnavailable('sdk-not-loaded');
-    return;
-  }
-
-  let settled = false;
-  const timeoutId = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    console.warn('[ads] adBreak timed out with no callback — ad blocked or unavailable');
+  const requestId = `ad${Date.now()}_${++requestSeq}`;
+  const req = { onReward, onUnavailable, rewarded: false, timeoutId: 0 };
+  req.timeoutId = setTimeout(() => {
+    if (!pendingRequests.delete(requestId)) return;
+    console.warn('[ads] rewarded ad timed out');
     onUnavailable && onUnavailable('timeout');
-  }, AD_TIMEOUT_MS);
-
-  let rewarded = false;
+  }, AD_LOAD_TIMEOUT_MS);
+  pendingRequests.set(requestId, req);
   try {
-    window.adBreak({
-      type: 'reward',
-      name: AD_NAME,
-      beforeReward: (showAdFn) => { showAdFn(); },
-      adViewed: () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeoutId);
-        rewarded = true;
-        onReward();
-      },
-      adDismissed: () => { /* 끝까지 시청하지 않고 닫음 — 보상 없음 (adBreakDone에서 처리) */ },
-      adBreakDone: (placementInfo) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeoutId);
-        if (!rewarded) onUnavailable && onUnavailable(placementInfo && placementInfo.breakStatus);
-      },
-    });
+    nativeAds.showRewarded(requestId);
   } catch (e) {
-    if (!settled) {
-      settled = true;
-      clearTimeout(timeoutId);
-      console.warn('[ads] adBreak failed:', e);
-      onUnavailable && onUnavailable('error');
-    }
+    clearTimeout(req.timeoutId);
+    pendingRequests.delete(requestId);
+    console.warn('[ads] showRewarded failed:', e);
+    onUnavailable && onUnavailable('error');
   }
+}
+
+/**
+ * 앱(WebView)에는 navigator.share가 없으므로 네이티브 공유 시트를 쓴다.
+ * @returns {boolean} 네이티브 공유를 호출했으면 true
+ */
+export function nativeShare({ title, text, url }) {
+  if (!IS_NATIVE_APP || typeof nativeAds.share !== 'function') return false;
+  nativeAds.share(title || '', text || '', url || '');
+  return true;
 }

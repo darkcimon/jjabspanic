@@ -12,23 +12,8 @@
   <title data-i18n="brand.name">쿤난나</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="/manifest.json">
-  <!-- 구글 애드센스 사이트 소유권 확인용 메타 태그 (애드센스 콘솔 "메타 태그" 확인 방식) -->
-  <meta name="google-adsense-account" content="ca-pub-5609288406160464">
   <!-- 토스페이먼츠 SDK (async: 결제 SDK 로딩 실패가 게임 진입을 막지 않도록) -->
   <script src="https://js.tosspayments.com/v1/payment" async></script>
-  <!-- 구글 애드센스 리워드 광고 (Ad Placement API)
-       ⚠️ 애드센스 심사가 아직 승인되지 않았다 — 승인 전에는 실제 광고가 채워지지
-          않아 테스트 모드 없이는 항상 응답 없음(타임아웃)으로 끝난다.
-          승인 완료 후에만 data-adbreak-test="on"을 다시 제거할 것.
-          참고: https://developers.google.com/ad-placement -->
-  <script async
-    data-adbreak-test="on"
-    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5609288406160464"
-    crossorigin="anonymous"></script>
-  <script>
-    window.adsbygoogle = window.adsbygoogle || [];
-    window.adBreak = window.adConfig = function (o) { window.adsbygoogle.push(o); };
-  </script>
 </head>
 <body>
 
@@ -58,6 +43,7 @@
       <button id="btn-main-brag" class="btn-secondary" data-i18n="brag.btnOpen">🐿️ 내 캐릭터 자랑하기</button>
       <button id="btn-gallery" class="btn-secondary" data-i18n="main.btnGallery">갤러리</button>
       <button id="btn-help"    class="btn-secondary" data-i18n="main.btnHelp">도움말 / 조작법</button>
+      <button id="btn-transfer" class="btn-secondary" data-i18n="transfer.btnOpen">📦 데이터 이전</button>
       <button id="btn-reset"   class="btn-danger" data-i18n="common.reset">초기화</button>
     </div>
     <div class="lang-switch-row">
@@ -675,6 +661,39 @@
     <div class="confirm-modal-btns">
       <button id="btn-reset-cancel" class="btn-secondary" data-i18n="common.cancel">취소</button>
       <button id="btn-reset-confirm" class="btn-danger" data-i18n="common.reset">초기화</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 데이터 이전 모달 ───────────────────────────────── -->
+<div id="modal-transfer" class="confirm-modal">
+  <div class="confirm-modal-box transfer-modal-box">
+    <div class="confirm-modal-icon">📦</div>
+    <h3 class="confirm-modal-title transfer-title" data-i18n="transfer.title">데이터 이전</h3>
+    <p class="transfer-app-hint" id="transfer-app-hint" data-i18n-html="transfer.appHint" hidden></p>
+
+    <section class="transfer-section">
+      <h4 class="transfer-section-title" data-i18n="transfer.exportTitle">이 기기의 데이터 보내기</h4>
+      <p class="confirm-modal-desc" data-i18n="transfer.exportDesc">코드를 발급받아 새 기기에서 입력하세요.</p>
+      <div id="transfer-code-box" class="transfer-code-box" hidden>
+        <span id="transfer-code" class="transfer-code"></span>
+        <button id="btn-transfer-copy" class="btn-secondary transfer-copy-btn" type="button" data-i18n="transfer.copy">복사</button>
+      </div>
+      <p id="transfer-code-expiry" class="transfer-note" hidden></p>
+      <button id="btn-transfer-issue" class="btn-primary" type="button" data-i18n="transfer.issue">코드 발급</button>
+    </section>
+
+    <section class="transfer-section">
+      <h4 class="transfer-section-title" data-i18n="transfer.importTitle">코드로 불러오기</h4>
+      <p class="confirm-modal-desc" data-i18n-html="transfer.importDesc">이 기기의 진행 상황은 덮어써집니다.</p>
+      <input id="transfer-code-input" class="transfer-input" type="text"
+        maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-2345">
+      <p id="transfer-error" class="transfer-error" hidden></p>
+      <button id="btn-transfer-redeem" class="btn-secondary" type="button" data-i18n="transfer.redeem">불러오기</button>
+    </section>
+
+    <div class="confirm-modal-btns">
+      <button id="btn-transfer-close" class="btn-secondary" type="button" data-i18n="common.close">닫기</button>
     </div>
   </div>
 </div>

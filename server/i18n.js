@@ -38,6 +38,9 @@ const dict = {
         userInfoNotFound: '유저 정보를 찾을 수 없습니다.',
 
         invalidRankPayload: '잘못된 랭킹 요청입니다.',
+        invalidTransferPayload: '이전할 데이터가 올바르지 않습니다.',
+        transferCodeInvalid: '코드가 올바르지 않거나 만료되었습니다. 이전 기기에서 새 코드를 발급받아 주세요.',
+        transferGenericError: '데이터를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
         rankGenericError: '랭킹 정보를 불러오는 중 오류가 발생했습니다.',
     },
     en: {
@@ -73,6 +76,9 @@ const dict = {
         userInfoNotFound: 'User info not found.',
 
         invalidRankPayload: 'Invalid ranking request.',
+        invalidTransferPayload: 'The data to transfer is invalid.',
+        transferCodeInvalid: 'This code is invalid or has expired. Please issue a new code on your old device.',
+        transferGenericError: 'Something went wrong loading your data. Please try again later.',
         rankGenericError: 'Something went wrong loading ranking info.',
     },
 };

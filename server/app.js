@@ -13,6 +13,7 @@ const cookieParser = require('cookie-parser');
 const store        = require('./imageStore');
 const generator    = require('./batchGenerator');
 const rankStore    = require('./rankStore');
+const transferStore = require('./transferStore');
 const { router: authRouter }    = require('./auth');
 const { router: paymentRouter } = require('./payment');
 const i18n = require('./i18n');
@@ -230,6 +231,36 @@ app.post('/api/rank', (req, res) => {
     } catch (e) {
         console.error('[Rank] 랭킹 처리 오류:', e);
         res.status(500).json({ error: i18n.t(req, 'rankGenericError') });
+    }
+});
+
+// ── 세이브 데이터 이전 (기기 변경 / TWA → WebView 앱 전환) ──
+// 코드 추측(무차별 대입)을 막기 위해 불러오기는 IP당 10분에 10회로 따로 제한한다.
+const transferRedeemLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    message: (req) => ({ error: i18n.t(req, 'tooManyRequests') })
+});
+
+app.post('/api/transfer', (req, res) => {
+    const { save, purchases } = req.body || {};
+    try {
+        const { code, expiresAt } = transferStore.create({ save, purchases });
+        res.json({ code, expiresAt });
+    } catch (e) {
+        res.status(400).json({ error: i18n.t(req, 'invalidTransferPayload') });
+    }
+});
+
+app.post('/api/transfer/redeem', transferRedeemLimiter, (req, res) => {
+    const { code } = req.body || {};
+    try {
+        const data = transferStore.redeem(code);
+        if (!data) return res.status(404).json({ error: i18n.t(req, 'transferCodeInvalid') });
+        res.json(data);
+    } catch (e) {
+        console.error('[Transfer] 불러오기 오류:', e);
+        res.status(500).json({ error: i18n.t(req, 'transferGenericError') });
     }
 });
 

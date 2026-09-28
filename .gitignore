@@ -42,3 +42,6 @@ Thumbs.db
 
 # Claude Code 로컬 설정 (기기별)
 .claude/settings.local.json
+
+# 세이브 이전 코드 (런타임 생성)
+server/data/transfers.json

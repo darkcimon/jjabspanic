@@ -11,7 +11,8 @@ import {
   GUN_BASE_CAP, BULLET_BASE_CAP, SWORD_BASE_CAP, PET_BASE_CAP, PET_MAX_COUNT,
 } from './config.js';
 import { t, onLangChange } from './i18n.js';
-import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds, REWARD_ADS_ENABLED } from './ads.js';
+import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds, REWARD_ADS_ENABLED, nativeShare, IS_NATIVE_APP } from './ads.js';
+import { issueTransferCode, redeemTransferCode, formatTransferCode } from './transfer.js';
 
 // 리워드 광고가 꺼져 있으면 광고 버튼류를 CSS로 일괄 숨긴다 (style.css의 .ads-off).
 if (!REWARD_ADS_ENABLED) document.body.classList.add('ads-off');
@@ -1010,7 +1011,7 @@ function updateMainStats() {
   updateAdButtons();
 }
 
-// ── 리워드 광고 (구글 애드센스 Ad Placement API) ────────────────
+// ── 리워드 광고 (Android 앱 AdMob) ────────────────
 // 시청 1회당 3,000 → 6,000 → 12,000(2배씩) → 이후 1.5배씩(100 단위 절삭) 지급.
 function updateAdButtons() {
   const amount = computeNextAdReward(save.lastAdReward || 0);
@@ -1361,6 +1362,7 @@ $('btn-brag-share').onclick = async () => {
     }
   };
   try {
+    if (nativeShare({ title: shareTitle, text: shareText, url: shareUrl })) return;
     if (navigator.share) {
       await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
       return;
@@ -1450,6 +1452,136 @@ $('btn-reset-confirm').onclick = () => {
   updateMainStats();
   show('main');
 };
+
+// ── 데이터 이전 모달 ─────────────────────────────────────────
+// 기기 변경이나 구버전 앱(TWA, 크롬 저장소) → 새 앱(WebView, 앱 전용 저장소)
+// 전환 시 진행 상황을 옮긴다. 로직은 transfer.js 참고.
+const TRANSFER_DONE_KEY = 'kn_transfer_done';        // 불러오기 직후 새로고침 → 완료 안내용 (sessionStorage)
+const TRANSFER_HINT_KEY = 'kn_transfer_hint_shown';  // 새 앱 첫 실행 시 자동 안내는 한 번만 (localStorage)
+let _transferConfirmTimer = null;
+
+function resetTransferRedeemButton() {
+  clearTimeout(_transferConfirmTimer);
+  _transferConfirmTimer = null;
+  const btn = $('btn-transfer-redeem');
+  btn.classList.remove('confirming');
+  btn.textContent = t('transfer.redeem');
+}
+
+function showTransferError(msg) {
+  const el = $('transfer-error');
+  el.textContent = msg;
+  el.hidden = !msg;
+}
+
+function openTransferModal() {
+  // 앱 안에서는 "예전 앱 진행 상황은 크롬에서 코드를 발급받으라"는 안내를 보여준다.
+  // 구버전 앱(TWA)은 크롬 저장소를 썼으므로, 같은 사이트를 크롬으로 열면 그 데이터가 그대로 있다.
+  $('transfer-app-hint').hidden = !IS_NATIVE_APP;
+  $('transfer-code-input').value = '';
+  showTransferError('');
+  resetTransferRedeemButton();
+  $('modal-transfer').classList.add('active');
+}
+
+function closeTransferModal() {
+  resetTransferRedeemButton();
+  $('modal-transfer').classList.remove('active');
+}
+
+$('btn-transfer').onclick = openTransferModal;
+$('btn-transfer-close').onclick = closeTransferModal;
+$('modal-transfer').addEventListener('pointerdown', e => {
+  if (e.target === $('modal-transfer')) closeTransferModal();
+});
+
+$('btn-transfer-issue').onclick = async () => {
+  const btn = $('btn-transfer-issue');
+  btn.disabled = true;
+  const result = await issueTransferCode();
+  btn.disabled = false;
+  if (!result.ok) {
+    showAlert(t('transfer.serverError'));
+    return;
+  }
+  $('transfer-code').textContent = formatTransferCode(result.code);
+  $('transfer-code-box').hidden = false;
+  const expiry = new Date(result.expiresAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  $('transfer-code-expiry').textContent = t('transfer.expiresAt', { time: expiry });
+  $('transfer-code-expiry').hidden = false;
+  btn.textContent = t('transfer.reissue');
+};
+
+$('btn-transfer-copy').onclick = () => {
+  const code = $('transfer-code').textContent;
+  const btn = $('btn-transfer-copy');
+  const done = () => {
+    btn.textContent = t('transfer.copied');
+    setTimeout(() => { btn.textContent = t('transfer.copy'); }, 1500);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(code).then(done, () => showAlert(code));
+  } else {
+    showAlert(code);
+  }
+};
+
+$('transfer-code-input').addEventListener('input', () => {
+  showTransferError('');
+  resetTransferRedeemButton();
+});
+
+$('btn-transfer-redeem').onclick = async () => {
+  const btn = $('btn-transfer-redeem');
+  const code = $('transfer-code-input').value.toUpperCase().replace(/[\s-]/g, '');
+  if (code.length !== 8) {
+    showTransferError(t('transfer.enterCode'));
+    return;
+  }
+  // 현재 진행 상황을 덮어쓰는 동작이라 두 번 눌러야 실행한다.
+  if (!btn.classList.contains('confirming')) {
+    btn.classList.add('confirming');
+    btn.textContent = t('transfer.redeemConfirm');
+    _transferConfirmTimer = setTimeout(resetTransferRedeemButton, 5000);
+    return;
+  }
+  resetTransferRedeemButton();
+  btn.disabled = true;
+  const result = await redeemTransferCode(code);
+  btn.disabled = false;
+  if (!result.ok) {
+    showTransferError(t({
+      invalid: 'transfer.codeInvalid',
+      rate: 'transfer.rateLimited',
+    }[result.reason] || 'transfer.serverError'));
+    return;
+  }
+  // 모든 화면·모듈 상태(save, 구매 캐시, 게임 설정 등)를 새로 읽도록 새로고침한다.
+  try { sessionStorage.setItem(TRANSFER_DONE_KEY, '1'); } catch (e) { /* 무시 */ }
+  location.reload();
+};
+
+// 부팅 후 메인 화면에서 호출 — 불러오기 완료 안내, 또는 새 앱 첫 실행 시 이전 안내
+function maybeShowTransferNotice() {
+  let justTransferred = false;
+  try {
+    justTransferred = sessionStorage.getItem(TRANSFER_DONE_KEY) === '1';
+    sessionStorage.removeItem(TRANSFER_DONE_KEY);
+  } catch (e) { /* 무시 */ }
+  if (justTransferred) {
+    showAlert(t('transfer.importDone', { stage: save.stage }));
+    return;
+  }
+  // 새 앱(WebView)은 저장소가 비어 있는 상태로 시작한다 — 진행 기록이 전혀 없는
+  // 첫 실행에서 한 번만 이전 방법을 안내한다.
+  const isFreshSave = save.stage <= 1 && !save.bestStage && !save.totalScore;
+  if (!IS_NATIVE_APP || !isFreshSave) return;
+  try {
+    if (localStorage.getItem(TRANSFER_HINT_KEY)) return;
+    localStorage.setItem(TRANSFER_HINT_KEY, '1');
+  } catch (e) { return; }
+  openTransferModal();
+}
 
 // ── 게임 클리어(300단계 완주) 안내 모달 ────────────────────
 // 확인: 스테이지 번호는 301부터 계속 이어서 증가하되(체력 등 난이도는 루프마다 더 어려워짐 —
@@ -2263,6 +2395,7 @@ async function boot() {
     showGameCompleteModal();
   } else {
     show('main');
+    maybeShowTransferNotice();
   }
 }
 
