@@ -39,6 +39,11 @@ const dict = {
     'main.btnHelp': '도움말 / 조작법',
     'main.privacyLink': '개인정보처리방침',
     'main.termsLink': '이용약관',
+    'main.aboutLink': '게임 소개',
+    'main.howToPlayLink': '플레이 방법',
+    'main.tipsLink': '공략',
+    'main.faqLink': 'FAQ',
+    'main.contactLink': '문의',
 
     'brag.btnOpen': '🐿️ 내 캐릭터 자랑하기',
     'brag.modalTitle': '내 캐릭터 자랑하기',
@@ -471,6 +476,11 @@ const dict = {
     'main.btnHelp': 'Help / Controls',
     'main.privacyLink': 'Privacy Policy',
     'main.termsLink': 'Terms of Service',
+    'main.aboutLink': 'About',
+    'main.howToPlayLink': 'How to Play',
+    'main.tipsLink': 'Tips',
+    'main.faqLink': 'FAQ',
+    'main.contactLink': 'Contact',
 
     'brag.btnOpen': '🐿️ Show Off My Character',
     'brag.modalTitle': 'Show Off My Character',

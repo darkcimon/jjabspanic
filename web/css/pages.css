@@ -51,3 +51,12 @@ details[open] summary { margin-bottom: 8px; }
   h1 { font-size: 1.35rem; }
   .site-nav a { font-size: 0.85rem; }
 }
+
+/* 한/영 전환 — 기본은 한국어. js/page-lang.js가 실행되면 선택 언어 블록만 보인다 */
+[data-lang-block="en"] { display: none; }
+.site-nav .lang-btn {
+  background: transparent; color: #9c86c8; font-size: 0.8rem; font-weight: 600;
+  padding: 3px 12px; border-radius: 999px; border: 1px solid rgba(200,80,192,0.3);
+  cursor: pointer; font-family: inherit;
+}
+.site-nav .lang-btn:hover { color: #e0d6f5; border-color: #a78bfa; }
