@@ -15,8 +15,8 @@
  * 다음 방문부터는 최신 파일로 자연히 교체된다.
  */
 
-const CACHE_NAME   = 'galspanic-v33';
-const API_CACHE    = 'galspanic-api-v33';
+const CACHE_NAME   = 'galspanic-v34';
+const API_CACHE    = 'galspanic-api-v34';
 
 // install 시 pre-cache할 정적 자산 목록
 const STATIC_ASSETS = [
@@ -32,6 +32,8 @@ const STATIC_ASSETS = [
   '/js/squirrel.js',
   '/js/bragCard.js',
   '/js/accessories.js',
+  '/js/sfx.js',
+  '/js/daily.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

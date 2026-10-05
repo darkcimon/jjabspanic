@@ -13,6 +13,8 @@ import {
 import { t, onLangChange } from './i18n.js';
 import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds, REWARD_ADS_ENABLED, nativeShare, IS_NATIVE_APP } from './ads.js';
 import { issueTransferCode, redeemTransferCode, formatTransferCode } from './transfer.js';
+import { sfx, isMuted, setMuted } from './sfx.js';
+import { DAILY_POINTS, DAILY_LIFE_DAY, dailyMultiplier, getDailyState, claimDaily } from './daily.js';
 
 // 리워드 광고가 꺼져 있으면 광고 버튼류를 CSS로 일괄 숨긴다 (style.css의 .ads-off).
 if (!REWARD_ADS_ENABLED) document.body.classList.add('ads-off');
@@ -250,6 +252,7 @@ async function startGame(stage, rating, resumeState = null) {
   game.addEventListener('hud',        e => updateHUD(e.detail));
   game.addEventListener('stageClear', e => onStageClear(e.detail));
   game.addEventListener('gameOver',   e => onGameOver(e.detail));
+  game.addEventListener('sfx',        e => sfx(e.detail.name, e.detail.opts));
 
   const mc = getMonsterCount(stage);
   const ms = getMonsterSpeed(stage);
@@ -301,6 +304,14 @@ async function startGame(stage, rating, resumeState = null) {
   }
   game._persistentSpeedLevel = pb?.speedLevel || 0;
   game.setWeaponLevels(pb?.gunLevel || 0, pb?.swordLevel || 0, pb?.bulletLevel || 0);
+  // 첫 플레이(1단계) 진입 시 1회만 조작법 안내 — 신규 유저 이탈이 가장 큰 구간.
+  if (stage === 1 && !resumeState && !save.tutorialSeen) {
+    const g = game;
+    g._render();
+    await showTutorial();
+    if (game !== g) return; // 안내 중 다른 화면으로 넘어간 경우
+  }
+  _paused = false;
   game.start();
   setupInput(canvas, game);
   // 새 Game 인스턴스는 무기 선택(activeWeapon)과 오토모드 on/off가 항상 초기화된
@@ -395,6 +406,7 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   if (clearTotalEl) clearTotalEl.textContent = totalScore.toLocaleString() + 'pt';
 
   show('stage-clear');
+  sfx('clear');
   playShowtime({ stage, fill, allClearBonus, autoMode: !!(game && game.autoModeActive) });
 
   // 오토모드로 클리어했을 때만: 갤러리에서 사진을 탭해 크게 보는 것과 동일한
@@ -425,6 +437,7 @@ function onGameOver({ stage }) {
   }
   Storage.save(save);
   $('over-stage').textContent = stage;
+  sfx('gameOver');
   const warningEl = $('over-points-warning');
   if (warningEl) {
     // 보유 장비 현황 문구 생성
@@ -1009,6 +1022,7 @@ function updateMainStats() {
   const tsEl = $('main-total-score');
   if (tsEl) tsEl.textContent = (save.totalScore || 0).toLocaleString();
   updateAdButtons();
+  updateDailyBadge();
 }
 
 // ── 리워드 광고 (Android 앱 AdMob) ────────────────
@@ -1612,6 +1626,119 @@ $('btn-complete-no').onclick = () => {
   updateMainStats();
   show('main');
 };
+
+// ── 일시정지 ─────────────────────────────────────────────────
+// game.stop()/start()로 루프만 멈췄다 재개한다 — start()가 _lastTime을 새로
+// 잡으므로 멈춘 동안의 시간이 dt로 튀지 않는다 (타이머도 그대로 멈춤).
+let _paused = false;
+function pauseGame() {
+  if (!game?.running || !$('screen-game').classList.contains('active')) return;
+  game.stop();
+  _paused = true;
+  updateSoundLabels();
+  $('modal-pause').classList.add('active');
+}
+function resumeGame() {
+  $('modal-pause').classList.remove('active');
+  if (!_paused || !game) return;
+  _paused = false;
+  game.start();
+}
+$('btn-pause').onclick = pauseGame;
+$('btn-pause-resume').onclick = resumeGame;
+$('btn-pause-quit').onclick = () => {
+  $('modal-pause').classList.remove('active');
+  _paused = false;
+  if (game) { game.stop(); game = null; }
+  updateMainStats();
+  show('main');
+};
+// 전화·알림 등으로 앱이 백그라운드로 가면 자동 일시정지 — 돌아왔을 때
+// 이미 몬스터에 맞아 있는 억울한 상황을 막는다.
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+
+// ── 소리 on/off ──────────────────────────────────────────────
+function updateSoundLabels() {
+  const m = isMuted();
+  $('sound-toggle-label').textContent = m ? '🔇' : '🔊';
+  $('btn-pause-sound').textContent = t(m ? 'sound.off' : 'sound.on');
+}
+function toggleSound() { setMuted(!isMuted()); updateSoundLabels(); sfx('tap'); }
+$('btn-sound-toggle').onclick = toggleSound;
+$('btn-pause-sound').onclick = toggleSound;
+updateSoundLabels();
+
+// ── 첫 플레이 튜토리얼 ───────────────────────────────────────
+function showTutorial() {
+  return new Promise(resolve => {
+    $('modal-tutorial').classList.add('active');
+    $('btn-tutorial-ok').onclick = () => {
+      $('modal-tutorial').classList.remove('active');
+      save.tutorialSeen = true;
+      Storage.save(save);
+      resolve();
+    };
+  });
+}
+
+// ── 출석 보상 ────────────────────────────────────────────────
+function updateDailyBadge() {
+  $('daily-badge').hidden = !getDailyState(save).claimable;
+}
+function renderDailyModal() {
+  const st = getDailyState(save);
+  const mult = dailyMultiplier(save);
+  const grid = $('daily-grid');
+  grid.innerHTML = '';
+  DAILY_POINTS.forEach((pts, i) => {
+    const day = i + 1;
+    const cell = document.createElement('div');
+    cell.className = 'daily-cell';
+    if (day === DAILY_LIFE_DAY) cell.classList.add('big');
+    if (day < st.day || (day === st.day && !st.claimable)) cell.classList.add('done');
+    else if (day === st.day) cell.classList.add('today');
+    const label = document.createElement('span');
+    label.textContent = t('daily.dayLabel', { n: day });
+    const amount = document.createElement('b');
+    amount.textContent = (pts * mult).toLocaleString();
+    cell.append(label, amount);
+    if (day === DAILY_LIFE_DAY) {
+      const life = document.createElement('span');
+      life.textContent = '❤️ ' + t('daily.lifeBonus');
+      cell.appendChild(life);
+    }
+    grid.appendChild(cell);
+  });
+  const streak = save.dailyStreak || 0;
+  $('daily-desc').innerHTML = !st.claimable
+    ? t('daily.descDone', { n: (st.day % 7) + 1 })
+    : st.continued ? t('daily.descStreak', { n: streak }) : t('daily.descNew');
+  const btn = $('btn-daily-claim');
+  btn.disabled = !st.claimable;
+  btn.textContent = t(st.claimable ? 'daily.claim' : 'daily.claimed');
+}
+function openDailyModal() {
+  renderDailyModal();
+  $('modal-daily').classList.add('active');
+}
+$('btn-daily').onclick = openDailyModal;
+$('btn-daily-close').onclick = () => $('modal-daily').classList.remove('active');
+$('btn-daily-claim').onclick = () => {
+  const r = claimDaily(save);
+  if (!r) return;
+  Storage.save(save);
+  sfx('reward');
+  renderDailyModal();
+  updateMainStats();
+  _showMarketToast(t(r.life ? 'daily.toastLife' : 'daily.toast', { n: r.points.toLocaleString() }));
+  setTimeout(() => $('modal-daily').classList.remove('active'), 900);
+};
+// 메인 화면 진입 시 받을 보상이 있으면 자동으로 띄운다 (다른 모달이 떠 있으면 생략 —
+// 배지가 남아 있으니 버튼으로 받을 수 있다).
+function maybeShowDailyReward() {
+  if (document.querySelector('.confirm-modal.active')) return;
+  if (getDailyState(save).claimable) openDailyModal();
+}
 
 // ── Alert modal ──────────────────────────────────────────────
 function showAlert(msg) {
@@ -2396,6 +2523,7 @@ async function boot() {
   } else {
     show('main');
     maybeShowTransferNotice();
+    maybeShowDailyReward();
   }
 }
 
@@ -2406,6 +2534,8 @@ window.addEventListener('resize', () => { if (game?.running) resizeCanvas(); });
 onLangChange(() => {
   updateMainStats();
   updateMoveDesc();
+  updateSoundLabels();
+  if ($('modal-daily').classList.contains('active')) renderDailyModal();
   const activeScreen = screens.find(s => $(`screen-${s}`).classList.contains('active'));
   if (activeScreen === 'market') showMarket();
   if (activeScreen === 'gallery') showGallery();

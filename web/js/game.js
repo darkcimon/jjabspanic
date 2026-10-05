@@ -1818,7 +1818,7 @@ export class Game extends EventTarget {
       const item=this.items[i];
       if (item.type==='bomb') continue;
       if (item.gx===this.player.gx&&item.gy===this.player.gy) {
-        this._applyItem(item); this.items.splice(i,1);
+        this._applyItem(item); this.items.splice(i,1); this._sfx('item');
       }
     }
 
@@ -1901,11 +1901,15 @@ export class Game extends EventTarget {
   }
 
   // ── Events ───────────────────────────────────────────────────
+  // 효과음/햅틱 요청 — 실제 재생은 app.js가 sfx.js로 처리한다 (game.js는 오디오에 무관).
+  _sfx(name, opts) { this.dispatchEvent(new CustomEvent('sfx', { detail: { name, opts } })); }
+
   _onLineComplete() {
     const mpos=this.monsters.map(m=>[m.gx,m.gy]);
     const newCells=this.grid.captureArea(mpos);
     this.player.isDrawing=false; this.player.path=[];
     this.fillPct=this.grid.getFillPct(); this.score+=newCells.length*10;
+    if (newCells.length>0) this._sfx('capture',{size:newCells.length});
     const sample=newCells.length>30?newCells.filter((_,i)=>i%3===0):newCells;
     for (const [x,y] of sample) {
       const px=(x+0.5)*this.cs,py=(y+0.5)*this.cs;
@@ -1928,16 +1932,19 @@ export class Game extends EventTarget {
 
   _onLoseLife() {
     if (this.bubbleActive) {
+      this._sfx('shield');
       this.bubbleActive=false; this.player.invincible=true; this.player.invTimer=2;
       this.shakeTimer=0.2; this.shakeAmt=5; return;
     }
     const rareBub=this.heldItems.find(h=>h.type==='rareBubble');
     if (rareBub) {
+      this._sfx('shield');
       this.heldItems=this.heldItems.filter(h=>h!==rareBub);
       this.player.invincible=true; this.player.invTimer=2;
       this.shakeTimer=0.2; this.shakeAmt=5; return;
     }
     this.lives--;
+    this._sfx('hit');
     if (this.lives<=2) this._rareLifeLost=true;
     if (this.speedActive && this._persistentSpeedLevel < 2) { this.speedActive=false; this.player.speed=this._basePlayerSpeed; this.heldItems=this.heldItems.filter(h=>h.type!=='speed'); }
     // 칼은 목숨 1 이하일 때 삭제하지 않고 useSword()에서 사용만 막는다 —
