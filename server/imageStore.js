@@ -6,8 +6,9 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { DATA_DIR } = require('./dataDir');
 
-const DB_PATH  = path.join(__dirname, 'data', 'images.json');
+const DB_PATH  = path.join(DATA_DIR, 'images.json');
 // IMAGE_DIR 환경변수가 상대경로(예: "./public/images", .env.example 그대로 복사한 값)로
 // 설정된 경우, path.join(IMG_DIR, ...)이나 fs 호출은 이걸 __dirname이 아니라 프로세스의
 // 현재 작업 디렉토리(CWD) 기준으로 해석한다. Railway 배포는 저장소 루트에서
@@ -27,6 +28,14 @@ const TOTAL_BATCH = MAX_STAGE / BATCH_SIZE;  // 10
 function init() {
     fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
     fs.mkdirSync(IMG_DIR, { recursive: true });
+
+    // DATA_DIR(Volume)로 처음 옮겨 가는 경우, 저장소에 들어 있는 server/data/images.json
+    // (스테이지 이미지 매핑 포함)을 시드로 복사한다 — 빈 DB로 시작하면 이미 있는
+    // 이미지를 못 찾고 재생성을 시도하게 된다.
+    const BUNDLED_DB = path.join(__dirname, 'data', 'images.json');
+    if (!fs.existsSync(DB_PATH) && BUNDLED_DB !== DB_PATH && fs.existsSync(BUNDLED_DB)) {
+        fs.copyFileSync(BUNDLED_DB, DB_PATH);
+    }
 
     if (!fs.existsSync(DB_PATH)) {
         const initial = { batches: {}, images: {} };

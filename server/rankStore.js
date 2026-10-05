@@ -12,8 +12,9 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { DATA_DIR } = require('./dataDir');
 
-const DB_PATH = path.join(__dirname, 'data', 'ranks.json');
+const DB_PATH = path.join(DATA_DIR, 'ranks.json');
 
 // 실제 제출자가 적을 때 "1명 중 1등" 처럼 랭킹이 무의미해 보이는 걸 막기 위해
 // 표시용 전체 인원수에만 더해주는 여유값. 등수 계산 자체(rankOf)에는 영향을

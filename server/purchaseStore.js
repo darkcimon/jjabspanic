@@ -11,8 +11,9 @@
 const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
+const { DATA_DIR } = require('./dataDir');
 
-const DB_PATH = path.join(__dirname, 'data', 'purchases.json');
+const DB_PATH = path.join(DATA_DIR, 'purchases.json');
 
 // ── 초기화 ────────────────────────────────────────────────────
 function init() {

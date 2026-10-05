@@ -1967,6 +1967,11 @@ export class Game extends EventTarget {
   }
 
   _onStageClear() {
+    // 전멸 클리어(살아있는 적 0마리)면 점령률을 100%로 고정 표시한다 — 적이 없으면
+    // 남은 영역을 자유롭게 점령할 수 있다는 안내(help.tips.allclear)와 실제 결과를
+    // 맞추기 위함. 이후 fillBonus 계산·stageClear 이벤트·bestFillPct 랭킹 갱신
+    // (app.js onStageClear)이 모두 이 값을 그대로 쓴다.
+    if (this.monsters.length===0) this.fillPct=1;
     // 스테이지 비례 보너스 배율 (10스테이지마다 +30%) — 포인트 획득 난이도 완화를 위해 2배 지급
     const bonusMult=(1+Math.floor(this.stage/10)*0.3)*2;
     // 신화 등급 영구 아이템 "미다스의 손" — 아래 스테이지 클리어 보너스 전체에 +30%.

@@ -7,8 +7,9 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { DATA_DIR } = require('./dataDir');
 
-const DB_PATH = path.join(__dirname, 'data', 'users.json');
+const DB_PATH = path.join(DATA_DIR, 'users.json');
 
 // ── 초기화 ────────────────────────────────────────────────
 function init() {
