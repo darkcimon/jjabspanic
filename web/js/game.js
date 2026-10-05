@@ -1275,6 +1275,8 @@ export class Game extends EventTarget {
         }
       }
     }
+    // 오토모드가 켜져 있는 동안은 총알을 소모하지 않는다 (자동/수동 발사 모두).
+    if(this.autoModeOwned&&this.autoModeActive) return;
     gun.ammo=Math.max(0,gun.ammo-1);
     if(gun.ammo<=0) this.heldItems=this.heldItems.filter(h=>h!==gun);
   }
