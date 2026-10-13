@@ -176,17 +176,30 @@ button { cursor: pointer; border: none; outline: none; font-family: inherit; }
   align-items: center; justify-content: center; gap: 2px;
   padding: 8px;
 }
-.dpad-row { display: flex; align-items: center; gap: 2px; }
-.dpad-center { width: 46px; height: 46px; }
-.dpad-btn {
-  width: 46px; height: 46px; border-radius: 10px;
-  background: var(--card); color: var(--text);
-  font-size: 1.1rem; font-weight: 700;
-  border: 1px solid rgba(200,80,192,0.25);
-  transition: background 0.1s, transform 0.05s;
-  user-select: none;
+/* 레버(조이스틱) — 누른 채로 드래그하면 노브가 따라오고, 가장 크게 기운 축의
+   방향으로 이동한다. 손을 떼면 노브가 가운데로 돌아온다. */
+#joystick {
+  position: relative; width: 136px; height: 136px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,80,192,0.10) 0%, var(--card) 70%);
+  border: 2px solid rgba(200,80,192,0.3);
+  touch-action: none; user-select: none; -webkit-user-select: none;
 }
-.dpad-btn:active { background: var(--accent); transform: scale(0.92); }
+.joy-arrow {
+  position: absolute; color: var(--text); opacity: 0.35;
+  font-size: 0.8rem; pointer-events: none; transition: opacity 0.1s, color 0.1s;
+}
+.joy-up    { top: 6px;    left: 50%; transform: translateX(-50%); }
+.joy-down  { bottom: 6px; left: 50%; transform: translateX(-50%); }
+.joy-left  { left: 8px;   top: 50%;  transform: translateY(-50%); }
+.joy-right { right: 8px;  top: 50%;  transform: translateY(-50%); }
+.joy-arrow.on { opacity: 1; color: var(--accent); }
+#joystick-knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  pointer-events: none; transition: transform 0.12s ease-out;
+}
+#joystick.active #joystick-knob { transition: none; }
 
 /* ── Effect timers ───────────────────────────────────────── */
 #effect-timers {

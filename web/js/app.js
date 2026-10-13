@@ -487,23 +487,64 @@ function setupInput(canvas, g) {
   document.addEventListener('keydown', onKey);
   document.addEventListener('keyup',   onKeyUp);
 
-  const dpad = (id, dx, dy) => {
-    const el = $(id);
-    const onDown = e => { e.preventDefault(); g.setDirection(dx, dy); };
-    const onUp   = e => { e.preventDefault(); if (!isContinuous()) g.setDirection(0, 0); };
-    el.addEventListener('pointerdown',  onDown);
-    el.addEventListener('pointerup',    onUp);
-    el.addEventListener('pointerleave', onUp);
+  // 레버(조이스틱): 버튼을 하나씩 누르는 D패드 대신, 누른 채로 드래그하면
+  // 노브가 손가락을 따라가고 더 크게 기운 축(상하/좌우)으로 방향이 정해진다.
+  // pointer capture를 걸어 손가락이 레버 밖으로 나가도 계속 조작된다.
+  const joystick = () => {
+    const base = $('joystick'), knob = $('joystick-knob');
+    const arrows = {
+      '0,-1': base.querySelector('.joy-up'),   '0,1': base.querySelector('.joy-down'),
+      '-1,0': base.querySelector('.joy-left'), '1,0': base.querySelector('.joy-right'),
+    };
+    const MAX = 40, DEAD = 12; // 노브 최대 이동 반경 / 방향 무시 구간(px)
+    let pid = null, cur = '';
+    const highlight = key => {
+      if (key === cur) return;
+      cur = key;
+      Object.entries(arrows).forEach(([k, el]) => el.classList.toggle('on', k === key));
+    };
+    const update = e => {
+      const r = base.getBoundingClientRect();
+      let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      const dist = Math.hypot(dx, dy);
+      if (dist > MAX) { dx = dx / dist * MAX; dy = dy / dist * MAX; }
+      knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      if (dist < DEAD) return; // 가운데 근처에선 직전 방향 유지
+      const d = Math.abs(dx) > Math.abs(dy) ? [dx > 0 ? 1 : -1, 0] : [0, dy > 0 ? 1 : -1];
+      const key = d.join(',');
+      if (key !== cur) { g.setDirection(...d); highlight(key); }
+    };
+    const onDown = e => {
+      if (pid !== null) return;
+      e.preventDefault();
+      pid = e.pointerId;
+      base.setPointerCapture(pid);
+      base.classList.add('active');
+      update(e);
+    };
+    const onMove = e => { if (e.pointerId === pid) { e.preventDefault(); update(e); } };
+    const onUp = e => {
+      if (e.pointerId !== pid) return;
+      e.preventDefault();
+      pid = null;
+      base.classList.remove('active');
+      knob.style.transform = '';
+      highlight('');
+      if (!isContinuous()) g.setDirection(0, 0);
+    };
+    base.addEventListener('pointerdown',   onDown);
+    base.addEventListener('pointermove',   onMove);
+    base.addEventListener('pointerup',     onUp);
+    base.addEventListener('pointercancel', onUp);
     return () => {
-      el.removeEventListener('pointerdown',  onDown);
-      el.removeEventListener('pointerup',    onUp);
-      el.removeEventListener('pointerleave', onUp);
+      base.removeEventListener('pointerdown',   onDown);
+      base.removeEventListener('pointermove',   onMove);
+      base.removeEventListener('pointerup',     onUp);
+      base.removeEventListener('pointercancel', onUp);
+      pid = null; base.classList.remove('active'); knob.style.transform = ''; highlight('');
     };
   };
-  const cleanUp = [
-    dpad('dpad-up',    0, -1), dpad('dpad-down',  0,  1),
-    dpad('dpad-left', -1,  0), dpad('dpad-right', 1,  0),
-  ];
+  const cleanUp = [joystick()];
 
   // Canvas click/touch: 번개 조준 발사 + 선택된 총/칼 발사
   const _lightningFire = (clientX, clientY) => {
