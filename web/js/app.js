@@ -277,6 +277,7 @@ async function startGame(stage, rating, resumeState = null) {
       repelSeconds: useRepel ? 15 : 0, freezeSeconds: useFreeze ? 5 : 0,
       gatherSeconds: useGather ? 15 : 0, shieldSeconds });
   if (!resumeState) {
+    _continueUsed = false; // 새 도전마다 광고 이어하기 1회 허용
     if (save.bonusLives > 0) {
       game.lives += save.bonusLives;
       save.bonusLives = 0;
@@ -426,7 +427,26 @@ function onStageClear({ stage, fill, timeLeft, charImage, score = 0,
   }
 }
 
-function onGameOver({ stage }) {
+// ── 게임오버 → 광고 보고 이어하기 (Android 앱 AdMob 보상형) ──────────
+// 게임오버 순간의 점령 상태(game.js _onGameOver의 스냅샷)를 그대로 복원해 이어서 플레이하고,
+// 게임오버 패널티(무기 -3)도 되돌린다. 무한 광고 부활로 난이도가 무너지지 않게
+// 한 번 도전(새로 시작한 스테이지)당 1회만 허용한다.
+let _pendingResume = null;   // { resume, weaponsBefore }
+let _continueUsed = false;
+let _continueAdInFlight = false;
+
+function onGameOver({ stage, gridSnapshot, heldItems, fillPct, timeLeft, score }) {
+  const pbBefore = save.persistentBonus || {};
+  _pendingResume = _continueUsed ? null : {
+    resume: { gridSnapshot, heldItems, fillPct, timeLeft, score },
+    weaponsBefore: { gunLevel: pbBefore.gunLevel || 0, swordLevel: pbBefore.swordLevel || 0,
+                     bulletLevel: pbBefore.bulletLevel || 0 },
+  };
+  const continueBtn = $('btn-over-continue');
+  if (continueBtn) {
+    continueBtn.style.display = _pendingResume ? '' : 'none';
+    continueBtn.disabled = false;
+  }
   save.heldItems = [];
   // 게임오버 패널티: 영구 무기 업그레이드 -3
   if (save.persistentBonus) {
@@ -1078,6 +1098,7 @@ function updateAdButtons() {
 }
 
 let _adInFlight = false;
+let _lastAdRewardToast = 0;
 function requestRewardAd() {
   if (_adInFlight) return;
   _adInFlight = true;
@@ -1105,7 +1126,11 @@ function requestRewardAd() {
       const clearTotalEl = $('clear-total-score');
       if (clearTotalEl) clearTotalEl.textContent = save.totalScore.toLocaleString() + 'pt';
       $('btn-clear-market').style.display = save.totalScore >= 3000 ? 'block' : 'none';
-      _showMarketToast(t('ads.rewardToast', { n: reward.toLocaleString() }));
+      _lastAdRewardToast = reward;
+    },
+    // 토스트는 광고가 닫힌 뒤에 띄운다 — 보상 시점엔 광고가 화면을 덮고 있어 안 보임.
+    onClosed: () => {
+      _showMarketToast(t('ads.rewardToast', { n: _lastAdRewardToast.toLocaleString() }));
       finish();
     },
     onUnavailable: () => {
@@ -1478,12 +1503,50 @@ $('btn-collection-skip').onclick = () => {
   Storage.save(save);
   advanceAfterClear();
 };
-$('btn-retry').onclick      = () => { save.heldItems = []; startGame(save.stage, save.rating); };
+$('btn-retry').onclick      = () => { _pendingResume = null; save.heldItems = []; startGame(save.stage, save.rating); };
 $('btn-back-menu').onclick  = () => {
   if (_clearAutoAdvanceTimer) { clearTimeout(_clearAutoAdvanceTimer); _clearAutoAdvanceTimer = null; }
   show('main');
 };
-$('btn-back-menu2').onclick = () => show('main');
+$('btn-back-menu2').onclick = () => { _pendingResume = null; show('main'); };
+
+$('btn-over-continue').onclick = () => {
+  if (_continueAdInFlight || !_pendingResume) return;
+  _continueAdInFlight = true;
+  const btn = $('btn-over-continue');
+  btn.disabled = true;
+  let resume = null;
+  watchRewardAd({
+    onReward: () => {
+      const pending = _pendingResume;
+      _pendingResume = null;
+      if (!pending) return;
+      resume = pending.resume;
+      _continueUsed = true;
+      // 게임오버 패널티(무기 -3) 되돌리기
+      if (save.persistentBonus) Object.assign(save.persistentBonus, pending.weaponsBefore);
+      // 실패 구간에서 얻은 점수는 이어하기 시점에 totalScore로 확정 — 이어서 또 게임오버
+      // 나도 이 점수는 유지된다. 게임 내 스코어는 0부터 다시 센다.
+      if (resume.score > 0) {
+        save.totalScore = (save.totalScore || 0) + resume.score;
+        resume.score = 0;
+      }
+      save.adWatchCount = (save.adWatchCount || 0) + 1; // 보관함 팩 해금용 성공 시청 횟수
+      Storage.save(save);
+      updateMainStats();
+    },
+    // 게임 재개는 광고가 닫힌 뒤에 — 광고가 떠 있는 동안 게임 시간이 흐르면 안 된다.
+    onClosed: () => {
+      _continueAdInFlight = false;
+      if (resume) startGame(save.stage, save.rating, resume);
+    },
+    onUnavailable: () => {
+      _continueAdInFlight = false;
+      btn.disabled = false;
+      _showMarketToast(t('ads.unavailable'));
+    },
+  });
+};
 
 $('btn-reset').onclick = () => {
   $('modal-reset').classList.add('active');
@@ -2482,9 +2545,12 @@ function _requestAccessoryAd(item) {
       save.accessoryAdProgress[item.id] = Math.min(item.ads, (save.accessoryAdProgress[item.id] || 0) + 1);
       Storage.save(save);
       updateMainStats();
-      _accessoryAdInFlight = false;
       renderAccessoryTab();
-      _showMarketToast(t('ads.rewardToast', { n: reward.toLocaleString() }));
+      _lastAdRewardToast = reward;
+    },
+    onClosed: () => {
+      _accessoryAdInFlight = false;
+      _showMarketToast(t('ads.rewardToast', { n: _lastAdRewardToast.toLocaleString() }));
     },
     onUnavailable: () => {
       _accessoryAdInFlight = false;

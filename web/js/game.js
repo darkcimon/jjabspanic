@@ -1992,8 +1992,9 @@ export class Game extends EventTarget {
     const _pos=((this.stage-1)%10)+1, _cyc=Math.floor((this.stage-1)/10);
     const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult*midasMult);
     const fillPct100=Math.floor(this.fillPct*100);
-    const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*100*bonusMult*midasMult):0;
-    const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*1000*bonusMult*midasMult):0;
+    // 점령률 보너스: 보상형 광고(AdMob) 도입 후 광고 시청 유인을 높이려고 예전(100/1000)의 1/5로 하향.
+    const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*20*bonusMult*midasMult):0;
+    const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*200*bonusMult*midasMult):0;
     const fillBonus=fillBonus75+fillBonus94;
     // 전멸 보너스: 클리어 시 살아있는 적이 없으면 추가 지급 (예전 배율에서 1.3배로 조정)
     const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult*1.3*midasMult):0;

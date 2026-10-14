@@ -77,22 +77,28 @@ window.__kunnannaAdEvent = (requestId, event) => {
     case 'failed':
       clearTimeout(req.timeoutId);
       pendingRequests.delete(requestId);
-      if (!req.rewarded) req.onUnavailable && req.onUnavailable(event === 'closed' ? 'dismissed' : 'error');
+      if (req.rewarded) req.onClosed && req.onClosed();
+      else req.onUnavailable && req.onUnavailable(event === 'closed' ? 'dismissed' : 'error');
       break;
   }
 };
 
 /**
  * 리워드 광고 시청을 요청한다.
- * @param {{ onReward: () => void, onUnavailable?: (reason: string) => void }} handlers
+ * - onReward: 보상 확정 즉시 호출 — 여기서 보상을 지급·저장한다. 이 시점엔 광고가 아직
+ *   화면을 덮고 있으므로(보상은 영상이 끝날 때 오고, 유저는 엔드카드를 보거나 광고를
+ *   클릭해 스토어에 가 있을 수 있음) 토스트·화면 전환은 여기서 하면 보이지 않는다.
+ * - onClosed: 보상을 받은 광고가 닫혀 게임 화면으로 돌아온 뒤 호출 — 토스트·화면 전환용.
+ * - onUnavailable: 광고를 못 띄웠거나 보상 전에 닫힌 경우.
+ * @param {{ onReward: () => void, onClosed?: () => void, onUnavailable?: (reason: string) => void }} handlers
  */
-export function watchRewardAd({ onReward, onUnavailable }) {
+export function watchRewardAd({ onReward, onClosed, onUnavailable }) {
   if (!IS_NATIVE_APP) {
     onUnavailable && onUnavailable('disabled');
     return;
   }
   const requestId = `ad${Date.now()}_${++requestSeq}`;
-  const req = { onReward, onUnavailable, rewarded: false, timeoutId: 0 };
+  const req = { onReward, onClosed, onUnavailable, rewarded: false, timeoutId: 0 };
   req.timeoutId = setTimeout(() => {
     if (!pendingRequests.delete(requestId)) return;
     console.warn('[ads] rewarded ad timed out');

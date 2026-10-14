@@ -329,6 +329,7 @@ const dict = {
     'market.mythicUnlockToast': '🔒 레어 등급 상점 마감 · 🌟 신화 등급 해금!',
 
     'ads.btnLabel': '광고 보고 포인트 받기',
+    'ads.btnContinue': '광고 보고 이어하기',
     'ads.rewardToast': '📺 광고 시청 완료! +{n}pt 획득',
     'ads.unavailable': '지금은 광고를 불러올 수 없어요. 잠시 후 다시 시도해주세요.',
 
@@ -789,6 +790,7 @@ const dict = {
     'market.mythicUnlockToast': '🔒 Rare tier closed · 🌟 Mythic tier unlocked!',
 
     'ads.btnLabel': 'Watch Ad for Points',
+    'ads.btnContinue': 'Watch Ad to Continue',
     'ads.rewardToast': '📺 Ad watched! +{n}pt earned',
     'ads.unavailable': "Couldn't load an ad right now. Please try again later.",
 
