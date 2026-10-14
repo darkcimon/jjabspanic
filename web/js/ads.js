@@ -16,12 +16,6 @@ const nativeAds = window.KunnannaAds;
 export const IS_NATIVE_APP = !!(nativeAds && typeof nativeAds.showRewarded === 'function');
 export const REWARD_ADS_ENABLED = IS_NATIVE_APP;
 
-// 무한정 커지면 밸런스가 깨지므로 상한을 둔다. 신화 등급에 펫(500만)·펫강화(최대
-// 1억)·방패(최대 750만) 등 고가 소모처가 추가되면서 예전 상한(10만)은 그 경제
-// 규모에 비해 너무 작아져(끝까지 시청해도 사실상 껌값) 광고를 볼 유인이 없었다.
-// 100만으로 올려 "방패 한 단계는 광고 한 번, 펫은 대여섯 번" 정도로 체감되게 맞춘다.
-const AD_REWARD_CAP = 1000000;
-
 // ── 보관함 팩 해금: 광고 누적 시청 횟수 기준 ──────────────────
 // "누적 시청"은 rewarded 이벤트(끝까지 봐서 보상이 실제로 지급된 경우)만 센다.
 // 중간에 닫아 보상을 못 받은 시청(closed만 온 경우)은 카운트하지 않는다.
@@ -38,19 +32,25 @@ export function isPackUnlockedByAds(packId, adWatchCount) {
   return REWARD_ADS_ENABLED && threshold != null && (adWatchCount || 0) >= threshold;
 }
 
+// ── 광고 시청 보상 포인트 ─────────────────────────────
+// 예전엔 시청할 때마다 3,000→6,000→12,000→×1.5씩 계속 커져(초기화 없음) 14번째부터
+// 매번 100만pt — 신화 아이템 하나를 광고 한 번에 살 수 있어 밸런스가 무너졌다.
+// 이제는 현재 스테이지의 클리어 보너스(game.js _onStageClear의 stageBonus, 10단계
+// 주기 평균)의 AD_REWARD_RATIO배를 준다 — "광고 30초 ≈ 스테이지 절반" 정도의 체감.
+const AD_REWARD_RATIO = 0.5;
+const AD_REWARD_MIN = 3000;
+
 /**
- * 다음 광고 시청 보상 포인트를 계산한다.
- * 3,000 → 6,000 → 12,000 (2배씩) → 이후로는 1.5배씩 증가, 100 단위 절삭.
- * AD_REWARD_CAP에 도달한 뒤로는 더 늘지 않고 그 값으로 고정된다.
- * @param {number} lastReward  직전에 지급된 보상 포인트 (없으면 0)
+ * 현재 스테이지 기준 광고 시청 보상 포인트 (100 단위 절삭).
+ * @param {number} stage  현재 도전 중인 스테이지
  * @returns {number}
  */
-export function computeNextAdReward(lastReward) {
-  if (!lastReward || lastReward <= 0) return 3000;
-  if (lastReward >= AD_REWARD_CAP) return AD_REWARD_CAP;
-  if (lastReward === 3000) return 6000;
-  if (lastReward === 6000) return 12000;
-  return Math.min(Math.floor((lastReward * 1.5) / 100) * 100, AD_REWARD_CAP);
+export function computeAdReward(stage) {
+  const s = Math.max(1, stage || 1);
+  const bonusMult = (1 + Math.floor(s / 10) * 0.3) * 2;
+  const cycle = Math.floor((s - 1) / 10);
+  const avgStageBonus = (5.5 * 200 + cycle * 5000) * bonusMult;
+  return Math.max(AD_REWARD_MIN, Math.floor((avgStageBonus * AD_REWARD_RATIO) / 100) * 100);
 }
 
 // 네이티브는 광고 로드를 최대 10초 기다린 뒤 스스로 'failed'를 보낸다. 이 값은

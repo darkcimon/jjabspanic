@@ -11,7 +11,7 @@ import {
   GUN_BASE_CAP, BULLET_BASE_CAP, SWORD_BASE_CAP, PET_BASE_CAP, PET_MAX_COUNT,
 } from './config.js';
 import { t, onLangChange } from './i18n.js';
-import { computeNextAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds, REWARD_ADS_ENABLED, nativeShare, IS_NATIVE_APP } from './ads.js';
+import { computeAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds, REWARD_ADS_ENABLED, nativeShare, IS_NATIVE_APP } from './ads.js';
 import { issueTransferCode, redeemTransferCode, formatTransferCode } from './transfer.js';
 import { sfx, isMuted, setMuted } from './sfx.js';
 import { DAILY_POINTS, DAILY_LIFE_DAY, dailyMultiplier, getDailyState, claimDaily } from './daily.js';
@@ -1087,9 +1087,9 @@ function updateMainStats() {
 }
 
 // ── 리워드 광고 (Android 앱 AdMob) ────────────────
-// 시청 1회당 3,000 → 6,000 → 12,000(2배씩) → 이후 1.5배씩(100 단위 절삭) 지급.
+// 시청 1회당 현재 스테이지 클리어 보너스의 절반 정도를 지급 (ads.js computeAdReward 참고).
 function updateAdButtons() {
-  const amount = computeNextAdReward(save.lastAdReward || 0);
+  const amount = computeAdReward(save.stage);
   const label = `(+${amount.toLocaleString()}pt)`;
   const mainEl  = $('main-ad-amount');
   const clearEl = $('clear-ad-amount');
@@ -1115,9 +1115,8 @@ function requestRewardAd() {
 
   watchRewardAd({
     onReward: () => {
-      const reward = computeNextAdReward(save.lastAdReward || 0);
+      const reward = computeAdReward(save.stage);
       save.totalScore   = (save.totalScore || 0) + reward;
-      save.lastAdReward = reward;
       // 보관함 팩 해금용 누적 시청 횟수 — 끝까지 봐서 보상이 실제로 지급된 경우만 카운트.
       // (adDismissed로 중간에 닫은 시청은 onReward가 호출되지 않으므로 자동으로 제외됨)
       save.adWatchCount = (save.adWatchCount || 0) + 1;
@@ -2536,9 +2535,8 @@ function _requestAccessoryAd(item) {
   _accessoryAdInFlight = true;
   watchRewardAd({
     onReward: () => {
-      const reward = computeNextAdReward(save.lastAdReward || 0);
+      const reward = computeAdReward(save.stage);
       save.totalScore   = (save.totalScore || 0) + reward;
-      save.lastAdReward = reward;
       // 이 광고도 "성공 시청"이므로 보관함 팩 해금용 누적 시청 횟수에도 함께 잡힌다.
       save.adWatchCount = (save.adWatchCount || 0) + 1;
       if (!save.accessoryAdProgress) save.accessoryAdProgress = {};
