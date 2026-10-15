@@ -1170,7 +1170,7 @@ export class Game extends EventTarget {
       // 111+: 중앙 + ±10도~±50도 11발
       bullets = [{angDeg:0,delay:0},{angDeg:10,delay:0},{angDeg:-10,delay:0},{angDeg:20,delay:0},{angDeg:-20,delay:0},{angDeg:30,delay:0},{angDeg:-30,delay:0},{angDeg:40,delay:0},{angDeg:-40,delay:0},{angDeg:50,delay:0},{angDeg:-50,delay:0}];
     }
-    return { dmg, r, bullets };
+    return { dmg, r, bullets, coreR, coreDmg };
   }
 
   _getItemSchedule(stage) {
@@ -1256,6 +1256,8 @@ export class Game extends EventTarget {
     // 펫 보유 시: 본캐와 동일한 총알 패턴을 각 펫의 위치에서도 추가로 발사한다
     // (탄약은 본캐 것 1회분만 소모 — 펫 몫을 별도로 깎지 않음).
     const origins=[{x:this.player.px,y:this.player.py},...this.pets.map(p=>({x:p.px,y:p.py}))];
+    // 한 번 쏠 때 나가는 총알 수(펫 몫 포함) — 많을수록 처치 보상 탄약이 줄어든다 (_onGunKill 참고).
+    const volleySize=bullets.length*origins.length;
     for(const o of origins){
       for(const {angDeg,delay} of bullets){
         const ang=mainAngle+angDeg*Math.PI/180;
@@ -1264,6 +1266,7 @@ export class Game extends EventTarget {
         const oy=o.y+Math.sin(mainAngle)*delay*this.cs;
         const pb=new PlayerBullet(ox,oy,vx,vy,dmg,r);
         pb.isGunBullet=true;
+        pb.volleySize=volleySize;
         this.playerBullets.push(pb);
         // 총탄 강화가 BULLET_BASE_CAP을 넘으면, 메인 탄과 완전히 같은 자리·방향으로
         // 작은 "코어 탄"을 함께 쏜다. 서로 겹쳐서 나가지만 별개의 발사체라 같은
@@ -1271,6 +1274,7 @@ export class Game extends EventTarget {
         if (coreR > 0) {
           const core=new PlayerBullet(ox,oy,vx,vy,coreDmg,coreR);
           core.isGunBullet=true;
+          core.volleySize=volleySize;
           this.playerBullets.push(core);
         }
       }
@@ -1279,6 +1283,21 @@ export class Game extends EventTarget {
     if(this.autoModeOwned&&this.autoModeActive) return;
     gun.ammo=Math.max(0,gun.ammo-1);
     if(gun.ammo<=0) this.heldItems=this.heldItems.filter(h=>h!==gun);
+  }
+
+  // 총알로 적을 5마리 처치할 때마다 탄약을 돌려준다. 한 번에 여러 발이 나가는
+  // 패턴일수록 보상을 줄여 탄약을 아껴 쓰게 만든다 — 그렇지 않으면 고레벨에서
+  // 한 번 쏴서 여러 마리를 잡아 탄약이 오히려 늘어나는 사실상 무한탄이 된다.
+  _onGunKill(pb) {
+    this._gunKillCount=(this._gunKillCount||0)+1;
+    if(this._gunKillCount<5) return;
+    this._gunKillCount=0;
+    const gunItem=this.heldItems.find(h=>h.type==='gun');
+    if(!gunItem) return;
+    const n=pb.volleySize||1;
+    const reward = n<=1 ? 5 : n<=2 ? 4 : n<=3 ? 3 : n<=5 ? 2 : 1;
+    gunItem.ammo+=reward;
+    this._ammoRechargeTimer=1.2;
   }
 
   // 번개 AOE 공통 로직 — 보유템 소모형(triggerLightning)과 신화 등급 영구
@@ -1712,25 +1731,11 @@ export class Game extends EventTarget {
             m.takeDamage(pb.dmg);
             pb._hitSet.add(m);
             pb.dmg-=prevHp; // 적의 체력만큼 데미지 소모
-            if(pb.isGunBullet&&m.hp<=0){
-              this._gunKillCount=(this._gunKillCount||0)+1;
-              if(this._gunKillCount>=5){
-                this._gunKillCount=0;
-                const gunItem=this.heldItems.find(h=>h.type==='gun');
-                if(gunItem){ gunItem.ammo+=5; this._ammoRechargeTimer=1.2; }
-              }
-            }
+            if(pb.isGunBullet&&m.hp<=0) this._onGunKill(pb);
             if(pb.dmg<=0){ pb.dead=true; break; }
           } else {
             m.takeDamage(pb.dmg); pb.dead=true;
-            if(pb.isGunBullet&&m.hp<=0){
-              this._gunKillCount=(this._gunKillCount||0)+1;
-              if(this._gunKillCount>=5){
-                this._gunKillCount=0;
-                const gunItem=this.heldItems.find(h=>h.type==='gun');
-                if(gunItem){ gunItem.ammo+=5; this._ammoRechargeTimer=1.2; }
-              }
-            }
+            if(pb.isGunBullet&&m.hp<=0) this._onGunKill(pb);
             break;
           }
         }
