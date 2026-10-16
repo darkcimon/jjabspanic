@@ -10,7 +10,7 @@ export const DAILY_POINTS = [2000, 3000, 5000, 7000, 10000, 15000, 30000];
 // 7일차에는 포인트와 함께 다음 게임 목숨 +1 (save.bonusLives).
 export const DAILY_LIFE_DAY = 7;
 
-function dateKey(d) {
+export function dateKey(d) {
   const p = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }

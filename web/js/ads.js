@@ -12,6 +12,8 @@
 
 // Android 앱 WebView 안에서 실행 중인지 — addJavascriptInterface로 주입된 객체는
 // 페이지 스크립트보다 먼저 존재하므로 모듈 로드 시점에 판별해도 된다.
+import { dateKey } from './daily.js';
+
 const nativeAds = window.KunnannaAds;
 export const IS_NATIVE_APP = !!(nativeAds && typeof nativeAds.showRewarded === 'function');
 export const REWARD_ADS_ENABLED = IS_NATIVE_APP;
@@ -36,12 +38,18 @@ export function isPackUnlockedByAds(packId, adWatchCount) {
 // 예전엔 시청할 때마다 3,000→6,000→12,000→×1.5씩 계속 커져(초기화 없음) 14번째부터
 // 매번 100만pt — 신화 아이템 하나를 광고 한 번에 살 수 있어 밸런스가 무너졌다.
 // 이제는 현재 스테이지의 클리어 보너스(game.js _onStageClear의 stageBonus, 10단계
-// 주기 평균)의 AD_REWARD_RATIO배를 준다 — "광고 30초 ≈ 스테이지 절반" 정도의 체감.
+// 주기 평균)의 AD_REWARD_RATIO배를 기준액으로 준다 — "광고 30초 ≈ 스테이지 절반" 정도의 체감.
+// 주의: game.js의 stageBonus는 이후 1/4로 하향됐지만, 광고 보상은 하향 전 기준식을 유지한다.
 const AD_REWARD_RATIO = 0.5;
 const AD_REWARD_MIN = 3000;
+// 하루 시청 횟수에 따른 증가: 같은 날 n번째로 받은 보상은 기준액 × (1 + 0.5 × (n-1)),
+// 최대 기준액의 3배(5번째부터)에서 멈춘다. 날짜(기기 로컬 자정)가 바뀌면 처음부터 다시.
+// 예전처럼 무한히 커져 밸런스가 무너지지 않도록 상한을 둔다.
+const AD_DAILY_STEP = 0.5;
+const AD_DAILY_MAX_MULT = 3;
 
 /**
- * 현재 스테이지 기준 광고 시청 보상 포인트 (100 단위 절삭).
+ * 현재 스테이지 기준 광고 시청 보상 기준액 (100 단위 절삭).
  * @param {number} stage  현재 도전 중인 스테이지
  * @returns {number}
  */
@@ -51,6 +59,34 @@ export function computeAdReward(stage) {
   const cycle = Math.floor((s - 1) / 10);
   const avgStageBonus = (5.5 * 200 + cycle * 5000) * bonusMult;
   return Math.max(AD_REWARD_MIN, Math.floor((avgStageBonus * AD_REWARD_RATIO) / 100) * 100);
+}
+
+// 오늘 이미 포인트를 받은 광고 시청 횟수 (날짜가 바뀌었으면 0).
+function todayAdCount(save) {
+  const d = save.adDaily;
+  return d && d.date === dateKey(new Date()) ? (d.count || 0) : 0;
+}
+
+/**
+ * 다음 광고 시청 시 받을 포인트 — 스테이지 기준액에 오늘 시청 횟수 배율을 곱한다.
+ * @param {object} save  Storage 세이브 객체
+ * @returns {number}
+ */
+export function nextAdReward(save) {
+  const mult = Math.min(AD_DAILY_MAX_MULT, 1 + AD_DAILY_STEP * todayAdCount(save));
+  return Math.floor((computeAdReward(save.stage) * mult) / 100) * 100;
+}
+
+/**
+ * 포인트 광고 보상을 지급하고 오늘 시청 횟수를 1 올린다 (저장은 호출자가 한다).
+ * @param {object} save  Storage 세이브 객체
+ * @returns {number} 지급한 포인트
+ */
+export function grantAdReward(save) {
+  const reward = nextAdReward(save);
+  save.totalScore = (save.totalScore || 0) + reward;
+  save.adDaily = { date: dateKey(new Date()), count: todayAdCount(save) + 1 };
+  return reward;
 }
 
 // 네이티브는 광고 로드를 최대 10초 기다린 뒤 스스로 'failed'를 보낸다. 이 값은

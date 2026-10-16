@@ -765,7 +765,12 @@ class Player {
 }
 
 // ── Kill score helper ─────────────────────────────────────────
+// 플레이 점수(점령 칸·처치)가 클리어 보너스와 합쳐져 과하다는 피드백으로 1/3로 하향.
+const PLAY_SCORE_MULT = 1/3;
 function _killScore(m) {
+  return Math.ceil(_killScoreBase(m) * PLAY_SCORE_MULT);
+}
+function _killScoreBase(m) {
   if (m instanceof BossMonster)     return 2000;
   if (m instanceof MidBossMonster)  return 1400;
   if (m instanceof SniperMonster)   return 700;
@@ -1915,7 +1920,7 @@ export class Game extends EventTarget {
     const mpos=this.monsters.map(m=>[m.gx,m.gy]);
     const newCells=this.grid.captureArea(mpos);
     this.player.isDrawing=false; this.player.path=[];
-    this.fillPct=this.grid.getFillPct(); this.score+=newCells.length*10;
+    this.fillPct=this.grid.getFillPct(); this.score+=Math.ceil(newCells.length*10*PLAY_SCORE_MULT);
     if (newCells.length>0) this._sfx('capture',{size:newCells.length});
     const sample=newCells.length>30?newCells.filter((_,i)=>i%3===0):newCells;
     for (const [x,y] of sample) {
@@ -1995,14 +2000,17 @@ export class Game extends EventTarget {
     // 광고를 볼 유인이 사라진다는 피드백에 따라 예전 배율(추가 배율 없음)로 되돌림
     const timeBonus=Math.ceil(Math.ceil(this.timeLeft)*5*bonusMult*midasMult);
     const _pos=((this.stage-1)%10)+1, _cyc=Math.floor((this.stage-1)/10);
-    const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult*midasMult);
+    // 스테이지 보너스: 다른 보너스 대비 과하게 커서 1/4로 하향 (예: 스테이지 9 = 3600 → 900).
+    // (광고 보상 ads.js computeAdReward는 하향 전 기준식을 그대로 써서 영향 없음)
+    const stageBonus=Math.ceil((_pos*200+_cyc*5000)*bonusMult*midasMult*0.25);
     const fillPct100=Math.floor(this.fillPct*100);
-    // 점령률 보너스: 보상형 광고(AdMob) 도입 후 광고 시청 유인을 높이려고 예전(100/1000)의 1/5로 하향.
-    const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*20*bonusMult*midasMult):0;
-    const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*200*bonusMult*midasMult):0;
+    // 점령률 보너스: 보상형 광고(AdMob) 도입 후 광고 시청 유인을 높이려고 예전(100/1000)의 1/5로 하향,
+    // 이후에도 과하다는 피드백으로 다시 1/3로 하향 (예: 스테이지 9·99% = 2960 → 987).
+    const fillBonus75=fillPct100>75?Math.ceil((fillPct100-75)*20*bonusMult*midasMult/3):0;
+    const fillBonus94=fillPct100>94?Math.ceil((fillPct100-94)*200*bonusMult*midasMult/3):0;
     const fillBonus=fillBonus75+fillBonus94;
-    // 전멸 보너스: 클리어 시 살아있는 적이 없으면 추가 지급 (예전 배율에서 1.3배로 조정)
-    const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult*1.3*midasMult):0;
+    // 전멸 보너스: 클리어 시 살아있는 적이 없으면 추가 지급 (예전 배율에서 1.3배로 조정 후, 과하다는 피드백으로 1/10로 하향)
+    const allClearBonus=this.monsters.length===0?Math.ceil((1000+this.stage*100)*bonusMult*1.3*midasMult*0.1):0;
     this.score+=timeBonus+stageBonus+fillBonus+allClearBonus; this.stop();
     this.dispatchEvent(new CustomEvent('stageClear', { detail: {
       stage:this.stage, fill:this.fillPct, timeLeft:Math.ceil(this.timeLeft),
