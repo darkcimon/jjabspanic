@@ -1306,8 +1306,9 @@ async function showRewardScreen(completedStage) {
       $('reward-loading').classList.add('hidden');
       $('reward-result').classList.remove('hidden');
 
-      // 저장 버튼: 이미 저장된 스테이지면 비활성화
-      const alreadySaved = (save.rewardImages || []).some(r => r.stage === completedStage);
+      // 저장 버튼: 이 이미지가 이미 저장돼 있으면 비활성화 (같은 스테이지라도 새로
+      // 생성된 다른 이미지면 교체 저장 가능 — 아래 onclick이 기존 항목을 덮어씀)
+      const alreadySaved = (save.rewardImages || []).some(r => r.stage === completedStage && r.url === data.imageUrl);
       const saveBtn = $('btn-reward-save');
       saveBtn.classList.remove('hidden');
       saveBtn.disabled = alreadySaved;

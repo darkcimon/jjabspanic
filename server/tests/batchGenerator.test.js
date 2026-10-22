@@ -305,10 +305,50 @@ describe('generateRewardImage', () => {
         expect(prompt).toContain('cyberpunk, neon');
     });
 
-    test('프롬프트에 mature female 포함', async () => {
+    test('프롬프트에 사용자 키워드와 보상용 품질 태그 포함', async () => {
         await generator.generateRewardImage('user-ok', 'fantasy');
         const prompt = getFormField('prompt');
-        expect(prompt).toContain('mature female');
+        expect(prompt).toContain('fantasy');
+        expect(prompt).toContain('beautiful detailed face');
+        expect(prompt).not.toContain('white background');
+    });
+
+    // ── 키워드 번역 (Gemini) ──────────────────────────────
+    describe('키워드 번역', () => {
+        afterEach(() => { delete process.env.GEMINI_API_KEY; });
+
+        test('영어 키워드는 Gemini를 호출하지 않음', async () => {
+            process.env.GEMINI_API_KEY = 'gemini-key';
+            await generator.generateRewardImage('user-ok', 'silver hair');
+            expect(axios.post).toHaveBeenCalledTimes(1); // Stability만
+        });
+
+        test('한국어 키워드는 번역된 영어 태그로 프롬프트 구성', async () => {
+            process.env.GEMINI_API_KEY = 'gemini-key';
+            axios.post.mockResolvedValueOnce({
+                data: { steps: [{ type: 'model_output', content: [{ type: 'text', text: 'silver long hair, red eyes' }] }] },
+            });
+            await generator.generateRewardImage('user-ok', '은발 긴머리, 빨간 눈');
+            expect(axios.post.mock.calls[0][0]).toContain('generativelanguage.googleapis.com');
+            expect(getFormField('prompt')).toContain('silver long hair, red eyes');
+            expect(getFormField('prompt')).not.toContain('은발');
+        });
+
+        test('번역 실패 시 원문으로 계속 진행', async () => {
+            process.env.GEMINI_API_KEY = 'gemini-key';
+            axios.post.mockRejectedValueOnce(new Error('network'));
+            await generator.generateRewardImage('user-ok', '은발');
+            expect(getFormField('prompt')).toContain('은발');
+        });
+
+        test('번역 결과에 금지어가 있으면 차단', async () => {
+            process.env.GEMINI_API_KEY = 'gemini-key';
+            axios.post.mockResolvedValueOnce({ data: { output_text: 'child, cute' } });
+            await expect(
+                generator.generateRewardImage('user-ok', '어린아이')
+            ).rejects.toThrow('허용되지 않는 키워드');
+            expect(axios.post).toHaveBeenCalledTimes(1); // Stability 호출 없음
+        });
     });
 
     test('store.setRewardImageUrl 호출', async () => {

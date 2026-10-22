@@ -174,6 +174,7 @@ function consumeUserRewardQuota(userId) {
 
 // userId당 쿨다운 (1시간)
 const rewardCooldown = new Map(); // userId → lastGeneratedAt (ms)
+const rewardLastKeywords = new Map(); // userId → 마지막으로 생성에 성공한 키워드
 const REWARD_COOLDOWN_MS = 60 * 60 * 1000;
 
 // 서버 전체 일일 상한 — userId를 여러 개로 바꿔가며 우회하더라도(예: 여러
@@ -371,9 +372,13 @@ app.post('/api/reward/generate', async (req, res) => {
     // 예외를 자동으로 잡아주지 않는다 — 여기서 뭔가 던지면(예: store 쪽 예외)
     // 응답을 아예 못 보내 요청이 클라이언트 타임아웃까지 무한 대기하게 되고,
     // 사용자에게는 "특전 이미지 요청 실패(응답 없음)"로 보인다.
+    //
+    // 기존 이미지를 돌려주는 건 "같은 키워드"로 다시 요청한 경우(생성은 됐는데 화면
+    // 표시만 실패해 재시도한 경우)로 한정한다 — 예전엔 키워드가 달라도 무조건 처음
+    // 만든 이미지를 돌려줘서, 같은 스테이지 특전은 뭘 입력해도 같은 그림만 나왔다.
     try {
         const existing = store.getRewardImageUrl(userId);
-        if (existing) {
+        if (existing && rewardLastKeywords.get(userId) === keywords.trim()) {
             const existingPath = store.getRewardImagePath(userId);
             if (existingPath && fs.existsSync(existingPath)) {
                 rewardTokens.delete(token);
@@ -414,6 +419,7 @@ app.post('/api/reward/generate', async (req, res) => {
     try {
         rewardCooldown.set(userId, Date.now());
         await generator.generateRewardImage(userId, keywords.trim());
+        rewardLastKeywords.set(userId, keywords.trim());
         rewardTokens.delete(token); // 일회용: 생성 "성공" 시에만 소모
         consumeGlobalRewardQuota(); // 전역 한도도 성공 시에만 차감
         consumeUserRewardQuota(userId); // 유저 하루 3회 한도도 성공 시에만 차감

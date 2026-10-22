@@ -336,22 +336,44 @@ describe('POST /api/reward/generate', () => {
     });
 
     // ── 이미 생성된 보상 이미지 ──────────────────────────
-    test('이미 보상 이미지 존재 → 즉시 반환 (API 호출 없음)', async () => {
-        store.getRewardImageUrl.mockReturnValue(
-            'http://localhost:3000/images/rewards/reward_user-1_9999.jpg'
-        );
-        store.getRewardImagePath.mockReturnValue('/tmp/rewards/reward_user-1_9999.jpg');
+    test('같은 키워드로 재요청 → 기존 이미지 즉시 반환 (API 호출 없음)', async () => {
+        // 먼저 'fantasy'로 한 번 생성 성공시켜 마지막 키워드를 기록
+        store.getRewardImageUrl.mockReturnValueOnce(null)
+            .mockReturnValue('http://localhost:3000/images/rewards/reward_user-same_1.jpg');
+        let token = await getToken('user-same');
+        await request(app).post('/api/reward/generate')
+            .send({ userId: 'user-same', keywords: 'fantasy', token });
+        generator.generateRewardImage.mockClear();
+
+        store.getRewardImagePath.mockReturnValue('/tmp/rewards/reward_user-same_1.jpg');
         const existsSyncSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
 
-        const token = await getToken('user-1');
+        token = await getToken('user-same');
         const res = await request(app)
             .post('/api/reward/generate')
-            .send({ userId: 'user-1', keywords: 'fantasy', token });
+            .send({ userId: 'user-same', keywords: 'fantasy', token });
 
         expect(res.status).toBe(200);
         expect(res.body.status).toBe('ready');
-        expect(res.body.imageUrl).toContain('reward_user-1_9999.jpg');
+        expect(res.body.imageUrl).toContain('reward_user-same_1.jpg');
         expect(generator.generateRewardImage).not.toHaveBeenCalled();
+
+        existsSyncSpy.mockRestore();
+    });
+
+    test('기존 이미지가 있어도 키워드가 다르면 새로 생성 시도', async () => {
+        store.getRewardImageUrl.mockReturnValue(
+            'http://localhost:3000/images/rewards/reward_user-diff_9999.jpg'
+        );
+        store.getRewardImagePath.mockReturnValue('/tmp/rewards/reward_user-diff_9999.jpg');
+        const existsSyncSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+
+        const token = await getToken('user-diff');
+        await request(app)
+            .post('/api/reward/generate')
+            .send({ userId: 'user-diff', keywords: 'fantasy', token });
+
+        expect(generator.generateRewardImage).toHaveBeenCalledWith('user-diff', 'fantasy');
 
         existsSyncSpy.mockRestore();
     });

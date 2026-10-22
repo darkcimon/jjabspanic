@@ -48,6 +48,64 @@ const GENERAL_BASE = [
 const QUALITY_SUFFIX = ", white background, full body portrait, high quality, masterpiece, ultra detailed, 2d illustration, clean lineart, soft shading";
 const NEGATIVE       = "nsfw, lowres, bad anatomy, bad hands, text, error, missing fingers, ugly, blurry, watermark, extra limbs, deformed";
 
+// 보상 이미지 전용 — 스테이지 이미지(QUALITY_SUFFIX)는 보드에 깔리는 전신+흰 배경이 맞지만,
+// 보상은 단독 감상용이라 얼굴이 크게 보이는 구도와 배경이 있는 편이 훨씬 예쁘게 나온다.
+const REWARD_SUFFIX   = ", beautiful detailed face, expressive detailed eyes, cowboy shot, soft cinematic lighting, detailed background, high quality, masterpiece, ultra detailed, anime illustration, clean lineart, vibrant colors";
+const REWARD_NEGATIVE = NEGATIVE + ", bad face, asymmetrical eyes, poorly drawn face, distorted face, bad proportions, cropped head, dull colors";
+
+// ── 키워드 번역 (Gemini) ─────────────────────────────────
+// SD3는 한국어 프롬프트를 거의 이해하지 못해, 번역 없이 넣으면 사용자 키워드가 통째로
+// 무시되고 고정 문구만 반영된 비슷한 캐릭터가 매번 나왔다. 영어 SD 태그로 바꿔서 넣는다.
+// realworld 프로젝트와 같은 Gemini Interactions API + 저가 Lite 모델을 쓴다.
+const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+const GEMINI_MODEL    = 'gemini-3.5-flash-lite';
+const TRANSLATE_INSTRUCTION =
+    'You convert a user\'s description of an anime character into an English Stable Diffusion prompt. ' +
+    'Output ONLY comma-separated English tags (hair, eyes, outfit, pose, expression, background, mood), ' +
+    'faithful to the user\'s description. Do not add anything the user did not imply, ' +
+    'do not add framing/shot tags (full body, close-up, solo etc.) unless the user asked, no explanations, no quotes.';
+
+function extractGeminiText(data) {
+    if (data?.output_text?.trim()) return data.output_text.trim();
+    const parts = [];
+    for (const step of data?.steps ?? []) {
+        if (step.type !== 'model_output') continue;
+        for (const block of step.content ?? []) {
+            if (block.type === 'text' && block.text) parts.push(block.text);
+        }
+    }
+    return parts.join(' ').trim();
+}
+
+// 이미 영어(ASCII)면 호출 비용을 아끼려고 그대로 쓴다. 키가 없거나 호출이 실패해도
+// 이미지 생성 자체는 막지 않고 원문으로 진행한다.
+async function translateKeywords(keywords) {
+    if (!/[^\x00-\x7F]/.test(keywords)) return keywords;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        console.warn('[Reward] GEMINI_API_KEY 미설정 — 키워드를 번역 없이 사용합니다.');
+        return keywords;
+    }
+    try {
+        const resp = await axios.post(GEMINI_ENDPOINT, {
+            model: GEMINI_MODEL,
+            system_instruction: TRANSLATE_INSTRUCTION,
+            input: keywords,
+            generation_config: { temperature: 0.2, max_output_tokens: 200 },
+        }, {
+            headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+            timeout: 15000,
+        });
+        const text = extractGeminiText(resp.data).replace(/\s+/g, ' ');
+        if (!text) throw new Error('응답에 텍스트 없음');
+        console.log(`[Reward] 키워드 번역: "${keywords}" → "${text}"`);
+        return text;
+    } catch (err) {
+        console.warn(`[Reward] 키워드 번역 실패, 원문 사용: ${err.message}`);
+        return keywords;
+    }
+}
+
 function buildPrompt(stage) {
     const base = GENERAL_BASE[(stage - 1) % GENERAL_BASE.length];
     return base + QUALITY_SUFFIX;
@@ -141,35 +199,41 @@ async function generateBatchBothRatings(batchIndex) {
     await generateBatch(batchIndex, 'g');
 }
 
-// ── 보상 이미지 생성 (커스텀 키워드) ─────────────────────
-async function generateRewardImage(userId, keywords) {
-    const apiKey = process.env.STABILITY_API_KEY;
-    if (!apiKey) throw new Error('STABILITY_API_KEY 미설정');
+// ── 보상 키워드 금지어 필터 ──────────────────────────────
+// CLAUDE.md에 명시된 하드 필터(nsfw, loli, child, teen, school uniform)는 반드시
+// 포함해야 한다. 원문과 Gemini 번역문 양쪽에 적용된다.
+const REWARD_BLOCKED = ['nsfw', 'loli', 'gore', 'violence', 'blood', 'death', 'sexy', 'nude', 'naked',
+    'lingerie', 'swimsuit', 'bikini', 'porn', 'hentai', 'erotic', 'lewd',
+    'child', 'kid', 'teen', 'young', 'school uniform', 'minor'];
 
-    // 금지 키워드 필터 — CLAUDE.md에 명시된 하드 필터(nsfw, loli, child, teen,
-    // school uniform)를 반드시 포함해야 한다. 미성년자를 연상시키는 단어가 하나라도
-    // 빠지면 사용자가 입력한 키워드로 바로 이미지가 생성될 수 있으므로 목록에서
-    // 빠뜨리지 말 것.
-    const BLOCKED = ['nsfw', 'loli', 'gore', 'violence', 'blood', 'death', 'sexy', 'nude', 'naked',
-        'lingerie', 'swimsuit', 'bikini', 'adult', 'mature', 'porn', 'hentai', 'erotic', 'lewd',
-        'child', 'kid', 'teen', 'young', 'school uniform', 'minor'];
-    const lc = keywords.toLowerCase();
-    for (const word of BLOCKED) {
+function assertAllowed(text) {
+    const lc = text.toLowerCase();
+    for (const word of REWARD_BLOCKED) {
         if (lc.includes(word)) {
             const err = new Error('허용되지 않는 키워드가 포함되어 있습니다.');
             err.code = 'BLOCKED_KEYWORD';
             throw err;
         }
     }
+}
 
-    // 로컬 필터를 통과한 키워드라도 캐릭터가 성인 여성으로 그려지도록 "mature female"을
-    // 항상 강제로 덧붙인다 — 사용자가 나이를 특정하지 않아도 모델이 임의로 앳된
-    // 외형을 그리는 것을 막기 위한 추가 안전장치.
-    const prompt = `anime girl, mature female, ${keywords}${QUALITY_SUFFIX}`;
+// ── 보상 이미지 생성 (커스텀 키워드) ─────────────────────
+async function generateRewardImage(userId, keywords) {
+    const apiKey = process.env.STABILITY_API_KEY;
+    if (!apiKey) throw new Error('STABILITY_API_KEY 미설정');
+
+    assertAllowed(keywords);
+
+    // 번역된 결과에 대해서도 같은 필터를 한 번 더 건다 — 한국어로 입력된 금지어는
+    // 원문 검사로는 걸리지 않고 번역 후에야 영어 금지어로 드러나기 때문.
+    const translated = await translateKeywords(keywords);
+    if (translated !== keywords) assertAllowed(translated);
+
+    const prompt = `anime girl, ${translated}${REWARD_SUFFIX}`;
 
     const form = new FormData();
     form.append('prompt',          prompt);
-    form.append('negative_prompt', NEGATIVE);
+    form.append('negative_prompt', REWARD_NEGATIVE);
     form.append('model',           'sd3-large');  // 보상 이미지는 고화질
     form.append('output_format',   'jpeg');
     form.append('aspect_ratio',    '2:3');
