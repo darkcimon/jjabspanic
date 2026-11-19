@@ -1785,11 +1785,9 @@ export class Game extends EventTarget {
 
     this.monsters=this.monsters.filter(m=>{ if (m.hp<=0) { this._spawnHitParticles(m.px,m.py); this.score+=_killScore(m); return false; } return true; });
 
-    // 신화 등급 "오토모드"가 켜져 있으면, 점령률 75%를 다 채우지 않아도 화면의 적을
-    // 모두 처치한 순간 바로 스테이지 클리어 처리한다 — 오토모드는 발사만 자동일 뿐
-    // 이동은 여전히 수동이라, 전멸 후에도 점령률을 채우려고 계속 손으로 그려야 하는
-    // 부담을 덜어준다.
-    if (this.autoModeOwned&&this.autoModeActive&&this.monsters.length===0) { this._onStageClear(); return; }
+    // 점령률을 다 채우지 않아도 화면의 적을 모두 처치한 순간 바로 스테이지 클리어
+    // 처리한다 (오토모드 여부와 무관). _onStageClear에서 fillPct=1·전멸 보너스가 적용된다.
+    if (this.monsters.length===0) { this._onStageClear(); return; }
 
     // Particles
     for (const p of this.particles) p.update(dt);
