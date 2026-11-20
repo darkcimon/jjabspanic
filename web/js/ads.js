@@ -89,6 +89,22 @@ export function grantAdReward(save) {
   return reward;
 }
 
+// ── 광고 특전 이미지 ─────────────────────────────────
+// "광고 보고 포인트 받기"를 AD_PERK_EVERY회 끝까지 볼 때마다 특전 이미지 생성권 1장.
+// save.perkAdCount: 포인트 광고 성공 시청 누적 / save.adPerkUsed: 사용한 생성권 수.
+// (이어하기·액세서리 광고는 세지 않는다 — 포인트 받기 버튼 전용 보상)
+export const AD_PERK_EVERY = 10;
+
+/** 지금 쓸 수 있는 광고 특전 생성권 수 */
+export function adPerkAvailable(save) {
+  return Math.max(0, Math.floor((save.perkAdCount || 0) / AD_PERK_EVERY) - (save.adPerkUsed || 0));
+}
+
+/** 다음 생성권까지 남은 포인트 광고 시청 횟수 (1..AD_PERK_EVERY) */
+export function adsUntilNextPerk(save) {
+  return AD_PERK_EVERY - ((save.perkAdCount || 0) % AD_PERK_EVERY);
+}
+
 // 네이티브는 광고 로드를 최대 10초 기다린 뒤 스스로 'failed'를 보낸다. 이 값은
 // 브리지 응답이 아예 끊겼을 때를 대비한 안전장치라 그보다 길게 잡는다.
 // 광고가 화면에 뜨면('shown') 타임아웃을 해제한다 — 30초짜리 광고 시청 중에

@@ -137,6 +137,11 @@ const dict = {
     'reward.savedBtn': '✔ 저장됨',
     'reward.genError': '이미지 생성에 실패했습니다. 다시 시도해 주세요.',
     'reward.genUnavailable': '⚠️ 이미지 생성 불가',
+    'reward.adBadge': '📺 광고 {n}회 시청 특전!',
+    'reward.done': '완료',
+    'reward.later': '나중에 하기',
+    'adPerk.btnUse': '🎁 광고 특전 이미지 만들기 ({n}회 가능)',
+    'adPerk.btnProgress': '📺 광고 특전 이미지 — 포인트 광고 {done}/{total}회',
 
     'help.title': '도움말',
     'help.tabs.how': '게임 방법',
@@ -228,7 +233,7 @@ const dict = {
 
     'gallery.title': '갤러리',
     'gallery.rewardBannerTitle': '🎁 특전 이미지',
-    'gallery.rewardBannerDesc': '10/20/100/200/300스테이지 달성 특전',
+    'gallery.rewardBannerDesc': '스테이지 달성 · 광고 시청 특전',
     'gallery.myCollectionTitle': '⭐ 내 소장품',
     'gallery.myCollectionDesc': '10스테이지마다 직접 고른 이미지',
     'gallery.packATitle': '팩 A — 스테이지 1~100',
@@ -247,6 +252,7 @@ const dict = {
     'gallery.packAdProgress': '광고 시청 {count}/{threshold}회',
     'gallery.rewardAlt': '특전 {n}스테이지',
     'gallery.rewardLabel': '{n}스테이지 특전',
+    'gallery.rewardAdLabel': '광고 특전 #{n}',
     'gallery.collectionEmpty': '10스테이지를 클리어하면 소장품을 선택할 수 있습니다',
     'gallery.packEmpty': '스테이지 {from}~{to} 중 클리어한 스테이지가 없습니다',
 
@@ -290,7 +296,7 @@ const dict = {
     'tutorial.controls': '화면을 스와이프하거나 아래 방향키로 움직여요.',
     'tutorial.start': '시작하기',
     'transfer.title': '데이터 이전',
-    'transfer.appHint': '<strong>예전 앱에서 하던 진행 상황을 옮기려면</strong><br>폰의 크롬 브라우저로 <strong>jjabspanic.up.railway.app</strong>에 접속 → 📦 데이터 이전 → 코드 발급 후, 여기에 코드를 입력하세요.',
+    'transfer.appHint': '<strong>예전 앱에서 하던 진행 상황을 옮기려면</strong><br>폰의 크롬 브라우저로 <strong>jjabspanic.up.railway.app</strong>에 접속 → 스테이지 클리어 화면의 🐿️ 내 캐릭터 자랑하기 → 📦 데이터 이전 → 코드 발급 후, 여기에 코드를 입력하세요.',
     'transfer.exportTitle': '이 기기의 데이터 보내기',
     'transfer.exportDesc': '코드를 발급받아 새 기기(또는 새 앱)에서 입력하세요. 코드는 72시간 동안 한 번만 쓸 수 있어요.',
     'transfer.issue': '코드 발급',
@@ -331,6 +337,8 @@ const dict = {
     'ads.btnLabel': '광고 보고 포인트 받기',
     'ads.btnContinue': '광고 보고 이어하기',
     'ads.rewardToast': '📺 광고 시청 완료! +{n}pt 획득',
+    'ads.perkProgress': '(특전 이미지까지 {n}회)',
+    'ads.perkEarnedToast': '🎁 +{n}pt! 광고 특전 이미지 생성권을 얻었어요 — 갤러리에서 만들 수 있어요',
     'ads.unavailable': '지금은 광고를 불러올 수 없어요. 잠시 후 다시 시도해주세요.',
 
     'market.pbTitle': '영구 효과',
@@ -598,6 +606,11 @@ const dict = {
     'reward.savedBtn': '✔ Saved',
     'reward.genError': 'Image generation failed. Please try again.',
     'reward.genUnavailable': '⚠️ Image generation unavailable',
+    'reward.adBadge': '📺 Bonus for watching {n} ads!',
+    'reward.done': 'Done',
+    'reward.later': 'Later',
+    'adPerk.btnUse': '🎁 Create Ad Bonus Image ({n} left)',
+    'adPerk.btnProgress': '📺 Ad Bonus Image — point ads {done}/{total}',
 
     'help.title': 'Help',
     'help.tabs.how': 'How to Play',
@@ -689,7 +702,7 @@ const dict = {
 
     'gallery.title': 'Gallery',
     'gallery.rewardBannerTitle': '🎁 Bonus Images',
-    'gallery.rewardBannerDesc': 'Rewards for reaching stage 10/20/100/200/300',
+    'gallery.rewardBannerDesc': 'Rewards for stage milestones and watching ads',
     'gallery.myCollectionTitle': '⭐ My Collection',
     'gallery.myCollectionDesc': 'Images you picked every 10 stages',
     'gallery.packATitle': 'Pack A — Stages 1–100',
@@ -708,6 +721,7 @@ const dict = {
     'gallery.packAdProgress': 'Ad views {count}/{threshold}',
     'gallery.rewardAlt': 'Bonus Stage {n}',
     'gallery.rewardLabel': 'Stage {n} Bonus',
+    'gallery.rewardAdLabel': 'Ad Bonus #{n}',
     'gallery.collectionEmpty': 'Clear stage 10 to start picking keepsakes',
     'gallery.packEmpty': 'No cleared stages between {from}–{to} yet',
 
@@ -751,7 +765,7 @@ const dict = {
     'tutorial.controls': 'Swipe the screen or use the arrow pad below to move.',
     'tutorial.start': "Let's go",
     'transfer.title': 'Transfer Data',
-    'transfer.appHint': '<strong>Moving progress from the old app?</strong><br>Open <strong>jjabspanic.up.railway.app</strong> in Chrome on your phone → 📦 Transfer Data → Issue Code, then enter the code here.',
+    'transfer.appHint': '<strong>Moving progress from the old app?</strong><br>Open <strong>jjabspanic.up.railway.app</strong> in Chrome on your phone → 🐿️ Show Off My Character (on the stage clear screen) → 📦 Transfer Data → Issue Code, then enter the code here.',
     'transfer.exportTitle': 'Send data from this device',
     'transfer.exportDesc': 'Issue a code and enter it on your new device (or new app). Each code works once within 72 hours.',
     'transfer.issue': 'Issue Code',
@@ -792,6 +806,8 @@ const dict = {
     'ads.btnLabel': 'Watch Ad for Points',
     'ads.btnContinue': 'Watch Ad to Continue',
     'ads.rewardToast': '📺 Ad watched! +{n}pt earned',
+    'ads.perkProgress': '({n} more for a bonus image)',
+    'ads.perkEarnedToast': '🎁 +{n}pt! You earned an ad bonus image — create it in the Gallery',
     'ads.unavailable': "Couldn't load an ad right now. Please try again later.",
 
     'market.pbTitle': 'Permanent Effects',

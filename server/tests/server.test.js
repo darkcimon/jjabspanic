@@ -474,3 +474,27 @@ describe('POST /api/reward/generate', () => {
         expect(reuseRes.status).toBe(403);
     });
 });
+
+// ─────────────────────────────────────────────────────────
+describe('POST /api/reward/token — 광고 특전 생성권', () => {
+    test('adTicket(양의 정수)으로 토큰 발급', async () => {
+        const res = await request(app)
+            .post('/api/reward/token')
+            .send({ userId: 'user-ad_ad1', adTicket: 1 });
+        expect(res.status).toBe(200);
+        expect(typeof res.body.token).toBe('string');
+    });
+
+    test('같은 userId+adTicket이면 같은 토큰 재사용', async () => {
+        const a = await request(app).post('/api/reward/token').send({ userId: 'user-ad_ad2', adTicket: 2 });
+        const b = await request(app).post('/api/reward/token').send({ userId: 'user-ad_ad2', adTicket: 2 });
+        expect(a.body.token).toBe(b.body.token);
+    });
+
+    test.each([0, -1, 'abc', 1.5])('잘못된 adTicket(%p)이면 400', async (adTicket) => {
+        const res = await request(app)
+            .post('/api/reward/token')
+            .send({ userId: 'user-ad', adTicket });
+        expect(res.status).toBe(400);
+    });
+});

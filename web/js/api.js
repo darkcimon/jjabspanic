@@ -21,11 +21,12 @@ export class API {
     return r.json();
   }
 
-  async rewardToken(userId, stage) {
+  // 스테이지 특전은 stage, 광고 특전은 adTicket(생성권 번호)을 보낸다.
+  async rewardToken(userId, stage, adTicket) {
     const r = await fetch(`${this.base}/api/reward/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, stage }),
+      body: JSON.stringify(adTicket ? { userId, adTicket } : { userId, stage }),
     });
     if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'API error'); }
     return r.json(); // { token }

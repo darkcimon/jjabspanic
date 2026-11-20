@@ -41,10 +41,8 @@
       <button id="btn-daily" class="btn-daily" type="button"><span data-i18n="daily.btnOpen">🎁 출석 보상</span><span id="daily-badge" class="daily-badge" hidden>!</span></button>
       <button id="btn-main-ad" class="btn-ad" type="button">📺 <span data-i18n="ads.btnLabel">광고 보고 포인트 받기</span> <span class="ad-amount" id="main-ad-amount"></span></button>
       <button id="btn-main-market" class="btn-market" data-i18n="main.btnMarket">🛒 마켓</button>
-      <button id="btn-main-brag" class="btn-secondary" data-i18n="brag.btnOpen">🐿️ 내 캐릭터 자랑하기</button>
       <button id="btn-gallery" class="btn-secondary" data-i18n="main.btnGallery">갤러리</button>
       <button id="btn-help"    class="btn-secondary" data-i18n="main.btnHelp">도움말 / 조작법</button>
-      <button id="btn-transfer" class="btn-secondary" data-i18n="transfer.btnOpen">📦 데이터 이전</button>
       <button id="btn-reset"   class="btn-danger" data-i18n="common.reset">초기화</button>
     </div>
     <div class="lang-switch-row">
@@ -547,6 +545,9 @@
     <button id="btn-back-gallery" class="btn-back" data-i18n="common.back">← 뒤로</button>
   </div>
 
+  <!-- 광고 특전 이미지 생성권 (앱 전용) -->
+  <button id="btn-ad-perk" class="btn-primary ad-perk-btn" type="button" style="display:none"></button>
+
   <!-- 특전 이미지 -->
   <div class="pack-banner collection-banner" id="reward-images-banner" style="display:none">
     <div class="pack-banner-info">
@@ -784,6 +785,7 @@
     <p class="brag-hint" data-i18n="brag.hint">친구에게 공유해서 같이 플레이해보세요!</p>
     <div class="confirm-modal-btns">
       <button id="btn-brag-share" class="btn-primary" data-i18n="brag.btnShare">📤 공유하기</button>
+      <button id="btn-transfer" class="btn-secondary" type="button" data-i18n="transfer.btnOpen">📦 데이터 이전</button>
       <button id="btn-brag-close" class="btn-secondary" data-i18n="common.close">닫기</button>
     </div>
   </div>

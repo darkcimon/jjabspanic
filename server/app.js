@@ -322,12 +322,24 @@ app.post('/api/batch/trigger', async (req, res) => {
 });
 
 // ── 특전 토큰 발급 ────────────────────────────────────────
-// 100/200/300 스테이지 클리어 시 프론트에서 호출, 30분 유효 일회용 토큰 반환
+// 특전 스테이지(10/20/100단위) 클리어 또는 광고 특전 사용 시 프론트에서 호출, 30분 유효 일회용 토큰 반환
+// 광고 특전: "광고 보고 포인트 받기"를 10회 볼 때마다 1장씩 생기는 생성권.
+// 요청에 stage 대신 adTicket(1부터 시작하는 생성권 번호)을 보낸다. 시청 횟수는
+// 클라이언트 세이브에만 있어 서버가 검증할 수 없다 — 스테이지 특전과 마찬가지로
+// 비용 폭주는 아래 전역 일일 상한(REWARD_GLOBAL_DAILY_CAP)이 막는다.
 app.post('/api/reward/token', (req, res) => {
-    const { userId, stage } = req.body;
-    const stageNum = parseInt(stage, 10);
+    const { userId, stage, adTicket } = req.body;
+    let stageNum;
+    if (adTicket !== undefined) {
+        const n = Number(adTicket);
+        if (!Number.isInteger(n) || n <= 0) return res.status(400).json({ error: i18n.t(req, 'invalidRequest') });
+        stageNum = `ad${n}`;
+    } else {
+        stageNum = parseInt(stage, 10);
+        if (!isValidRewardStage(stageNum)) return res.status(400).json({ error: i18n.t(req, 'invalidRequest') });
+    }
 
-    if (!userId || !isValidRewardStage(stageNum))
+    if (!userId)
         return res.status(400).json({ error: i18n.t(req, 'invalidRequest') });
 
     // 만료된 토큰 정리

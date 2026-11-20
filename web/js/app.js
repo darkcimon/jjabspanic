@@ -11,7 +11,7 @@ import {
   GUN_BASE_CAP, BULLET_BASE_CAP, SWORD_BASE_CAP, PET_BASE_CAP, PET_MAX_COUNT,
 } from './config.js';
 import { t, onLangChange } from './i18n.js';
-import { nextAdReward, grantAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds, REWARD_ADS_ENABLED, nativeShare, IS_NATIVE_APP } from './ads.js';
+import { nextAdReward, grantAdReward, watchRewardAd, AD_PACK_THRESHOLDS, isPackUnlockedByAds, REWARD_ADS_ENABLED, nativeShare, IS_NATIVE_APP, AD_PERK_EVERY, adPerkAvailable, adsUntilNextPerk } from './ads.js';
 import { issueTransferCode, redeemTransferCode, formatTransferCode } from './transfer.js';
 import { sfx, isMuted, setMuted } from './sfx.js';
 import { DAILY_POINTS, DAILY_LIFE_DAY, dailyMultiplier, getDailyState, claimDaily } from './daily.js';
@@ -992,6 +992,19 @@ function makeCollectionPickCard(stageNum, purchases, onSelect) {
 async function showGallery() {
   show('gallery');
 
+  // 광고 특전 이미지 생성권 (앱에서만 — 웹엔 광고가 없다)
+  const perkBtn = $('btn-ad-perk');
+  if (REWARD_ADS_ENABLED) {
+    const avail = adPerkAvailable(save);
+    perkBtn.style.display = '';
+    perkBtn.disabled = avail === 0;
+    perkBtn.textContent = avail > 0
+      ? t('adPerk.btnUse', { n: avail })
+      : t('adPerk.btnProgress', { done: AD_PERK_EVERY - adsUntilNextPerk(save), total: AD_PERK_EVERY });
+  } else {
+    perkBtn.style.display = 'none';
+  }
+
   // 특전 이미지 렌더링
   const rewardGrid = $('gallery-reward-images');
   const rewardBanner = $('reward-images-banner');
@@ -999,12 +1012,13 @@ async function showGallery() {
   const rewardImages = save.rewardImages || [];
   if (rewardImages.length > 0) {
     rewardBanner.style.display = '';
-    for (const { stage, url } of rewardImages) {
+    for (const { stage, ad, url } of rewardImages) {
+      const labelText = ad ? t('gallery.rewardAdLabel', { n: ad }) : t('gallery.rewardLabel', { n: stage });
       const card = document.createElement('div');
       card.className = 'gallery-card';
       const img = document.createElement('img');
       img.src = url;
-      img.alt = t('gallery.rewardAlt', { n: stage });
+      img.alt = labelText;
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;cursor:pointer;';
       img.addEventListener('click', () => {
         const lbImg = $('img-lightbox');
@@ -1013,7 +1027,7 @@ async function showGallery() {
       });
       const label = document.createElement('div');
       label.className = 'card-label';
-      label.textContent = t('gallery.rewardLabel', { n: stage });
+      label.textContent = labelText;
       card.appendChild(img);
       card.appendChild(label);
       rewardGrid.appendChild(card);
@@ -1100,6 +1114,7 @@ function updateAdButtons() {
 
 let _adInFlight = false;
 let _lastAdRewardToast = 0;
+let _adPerkJustEarned = false;
 function requestRewardAd() {
   if (_adInFlight) return;
   _adInFlight = true;
@@ -1120,6 +1135,10 @@ function requestRewardAd() {
       // 보관함 팩 해금용 누적 시청 횟수 — 끝까지 봐서 보상이 실제로 지급된 경우만 카운트.
       // (adDismissed로 중간에 닫은 시청은 onReward가 호출되지 않으므로 자동으로 제외됨)
       save.adWatchCount = (save.adWatchCount || 0) + 1;
+      // 광고 특전 이미지 생성권용 — 포인트 받기 광고만 센다 (ads.js AD_PERK_EVERY 참고).
+      const perkBefore = adPerkAvailable(save);
+      save.perkAdCount = (save.perkAdCount || 0) + 1;
+      _adPerkJustEarned = adPerkAvailable(save) > perkBefore;
       Storage.save(save);
       updateMainStats();
       const clearTotalEl = $('clear-total-score');
@@ -1129,7 +1148,13 @@ function requestRewardAd() {
     },
     // 토스트는 광고가 닫힌 뒤에 띄운다 — 보상 시점엔 광고가 화면을 덮고 있어 안 보임.
     onClosed: () => {
-      _showMarketToast(t('ads.rewardToast', { n: _lastAdRewardToast.toLocaleString() }));
+      if (_adPerkJustEarned) {
+        _adPerkJustEarned = false;
+        _showMarketToast(t('ads.perkEarnedToast', { n: _lastAdRewardToast.toLocaleString() }), 4000);
+      } else {
+        _showMarketToast(t('ads.rewardToast', { n: _lastAdRewardToast.toLocaleString() })
+          + ' ' + t('ads.perkProgress', { n: adsUntilNextPerk(save) }));
+      }
       finish();
     },
     onUnavailable: () => {
@@ -1208,8 +1233,15 @@ function showGameCompleteModal() {
   $('modal-game-complete').classList.add('active');
 }
 
-async function showRewardScreen(completedStage) {
-  $('reward-badge').textContent = t('reward.badge', { n: completedStage });
+// adTicket이 있으면 광고 특전(포인트 광고 10회 시청 생성권) 모드 — 스테이지 진행과
+// 무관하게 갤러리에서 열고, 끝나면 갤러리로 돌아간다. 생성권은 이미지가 실제로 뜬 시점에 소모.
+async function showRewardScreen(completedStage, { adTicket = 0 } = {}) {
+  $('reward-badge').textContent = adTicket ? t('reward.adBadge', { n: AD_PERK_EVERY }) : t('reward.badge', { n: completedStage });
+  $('btn-reward-continue').textContent = adTicket ? t('reward.done') : t('common.nextStage');
+  $('btn-reward-skip').textContent = adTicket ? t('reward.later') : t('common.skip');
+  const isSameEntry = r => adTicket ? r.ad === adTicket : r.stage === completedStage;
+  const newEntry = url => adTicket ? { ad: adTicket, url } : { stage: completedStage, url };
+  let ticketConsumed = false;
 
   // 입력 영역 초기화
   const textarea = $('reward-keywords');
@@ -1233,11 +1265,11 @@ async function showRewardScreen(completedStage) {
   // 호출 자체는 항상 안전하다. (아래 "이미지는 실제로 만들어졌는데 브라우저가
   // 표시만 실패한 경우" 참고 — 이때는 서버가 토큰을 이미 소모한 뒤라, 갱신 없이
   // 같은 토큰으로 재시도하면 "유효하지 않거나 만료된 요청입니다"만 반복해서 뜬다.)
-  const rewardUserId = `${save.userId}_stage${completedStage}`;
+  const rewardUserId = adTicket ? `${save.userId}_ad${adTicket}` : `${save.userId}_stage${completedStage}`;
   let rewardToken = null;
   async function fetchRewardToken() {
     try {
-      const tokenData = await api.rewardToken(rewardUserId, completedStage);
+      const tokenData = await api.rewardToken(rewardUserId, completedStage, adTicket);
       rewardToken = tokenData.token;
       $('btn-reward-generate').disabled = false;
       $('btn-reward-generate').textContent = t('reward.btnGenerate');
@@ -1305,19 +1337,24 @@ async function showRewardScreen(completedStage) {
 
       $('reward-loading').classList.add('hidden');
       $('reward-result').classList.remove('hidden');
+      if (adTicket && !ticketConsumed) {
+        ticketConsumed = true;
+        save.adPerkUsed = (save.adPerkUsed || 0) + 1;
+        Storage.save(save);
+      }
 
       // 저장 버튼: 이 이미지가 이미 저장돼 있으면 비활성화 (같은 스테이지라도 새로
       // 생성된 다른 이미지면 교체 저장 가능 — 아래 onclick이 기존 항목을 덮어씀)
-      const alreadySaved = (save.rewardImages || []).some(r => r.stage === completedStage && r.url === data.imageUrl);
+      const alreadySaved = (save.rewardImages || []).some(r => isSameEntry(r) && r.url === data.imageUrl);
       const saveBtn = $('btn-reward-save');
       saveBtn.classList.remove('hidden');
       saveBtn.disabled = alreadySaved;
       saveBtn.textContent = alreadySaved ? t('reward.savedBtn') : t('reward.btnSave');
       saveBtn.onclick = () => {
         if (!save.rewardImages) save.rewardImages = [];
-        const idx = save.rewardImages.findIndex(r => r.stage === completedStage);
-        if (idx >= 0) save.rewardImages[idx] = { stage: completedStage, url: data.imageUrl };
-        else save.rewardImages.push({ stage: completedStage, url: data.imageUrl });
+        const idx = save.rewardImages.findIndex(isSameEntry);
+        if (idx >= 0) save.rewardImages[idx] = newEntry(data.imageUrl);
+        else save.rewardImages.push(newEntry(data.imageUrl));
         Storage.save(save);
         saveBtn.disabled = true;
         saveBtn.textContent = t('reward.savedBtn');
@@ -1332,8 +1369,9 @@ async function showRewardScreen(completedStage) {
     }
   };
 
-  $('btn-reward-continue').onclick = () => proceedAfterReward();
-  $('btn-reward-skip').onclick     = () => proceedAfterReward();
+  const leave = adTicket ? () => showGallery() : () => proceedAfterReward();
+  $('btn-reward-continue').onclick = leave;
+  $('btn-reward-skip').onclick     = leave;
 }
 
 // ── Button bindings ──────────────────────────────────────────
@@ -1423,7 +1461,6 @@ $('btn-brag-close').onclick = closeBragModal;
 $('modal-brag').addEventListener('pointerdown', e => {
   if (e.target === $('modal-brag')) closeBragModal();
 });
-$('btn-main-brag').onclick  = () => openBragModal();
 $('btn-clear-brag').onclick = () => openBragModal();
 
 $('btn-brag-share').onclick = async () => {
@@ -1607,7 +1644,8 @@ function closeTransferModal() {
   $('modal-transfer').classList.remove('active');
 }
 
-$('btn-transfer').onclick = openTransferModal;
+// 데이터 이전 버튼은 자랑하기 모달 안(공유하기 옆)에 있다 — 자랑하기 모달을 닫고 연다.
+$('btn-transfer').onclick = () => { closeBragModal(); openTransferModal(); };
 $('btn-transfer-close').onclick = closeTransferModal;
 $('modal-transfer').addEventListener('pointerdown', e => {
   if (e.target === $('modal-transfer')) closeTransferModal();
@@ -2557,17 +2595,21 @@ function _requestAccessoryAd(item) {
   });
 }
 
-function _showMarketToast(msg) {
+function _showMarketToast(msg, durationMs = 2200) {
   const toast = document.createElement('div');
   toast.className = 'ad-toast visible';
   toast.textContent = msg;
   document.body.appendChild(toast);
-  setTimeout(() => { toast.classList.remove('visible'); setTimeout(() => toast.remove(), 400); }, 2200);
+  setTimeout(() => { toast.classList.remove('visible'); setTimeout(() => toast.remove(), 400); }, durationMs);
 }
 
 $('btn-main-market').onclick  = () => { marketReturnScreen = 'main';        showMarket(); };
 $('btn-clear-market').onclick = () => { marketReturnScreen = 'stage-clear'; showMarket(); };
 $('btn-main-ad').onclick  = requestRewardAd;
+$('btn-ad-perk').onclick = () => {
+  if (adPerkAvailable(save) <= 0) return;
+  showRewardScreen(0, { adTicket: (save.adPerkUsed || 0) + 1 });
+};
 $('btn-clear-ad').onclick = requestRewardAd;
 $('btn-back-market').onclick  = () => show(marketReturnScreen);
 
